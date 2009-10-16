@@ -1,5 +1,12 @@
-#ifndef __OMX_INTEL_MRST_SST
-#define __OMX_INTEL_MRST_SST
+/*
+ * Copyright (C) 2009 Wind River Systems
+ *      Author: Keun-O Park <keun-o.park@windriver.com>
+ *              Ho-Eun Ryu <ho-eun.ryu@windriver.com>
+ *              Min-Su Kim <min-su.kim@windriver.com>
+ */
+
+#ifndef __WRS_OMXIL_INTEL_MRST_SST
+#define __WRS_OMXIL_INTEL_MRST_SST
 
 #include <OMX_Core.h>
 #include <OMX_Component.h>
@@ -93,4 +100,4 @@ OMX_ERRORTYPE omx_component_module_query_roles(OMX_U32 *, OMX_U8 **);
 } /* extern "C" */
 #endif
 
-#endif /* __OMX_INTEL_MRST_SST */
+#endif /* __WRS_OMXIL_INTEL_MRST_SST */

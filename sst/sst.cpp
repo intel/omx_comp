@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2009 Wind River Systems
+ *      Author: Keun-O Park <keun-o.park@windriver.com>
+ *              Ho-Eun Ryu <ho-eun.ryu@windriver.com>
+ *              Min-Su Kim <min-su.kim@windriver.com>
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
