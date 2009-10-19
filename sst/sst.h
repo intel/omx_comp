@@ -59,8 +59,11 @@ private:
                                   OMX_U32 nr_buffers);
 
     OMX_ERRORTYPE __AllocateMp3Port(OMX_U32 port_index, OMX_DIRTYPE dir);
+    OMX_ERRORTYPE __AllocateAacPort(OMX_U32 port_index, OMX_DIRTYPE dir);
     OMX_ERRORTYPE __AllocatePcmPort(OMX_U32 port_index, OMX_DIRTYPE dir);
+
     OMX_ERRORTYPE __AllocateMp3RolePorts(bool isencoder);
+    OMX_ERRORTYPE __AllocateAacRolePorts(bool isencoder);
 
     /* end of component methods & helpers */
 
@@ -77,6 +80,12 @@ private:
     const static OMX_U32 OUTPORT_MP3_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_MP3_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_MP3_BUFFER_SIZE = 1024;
+    const static OMX_U32 INPORT_AAC_ACTUAL_BUFFER_COUNT = 2;
+    const static OMX_U32 INPORT_AAC_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 INPORT_AAC_BUFFER_SIZE = 1024;
+    const static OMX_U32 OUTPORT_AAC_ACTUAL_BUFFER_COUNT = 2;
+    const static OMX_U32 OUTPORT_AAC_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 OUTPORT_AAC_BUFFER_SIZE = 1024;
     const static OMX_U32 INPORT_PCM_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 INPORT_PCM_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_PCM_BUFFER_SIZE = 1024;

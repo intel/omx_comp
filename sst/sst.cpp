@@ -51,6 +51,8 @@ OMX_ERRORTYPE MrstSstComponent::ComponentAllocatePorts(void)
 
     if (!strcmp(GetWorkingRole(), "audio_decoder.mp3"))
         ret = __AllocateMp3RolePorts(false);
+    else if(!strcmp(GetWorkingRole(), "audio_decoder.aac"))
+        ret = __AllocateAacRolePorts(false);
 
     LOGV("%s(): exit (ret = 0x%08x)\n", __func__, ret);
     return ret;
@@ -111,6 +113,69 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateMp3RolePorts(bool isencoder)
 
 free_mp3port:
     delete ports[mp3_port_index];
+
+free_ports:
+    delete []ports;
+
+    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    return ret;
+}
+
+
+OMX_ERRORTYPE MrstSstComponent::__AllocateAacRolePorts(bool isencoder)
+{
+    PortBase **ports;
+
+    OMX_U32 aac_port_index, pcm_port_index;
+    OMX_DIRTYPE aac_port_dir, pcm_port_dir;
+
+    OMX_PORT_PARAM_TYPE portparam;
+    OMX_U32 i;
+    OMX_ERRORTYPE ret;
+
+    LOGV("%s(): enter\n", __func__);
+
+    ports = new PortBase *[NR_PORTS];
+    if (!ports)
+        return OMX_ErrorInsufficientResources;
+    this->nr_ports = NR_PORTS;
+    this->ports = ports;
+
+    if (isencoder) {
+        pcm_port_index = INPORT_INDEX;
+        aac_port_index = OUTPORT_INDEX;
+        pcm_port_dir = OMX_DirInput;
+        aac_port_dir = OMX_DirOutput;
+    }
+    else {
+        aac_port_index = INPORT_INDEX;
+        pcm_port_index = OUTPORT_INDEX;
+        aac_port_dir = OMX_DirInput;
+        pcm_port_dir = OMX_DirOutput;
+    }
+
+    ret = __AllocateAacPort(aac_port_index, aac_port_dir);
+    if (ret != OMX_ErrorNone)
+        goto free_ports;
+
+    ret = __AllocatePcmPort(pcm_port_index, pcm_port_dir);
+    if (ret != OMX_ErrorNone)
+        goto free_aacport;
+
+    /* OMX_PORT_PARAM_TYPE */
+    memset(&portparam, 0, sizeof(portparam));
+    SetTypeHeader(&portparam, sizeof(portparam));
+    portparam.nPorts = NR_PORTS;
+    portparam.nStartPortNumber = INPORT_INDEX;
+
+    memcpy(&this->portparam, &portparam, sizeof(portparam));
+    /* end of OMX_PORT_PARAM_TYPE */
+
+    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
+    return OMX_ErrorNone;
+
+free_aacport:
+    delete ports[aac_port_index];
 
 free_ports:
     delete []ports;
@@ -181,6 +246,76 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateMp3Port(OMX_U32 port_index,
 
     mp3port->SetPortMp3Param(&mp3portparam, true);
     /* end of OMX_AUDIO_PARAM_MP3TYPE */
+
+    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstSstComponent::__AllocateAacPort(OMX_U32 port_index,
+                                                  OMX_DIRTYPE dir)
+{
+    PortAac *aacport;
+
+    OMX_PARAM_PORTDEFINITIONTYPE aacportdefinition;
+    OMX_AUDIO_PARAM_AACPROFILETYPE aacportparam;
+    OMX_U32 i;
+
+    LOGV("%s(): enter\n", __func__);
+
+    ports[port_index] = new PortAac;
+    if (!ports[port_index]) {
+        LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+             OMX_ErrorInsufficientResources);
+        return OMX_ErrorInsufficientResources;
+    }
+
+    aacport = static_cast<PortAac *>(this->ports[port_index]);
+
+    /* AAC - OMX_PARAM_PORTDEFINITIONTYPE */
+    memset(&aacportdefinition, 0, sizeof(aacportdefinition));
+    SetTypeHeader(&aacportdefinition, sizeof(aacportdefinition));
+    aacportdefinition.nPortIndex = port_index;
+    aacportdefinition.eDir = dir;
+    if (dir == OMX_DirInput) {
+        aacportdefinition.nBufferCountActual = INPORT_AAC_ACTUAL_BUFFER_COUNT;
+        aacportdefinition.nBufferCountMin = INPORT_AAC_MIN_BUFFER_COUNT;
+        aacportdefinition.nBufferSize = INPORT_AAC_BUFFER_SIZE;
+    }
+    else {
+        aacportdefinition.nBufferCountActual = OUTPORT_AAC_ACTUAL_BUFFER_COUNT;
+        aacportdefinition.nBufferCountMin = OUTPORT_AAC_MIN_BUFFER_COUNT;
+        aacportdefinition.nBufferSize = OUTPORT_AAC_BUFFER_SIZE;
+    }
+    aacportdefinition.bEnabled = OMX_TRUE;
+    aacportdefinition.bPopulated = OMX_FALSE;
+    aacportdefinition.eDomain = OMX_PortDomainAudio;
+    aacportdefinition.format.audio.cMIMEType = "audio/mpeg";
+    aacportdefinition.format.audio.pNativeRender = NULL;
+    aacportdefinition.format.audio.bFlagErrorConcealment = OMX_FALSE;
+    aacportdefinition.format.audio.eEncoding = OMX_AUDIO_CodingAAC;
+    aacportdefinition.bBuffersContiguous = OMX_FALSE;
+    aacportdefinition.nBufferAlignment = 0;
+
+    aacport->SetPortDefinition(&aacportdefinition, true);
+
+    /* end of AAC - OMX_PARAM_PORTDEFINITIONTYPE */
+
+    /* OMX_AUDIO_PARAM_AACPROFILETYPE */
+    memset(&aacportparam, 0, sizeof(aacportparam));
+    SetTypeHeader(&aacportparam, sizeof(aacportparam));
+    aacportparam.nPortIndex = port_index;
+    aacportparam.nChannels = 2;
+    aacportparam.nBitRate = 0;
+    aacportparam.nSampleRate = 0;
+    aacportparam.nAudioBandWidth = 0;
+    aacportparam.nFrameLength = 1024; /* default for LC */
+    aacportparam.nAACtools = OMX_AUDIO_AACToolNone;
+    aacportparam.nAACERtools = OMX_AUDIO_AACERNone;
+    aacportparam.eAACProfile = OMX_AUDIO_AACObjectLC;
+    aacportparam.eChannelMode = OMX_AUDIO_ChannelModeStereo;
+
+    aacport->SetPortAacParam(&aacportparam, true);
+    /* end of OMX_AUDIO_PARAM_AACPROFILETYPE */
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
@@ -299,7 +434,8 @@ OMX_ERRORTYPE MrstSstComponent::ComponentGetParameter(
         OMX_U32 index = p->nPortIndex;
         PortPcm *port = NULL;
 
-        if (strcmp(GetWorkingRole(), "audio_decoder.mp3")) {
+        if (strcmp(GetWorkingRole(), "audio_decoder.mp3") &&
+            strcmp(GetWorkingRole(), "audio_decoder.aac")) {
             LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorUnsupportedIndex);
             return OMX_ErrorUnsupportedIndex;
@@ -351,6 +487,36 @@ OMX_ERRORTYPE MrstSstComponent::ComponentGetParameter(
         }
 
         memcpy(p, port->GetPortMp3Param(), sizeof(*p));
+        break;
+    }
+    case OMX_IndexParamAudioAac: {
+        OMX_AUDIO_PARAM_AACPROFILETYPE *p =
+            (OMX_AUDIO_PARAM_AACPROFILETYPE *)pComponentParameterStructure;
+        OMX_U32 index = p->nPortIndex;
+        PortAac *port = NULL;
+
+        if (strcmp(GetWorkingRole(), "audio_decoder.aac")) {
+            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                 OMX_ErrorUnsupportedIndex);
+            return OMX_ErrorUnsupportedIndex;
+        }
+
+        ret = CheckTypeHeader(p, sizeof(*p));
+        if (ret != OMX_ErrorNone) {
+            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            return ret;
+        }
+
+        if (index < nr_ports)
+            port = static_cast<PortAac *>(ports[index]);
+
+        if (!port) {
+            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                 OMX_ErrorBadPortIndex);
+            return OMX_ErrorBadPortIndex;
+        }
+
+        memcpy(p, port->GetPortAacParam(), sizeof(*p));
         break;
     }
     default:
@@ -412,7 +578,8 @@ OMX_ERRORTYPE MrstSstComponent::ComponentSetParameter(
         OMX_U32 index = p->nPortIndex;
         PortPcm *port = NULL;
 
-        if (strcmp(GetWorkingRole(), "audio_decoder.mp3")) {
+        if (strcmp(GetWorkingRole(), "audio_decoder.mp3") &&
+            strcmp(GetWorkingRole(), "audio_decoder.aac")) {
             LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorUnsupportedIndex);
             return OMX_ErrorUnsupportedIndex;
@@ -488,6 +655,48 @@ OMX_ERRORTYPE MrstSstComponent::ComponentSetParameter(
         }
 
         ret = port->SetPortMp3Param(p, false);
+        break;
+    }
+    case OMX_IndexParamAudioAac: {
+        OMX_AUDIO_PARAM_AACPROFILETYPE *p =
+            (OMX_AUDIO_PARAM_AACPROFILETYPE *)pComponentParameterStructure;
+        OMX_U32 index = p->nPortIndex;
+        PortAac *port = NULL;
+
+        if (strcmp(GetWorkingRole(), "audio_decoder.aac")) {
+            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                 OMX_ErrorUnsupportedIndex);
+            return OMX_ErrorUnsupportedIndex;
+        }
+
+        ret = CheckTypeHeader(p, sizeof(*p));
+        if (ret != OMX_ErrorNone) {
+            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            return ret;
+        }
+
+        if (index < nr_ports)
+            port = static_cast<PortAac *>(ports[index]);
+
+        if (!port) {
+            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                 OMX_ErrorBadPortIndex);
+            return OMX_ErrorBadPortIndex;
+        }
+
+        if (port->IsEnabled()) {
+            OMX_STATETYPE state;
+
+            CBaseGetState((void *)GetComponentHandle(), &state);
+            if (state != OMX_StateLoaded &&
+                state != OMX_StateWaitForResources) {
+                LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                     OMX_ErrorIncorrectStateOperation);
+                return OMX_ErrorIncorrectStateOperation;
+            }
+        }
+
+        ret = port->SetPortAacParam(p, false);
         break;
     }
     default:
@@ -603,6 +812,7 @@ void MrstSstComponent::ProcessorProcess(
 static const OMX_STRING g_roles[] =
 {
     "audio_decoder.mp3",
+    "audio_decoder.aac",
 };
 
 static const OMX_STRING g_compname = "OMX.Intel.MrstSST";
