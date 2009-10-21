@@ -17,6 +17,7 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_C_INCLUDES := \
 	$(WRS_OMXIL_CORE_ROOT)/utils/inc \
 	$(WRS_OMXIL_CORE_ROOT)/base/inc \
-	$(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include
+	$(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
+	$(PV_INCLUDES)
 
 include $(BUILD_SHARED_LIBRARY)
