@@ -16,6 +16,8 @@
 #include <portaudio.h>
 #include <componentbase.h>
 
+#include <pv_omxcore.h>
+
 #include "sst.h"
 
 #define LOG_NDEBUG 1
@@ -517,6 +519,20 @@ OMX_ERRORTYPE MrstSstComponent::ComponentGetParameter(
         }
 
         memcpy(p, port->GetPortAacParam(), sizeof(*p));
+        break;
+    }
+    case (OMX_INDEXTYPE) PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX: {
+        PV_OMXComponentCapabilityFlagsType *p =
+            (PV_OMXComponentCapabilityFlagsType *)pComponentParameterStructure;
+
+        p->iIsOMXComponentMultiThreaded = OMX_TRUE;
+        p->iOMXComponentSupportsExternalInputBufferAlloc = OMX_TRUE;
+        p->iOMXComponentSupportsExternalOutputBufferAlloc = OMX_TRUE;
+        p->iOMXComponentSupportsMovableInputBuffers = OMX_TRUE;
+        p->iOMXComponentUsesNALStartCodes = OMX_TRUE;
+        p->iOMXComponentSupportsPartialFrames = OMX_FALSE;
+        p->iOMXComponentCanHandleIncompleteFrames = OMX_TRUE;
+        p->iOMXComponentUsesFullAVCFrames = OMX_FALSE;
         break;
     }
     default:
