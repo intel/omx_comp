@@ -18,9 +18,21 @@
 
 #include <pv_omxcore.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <mixaudio.h>
+#include <mixacpaac.h>
+#include <mixacpmp3.h>
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
 #include "sst.h"
 
-#define LOG_NDEBUG 1
+#define LOG_NDEBUG 0
 
 #define LOG_TAG "mrst_sst"
 #include <log.h>
@@ -110,6 +122,9 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateMp3RolePorts(bool isencoder)
     memcpy(&this->portparam, &portparam, sizeof(portparam));
     /* end of OMX_PORT_PARAM_TYPE */
 
+    coding_type = OMX_AUDIO_CodingMP3;
+    codec_mode = isencoder ? MIX_CODING_ENCODE : MIX_CODING_DECODE;
+
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
 
@@ -172,6 +187,9 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateAacRolePorts(bool isencoder)
 
     memcpy(&this->portparam, &portparam, sizeof(portparam));
     /* end of OMX_PORT_PARAM_TYPE */
+
+    coding_type = OMX_AUDIO_CodingAAC;
+    codec_mode = isencoder ? MIX_CODING_ENCODE : MIX_CODING_DECODE;
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
@@ -749,17 +767,85 @@ OMX_ERRORTYPE MrstSstComponent::ComponentSetConfig(
 /* implement ComponentBase::Processor[*] */
 OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
 {
-    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    MixAudio *mix;
+    MixAudioConfigParams *acp;
+    MixIOVec *mixio;
+    OMX_ERRORTYPE oret = OMX_ErrorNone;
+    MIX_RESULT mret;
+
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
-    return ret;
+    g_type_init();
+
+    /* set default parameters */
+    if (coding_type == OMX_AUDIO_CodingMP3)
+        acp = MIX_AUDIOCONFIGPARAMS(mix_acp_mp3_new());
+    else if (coding_type == OMX_AUDIO_CodingAAC)
+        acp = MIX_AUDIOCONFIGPARAMS(mix_acp_aac_new());
+    else {
+        LOGE("%s(),%d: exit, unkown role (ret == 0x%08x)\n",
+             __func__, __LINE__, OMX_ErrorInvalidState);
+        return OMX_ErrorInvalidState;
+    }
+
+    if (codec_mode == MIX_CODING_DECODE)
+        MIX_ACP_DECODEMODE(acp) = MIX_DECODE_DIRECTRENDER;
+    /*
+    else if (codec_mode == MIX_CODING_ENCODE)
+        ;
+    */
+
+    mret = mix_acp_set_streamname(acp, GetWorkingRole());
+    if (!MIX_SUCCEEDED(mret)) {
+        LOGE("%s(),%d: exit, mix_acp_set_streamname failed (ret == 0x%08x)",
+             __func__, __LINE__, mret);
+        mix_params_unref(MIX_PARAMS(acp));
+        return OMX_ErrorInvalidState;
+    }
+
+    mix = mix_audio_new();
+    mret = mix_audio_initialize(mix, codec_mode, NULL, NULL);
+    if (!(MIX_SUCCEEDED(mret))) {
+        LOGE("%s(),%d: exit, mix_audio_initialize failed (ret == 0x%08x)",
+             __func__, __LINE__, mret);
+        mix_params_unref(MIX_PARAMS(acp));
+        return OMX_ErrorInvalidState;
+    }
+
+    mixio = (MixIOVec *)malloc(sizeof(MixIOVec));
+    if (!mixio) {
+        LOGE("%s(),%d: exit, failed to allocate mbuffer (ret == 0x%08x)",
+             __func__, __LINE__, mret);
+        mix_params_unref(MIX_PARAMS(acp));
+        mix_audio_unref(mix);
+        return OMX_ErrorInvalidState;
+    }
+
+    this->mix = mix;
+    this->acp = acp;
+    this->mixio = mixio;
+
+    ibuffercount = 0;
+
+    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, oret);
+    return oret;
 }
 
 OMX_ERRORTYPE MrstSstComponent::ProcessorDeinit(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
+
+    mix_audio_stop_drop(mix);
+
+    mix_audio_deinitialize(mix);
+
+    mix_acp_unref(acp);
+    mix_audio_unref(mix);
+
+    free(mixio);
+
+    ibuffercount = 0;
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;
@@ -778,6 +864,8 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorStop(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
+
+    mix_audio_stop_drop(mix);
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;
@@ -807,11 +895,76 @@ void MrstSstComponent::ProcessorProcess(
     bool *retain,
     OMX_U32 nr_buffers)
 {
+    OMX_U32 outfilledlen = 0;
+    OMX_S64 outtimestamp = 0;
+    MIX_RESULT mret;
+
     LOGV("%s(): enter\n", __func__);
 
-    /* dummy processing */
-    buffers[OUTPORT_INDEX]->nFilledLen = buffers[OUTPORT_INDEX]->nAllocLen;
-    buffers[OUTPORT_INDEX]->nTimeStamp = buffers[INPORT_INDEX]->nTimeStamp;
+    if (!buffers[INPORT_INDEX]->nFilledLen) {
+        LOGE("%s(),%d: exit input buffer's nFilledLen is zero (ret = void)\n",
+             __func__, __LINE__);
+        return;
+    }
+
+    mixio->data = buffers[INPORT_INDEX]->pBuffer +
+        buffers[INPORT_INDEX]->nOffset;
+    mixio->size = buffers[INPORT_INDEX]->nFilledLen;
+
+    if (coding_type == OMX_AUDIO_CodingMP3) {
+        MIX_ACP_NUM_CHANNELS(acp) = 2;
+        MIX_ACP_BITRATE(acp) = 128000;
+        MIX_ACP_SAMPLE_FREQ(acp) = 44100;
+        mix_acp_set_op_align(acp, MIX_ACP_OUTPUT_ALIGN_LSB);
+        mix_acp_set_bps(acp, MIX_ACP_BPS_16);
+
+        MIX_ACP_MP3_CRC(acp) = 0;
+        MIX_ACP_MP3_MPEG_FORMAT(acp) = 1;
+        MIX_ACP_MP3_MPEG_LAYER(acp) = 3;
+    }
+    /*
+    else if (coding_type == OMX_AUDIO_CodingMP3) {
+        ;
+    }
+    */
+    else {
+        LOGE("%s(),%d: exit, unkown mix acp\n", __func__, __LINE__);
+        return;
+    }
+
+    if (!ibuffercount) {
+        mret = mix_audio_configure(mix, acp, NULL);
+        if (!MIX_SUCCEEDED(mret)) {
+            LOGE("%s(),%d: exit, mix_audio_configure failed (ret == 0x%08x)",
+                 __func__, __LINE__, mret);
+            return;
+        }
+
+        mret = mix_audio_start(mix);
+        if (!MIX_SUCCEEDED(mret)) {
+            LOGE("%s(),%d: faild to mix_audio_start (ret == 0x%08x)",
+                 __func__, __LINE__, mret);
+            return;
+        }
+    }
+    ibuffercount++;
+
+    if (codec_mode == MIX_CODING_DECODE) {
+        mret = mix_audio_decode(mix, (const MixIOVec *)mixio, 1, NULL, NULL);
+        if (!MIX_SUCCEEDED(mret)) {
+            LOGV("_decode returns fail. Error code:0x%08x", mret);
+            return;
+        }
+        mix_audio_get_timestamp(mix, (OMX_U64 *)&outtimestamp);
+    }
+    /*
+    else {
+        ;
+    }
+    */
+
+    buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
+    buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
 
     buffers[INPORT_INDEX]->nFilledLen = 0;
 
@@ -828,7 +981,7 @@ void MrstSstComponent::ProcessorProcess(
 static const OMX_STRING g_roles[] =
 {
     "audio_decoder.mp3",
-    "audio_decoder.aac",
+    //"audio_decoder.aac",
 };
 
 static const OMX_STRING g_compname = "OMX.Intel.MrstSST";
