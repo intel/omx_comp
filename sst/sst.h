@@ -67,6 +67,14 @@ private:
 
     /* end of component methods & helpers */
 
+    /*
+     * parser wrappers
+     */
+    MIX_RESULT ChangeAcpWithConfigHeader(const unsigned char *buffer,
+                                         bool *acp_changed);
+
+    /* end of parser wrappers */
+
     /* mix audio */
     MixAudio *mix;
     MixAudioConfigParams *acp;
