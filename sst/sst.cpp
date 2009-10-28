@@ -876,7 +876,8 @@ void MrstSstComponent::ProcessorProcess(
     }
     */
     else {
-        LOGE("%s(),%d: exit, unkown mix acp\n", __func__, __LINE__);
+        LOGE("%s(),%d: exit, unknown coding type (0x%08x)\n",
+             __func__, __LINE__, coding_type);
         return;
     }
 
