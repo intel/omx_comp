@@ -261,7 +261,7 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateAacPort(OMX_U32 port_index,
     aacportdefinition.bEnabled = OMX_TRUE;
     aacportdefinition.bPopulated = OMX_FALSE;
     aacportdefinition.eDomain = OMX_PortDomainAudio;
-    aacportdefinition.format.audio.cMIMEType = "audio/mpeg";
+    aacportdefinition.format.audio.cMIMEType = (char *)"audio/mp4";
     aacportdefinition.format.audio.pNativeRender = NULL;
     aacportdefinition.format.audio.bFlagErrorConcealment = OMX_FALSE;
     aacportdefinition.format.audio.eEncoding = OMX_AUDIO_CodingAAC;
@@ -870,18 +870,19 @@ void MrstSstComponent::ProcessorProcess(
 
     if (coding_type == OMX_AUDIO_CodingMP3)
         mret = ChangeAcpWithConfigHeader(mixio->data, &acp_changed);
-    /*
     else if (coding_type == OMX_AUDIO_CodingAAC) {
-        ;
+        if (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG)
+            mret = ChangeAcpWithConfigHeader(mixio->data, &acp_changed);
+        else
+            mret = MIX_RESULT_SUCCESS;
     }
-    */
     else {
         LOGE("%s(),%d: exit, unknown coding type (0x%08x)\n",
              __func__, __LINE__, coding_type);
-        return;
+        mret = MIX_RESULT_FAIL;
     }
 
-    if (mret) {
+    if (!MIX_SUCCEEDED(mret)) {
         LOGE("%s(),%d: exit, ret == 0x%08x\n", __func__, __LINE__, mret);
         return;
     }
@@ -914,6 +915,12 @@ void MrstSstComponent::ProcessorProcess(
     }
 
     if (codec_mode == MIX_CODING_DECODE) {
+        if (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG) {
+            outfilledlen = 0;
+            outtimestamp = 0;
+            goto out;
+        }
+
         mret = mix_audio_decode(mix, (const MixIOVec *)mixio, 1, NULL, NULL);
         if (!MIX_SUCCEEDED(mret)) {
             LOGV("_decode returns fail. Error code:0x%08x", mret);
@@ -927,6 +934,7 @@ void MrstSstComponent::ProcessorProcess(
     }
     */
 
+out:
     buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
     buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
 
@@ -1055,6 +1063,63 @@ static inline MIX_RESULT __Mp3ChangeAcpWithConfigHeader(
     return MIX_RESULT_SUCCESS;
 }
 
+static inline MIX_RESULT __AacChangeAcpWithConfigHeader(
+    MixAudioConfigParams *acp, const unsigned char *buffer, bool *acp_changed)
+{
+    int aot, frequency, channel;
+    int ret;
+
+    if (!acp_changed)
+        return MIX_RESULT_FAIL;
+
+    ret = audio_specific_config_parse(buffer,
+                                      &aot, &frequency, &channel);
+    if (ret)
+        return MIX_RESULT_FAIL;
+
+    if (aot < 1 || aot > 4)
+        return MIX_RESULT_FAIL;
+
+    if (MIX_ACP_NUM_CHANNELS(acp) != channel) {
+        LOGV("%s(): channel : %d != %d\n", __func__, MIX_ACP_NUM_CHANNELS(acp),
+             channel);
+
+        MIX_ACP_NUM_CHANNELS(acp) = channel;
+        *acp_changed = true;
+    }
+
+    if (MIX_ACP_SAMPLE_FREQ(acp) != frequency) {
+        LOGV("%s(): samplingrate : %d != %d\n", __func__,
+             MIX_ACP_SAMPLE_FREQ(acp), frequency);
+
+        MIX_ACP_SAMPLE_FREQ(acp) = frequency;
+        *acp_changed = true;
+    }
+
+    /* 0:MPEG-2, 1:MPEG-4 */
+    MIX_ACP_AAC_MPEG_FORMAT(acp) = 0;
+    MIX_ACP_AAC_CRC(acp) = 0; /* 0:disabled, 1:enabled */
+    MIX_ACP_AAC_AOT(acp) = aot; /* 1:Main, 2:LC, 3:SSR, 4:SBR */
+    mix_acp_aac_set_bit_stream_format(MIX_AUDIOCONFIGPARAMSAAC(acp),
+                                      MIX_AAC_BS_RAW);
+    /* 0:Main, 1:LC, 2:SSR, 3:SBR */
+    mix_acp_aac_set_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp),
+                                (MixAACProfile)(aot - 1));
+    /* 0:CBR, 1:VBR */
+    mix_acp_aac_set_bit_rate_type(MIX_AUDIOCONFIGPARAMSAAC(acp),
+                                  (MixACPBitrateType)0);
+
+    if (*acp_changed) {
+        LOGV("%s(): audio configration parameter has been chagned\n",
+             __func__);
+        LOGV("%s():   aot : %d\n", __func__, MIX_ACP_AAC_AOT(acp));
+        LOGV("%s():   frequency : %d\n", __func__, MIX_ACP_SAMPLE_FREQ(acp));
+        LOGV("%s():   channel : %d\n", __func__, MIX_ACP_NUM_CHANNELS(acp));
+    }
+
+    return MIX_RESULT_SUCCESS;
+}
+
 MIX_RESULT MrstSstComponent::ChangeAcpWithConfigHeader(
     const unsigned char *buffer,
     bool *acp_changed)
@@ -1063,10 +1128,8 @@ MIX_RESULT MrstSstComponent::ChangeAcpWithConfigHeader(
 
     if (coding_type == OMX_AUDIO_CodingMP3)
         ret = __Mp3ChangeAcpWithConfigHeader(acp, buffer, acp_changed);
-    /*
     else if (coding_type == OMX_AUDIO_CodingAAC)
         ret = __AacChangeAcpWithConfigHeader(acp, buffer, acp_changed);
-    */
     else
         return -1;
 
@@ -1087,7 +1150,7 @@ MIX_RESULT MrstSstComponent::ChangeAcpWithConfigHeader(
 static const OMX_STRING g_roles[] =
 {
     "audio_decoder.mp3",
-    //"audio_decoder.aac",
+    "audio_decoder.aac",
 };
 
 static const OMX_STRING g_compname = "OMX.Intel.MrstSST";
