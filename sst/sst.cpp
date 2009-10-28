@@ -61,28 +61,16 @@ MrstSstComponent::~MrstSstComponent()
 /* core methods & helpers */
 OMX_ERRORTYPE MrstSstComponent::ComponentAllocatePorts(void)
 {
-    OMX_ERRORTYPE ret = OMX_ErrorUndefined;
-
-    LOGV("%s(): enter\n", __func__);
-
-    if (!strcmp(GetWorkingRole(), "audio_decoder.mp3"))
-        ret = __AllocateMp3RolePorts(false);
-    else if(!strcmp(GetWorkingRole(), "audio_decoder.aac"))
-        ret = __AllocateAacRolePorts(false);
-
-    LOGV("%s(): exit (ret = 0x%08x)\n", __func__, ret);
-    return ret;
-}
-
-
-OMX_ERRORTYPE MrstSstComponent::__AllocateMp3RolePorts(bool isencoder)
-{
     PortBase **ports;
 
-    OMX_U32 mp3_port_index, pcm_port_index;
-    OMX_DIRTYPE mp3_port_dir, pcm_port_dir;
+    OMX_U32 codec_port_index, pcm_port_index;
+    OMX_DIRTYPE codec_port_dir, pcm_port_dir;
 
     OMX_PORT_PARAM_TYPE portparam;
+
+    bool isencoder;
+    const char *working_role;
+
     OMX_U32 i;
     OMX_ERRORTYPE ret;
 
@@ -91,29 +79,51 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateMp3RolePorts(bool isencoder)
     ports = new PortBase *[NR_PORTS];
     if (!ports)
         return OMX_ErrorInsufficientResources;
+
     this->nr_ports = NR_PORTS;
     this->ports = ports;
 
+    working_role = GetWorkingRole();
+    if (!strncmp(working_role, "audio_decoder", strlen("audio_decoder")))
+        isencoder = false;
+    else
+        isencoder = true;
+
     if (isencoder) {
         pcm_port_index = INPORT_INDEX;
-        mp3_port_index = OUTPORT_INDEX;
+        codec_port_index = OUTPORT_INDEX;
         pcm_port_dir = OMX_DirInput;
-        mp3_port_dir = OMX_DirOutput;
+        codec_port_dir = OMX_DirOutput;
     }
     else {
-        mp3_port_index = INPORT_INDEX;
+        codec_port_index = INPORT_INDEX;
         pcm_port_index = OUTPORT_INDEX;
-        mp3_port_dir = OMX_DirInput;
+        codec_port_dir = OMX_DirInput;
         pcm_port_dir = OMX_DirOutput;
     }
 
-    ret = __AllocateMp3Port(mp3_port_index, mp3_port_dir);
+    working_role = strpbrk(working_role, ".");
+    if (!working_role)
+        return OMX_ErrorUndefined;
+    working_role++;
+
+    if (!strcmp(working_role, "mp3")) {
+        ret = __AllocateMp3Port(codec_port_index, codec_port_dir);
+        coding_type = OMX_AUDIO_CodingMP3;
+    }
+    else if(!strcmp(working_role, "aac")) {
+        ret = __AllocateAacPort(codec_port_index, codec_port_dir);
+        coding_type = OMX_AUDIO_CodingAAC;
+    }
+    else
+        ret = OMX_ErrorUndefined;
+
     if (ret != OMX_ErrorNone)
         goto free_ports;
 
     ret = __AllocatePcmPort(pcm_port_index, pcm_port_dir);
     if (ret != OMX_ErrorNone)
-        goto free_mp3port;
+        goto free_codecport;
 
     /* OMX_PORT_PARAM_TYPE */
     memset(&portparam, 0, sizeof(portparam));
@@ -124,83 +134,23 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateMp3RolePorts(bool isencoder)
     memcpy(&this->portparam, &portparam, sizeof(portparam));
     /* end of OMX_PORT_PARAM_TYPE */
 
-    coding_type = OMX_AUDIO_CodingMP3;
     codec_mode = isencoder ? MIX_CODING_ENCODE : MIX_CODING_DECODE;
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
 
-free_mp3port:
-    delete ports[mp3_port_index];
+free_codecport:
+    delete ports[codec_port_index];
+    ports[codec_port_index] = NULL;
 
 free_ports:
+    coding_type = OMX_AUDIO_CodingUnused;
+
     delete []ports;
+    ports = NULL;
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
-    return ret;
-}
-
-
-OMX_ERRORTYPE MrstSstComponent::__AllocateAacRolePorts(bool isencoder)
-{
-    PortBase **ports;
-
-    OMX_U32 aac_port_index, pcm_port_index;
-    OMX_DIRTYPE aac_port_dir, pcm_port_dir;
-
-    OMX_PORT_PARAM_TYPE portparam;
-    OMX_U32 i;
-    OMX_ERRORTYPE ret;
-
-    LOGV("%s(): enter\n", __func__);
-
-    ports = new PortBase *[NR_PORTS];
-    if (!ports)
-        return OMX_ErrorInsufficientResources;
-    this->nr_ports = NR_PORTS;
-    this->ports = ports;
-
-    if (isencoder) {
-        pcm_port_index = INPORT_INDEX;
-        aac_port_index = OUTPORT_INDEX;
-        pcm_port_dir = OMX_DirInput;
-        aac_port_dir = OMX_DirOutput;
-    }
-    else {
-        aac_port_index = INPORT_INDEX;
-        pcm_port_index = OUTPORT_INDEX;
-        aac_port_dir = OMX_DirInput;
-        pcm_port_dir = OMX_DirOutput;
-    }
-
-    ret = __AllocateAacPort(aac_port_index, aac_port_dir);
-    if (ret != OMX_ErrorNone)
-        goto free_ports;
-
-    ret = __AllocatePcmPort(pcm_port_index, pcm_port_dir);
-    if (ret != OMX_ErrorNone)
-        goto free_aacport;
-
-    /* OMX_PORT_PARAM_TYPE */
-    memset(&portparam, 0, sizeof(portparam));
-    SetTypeHeader(&portparam, sizeof(portparam));
-    portparam.nPorts = NR_PORTS;
-    portparam.nStartPortNumber = INPORT_INDEX;
-
-    memcpy(&this->portparam, &portparam, sizeof(portparam));
-    /* end of OMX_PORT_PARAM_TYPE */
-
-    coding_type = OMX_AUDIO_CodingAAC;
-    codec_mode = isencoder ? MIX_CODING_ENCODE : MIX_CODING_DECODE;
-
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
-    return OMX_ErrorNone;
-
-free_aacport:
-    delete ports[aac_port_index];
-
-free_ports:
-    delete []ports;
+    this->ports = NULL;
+    this->nr_ports = 0;
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;

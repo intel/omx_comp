@@ -62,9 +62,6 @@ private:
     OMX_ERRORTYPE __AllocateAacPort(OMX_U32 port_index, OMX_DIRTYPE dir);
     OMX_ERRORTYPE __AllocatePcmPort(OMX_U32 port_index, OMX_DIRTYPE dir);
 
-    OMX_ERRORTYPE __AllocateMp3RolePorts(bool isencoder);
-    OMX_ERRORTYPE __AllocateAacRolePorts(bool isencoder);
-
     /* end of component methods & helpers */
 
     /*
