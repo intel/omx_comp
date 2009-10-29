@@ -110,19 +110,4 @@ private:
     const static OMX_U32 OUTPORT_PCM_BUFFER_SIZE = 16384;
 };
 
-/*
- * CModule Interface
- */
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-OMX_ERRORTYPE omx_component_module_instantiate(OMX_PTR *);
-OMX_ERRORTYPE omx_component_module_query_name(OMX_STRING, OMX_U32);
-OMX_ERRORTYPE omx_component_module_query_roles(OMX_U32 *, OMX_U8 **);
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
-
 #endif /* __WRS_OMXIL_INTEL_MRST_SST */

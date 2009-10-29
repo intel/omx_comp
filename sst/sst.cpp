@@ -1148,17 +1148,17 @@ MIX_RESULT MrstSstComponent::ChangeAcpWithConfigHeader(
 /*
  * CModule Interface
  */
-static const OMX_STRING g_roles[] =
-{
-    "audio_decoder.mp3",
-    "audio_decoder.aac",
-};
-
-static const OMX_STRING g_compname = "OMX.Intel.MrstSST";
-
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
-OMX_ERRORTYPE omx_component_module_instantiate(OMX_PTR *instance)
+static const char *g_name = (const char *)"OMX.Intel.Mrst.SST";
+
+static const char *g_roles[] =
+{
+    (const char *)"audio_decoder.mp3",
+    (const char *)"audio_decoder.aac",
+};
+
+OMX_ERRORTYPE wrs_omxil_cmodule_ops_instantiate(OMX_PTR *instance)
 {
     ComponentBase *cbase;
 
@@ -1172,19 +1172,13 @@ OMX_ERRORTYPE omx_component_module_instantiate(OMX_PTR *instance)
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE omx_component_module_query_name(OMX_STRING name, OMX_U32 len)
-{
-    if (!name)
-        return OMX_ErrorBadParameter;
+struct wrs_omxil_cmodule_ops_s cmodule_ops = {
+    instantiate: wrs_omxil_cmodule_ops_instantiate,
+};
 
-    strncpy(name, g_compname, len);
-    return OMX_ErrorNone;
-}
-
-OMX_ERRORTYPE omx_component_module_query_roles(OMX_U32 *nr_roles,
-                                               OMX_U8 **roles)
-{
-    return ComponentBase::QueryRolesHelper(ARRAY_SIZE(g_roles),
-                                           (const OMX_U8 **)g_roles,
-                                           nr_roles, roles);
-}
+struct wrs_omxil_cmodule_s WRS_OMXIL_CMODULE_SYMBOL = {
+    name: g_name,
+    roles: &g_roles[0],
+    nr_roles: ARRAY_SIZE(g_roles),
+    ops: &cmodule_ops,
+};
