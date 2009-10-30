@@ -829,6 +829,8 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorPause(void)
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
 
+    mix_audio_pause(mix);
+
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
@@ -837,6 +839,8 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorResume(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
+
+    mix_audio_resume(mix);
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;
