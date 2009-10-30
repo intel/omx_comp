@@ -195,7 +195,7 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateMp3Port(OMX_U32 port_index,
     mp3portdefinition.bEnabled = OMX_TRUE;
     mp3portdefinition.bPopulated = OMX_FALSE;
     mp3portdefinition.eDomain = OMX_PortDomainAudio;
-    mp3portdefinition.format.audio.cMIMEType = "audio/mpeg";
+    mp3portdefinition.format.audio.cMIMEType = (char *)"audio/mpeg";
     mp3portdefinition.format.audio.pNativeRender = NULL;
     mp3portdefinition.format.audio.bFlagErrorConcealment = OMX_FALSE;
     mp3portdefinition.format.audio.eEncoding = OMX_AUDIO_CodingMP3;
@@ -331,7 +331,7 @@ OMX_ERRORTYPE MrstSstComponent::__AllocatePcmPort(OMX_U32 port_index,
     pcmportdefinition.bEnabled = OMX_TRUE;
     pcmportdefinition.bPopulated = OMX_FALSE;
     pcmportdefinition.eDomain = OMX_PortDomainAudio;
-    pcmportdefinition.format.audio.cMIMEType = "raw";
+    pcmportdefinition.format.audio.cMIMEType = (char *)"raw";
     pcmportdefinition.format.audio.pNativeRender = NULL;
     pcmportdefinition.format.audio.bFlagErrorConcealment = OMX_FALSE;
     pcmportdefinition.format.audio.eEncoding = OMX_AUDIO_CodingPCM;
