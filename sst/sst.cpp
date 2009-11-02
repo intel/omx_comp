@@ -829,7 +829,7 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorPause(void)
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
 
-    mix_audio_pause(mix);
+    //mix_audio_pause(mix);
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;
@@ -840,7 +840,7 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorResume(void)
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
 
-    mix_audio_resume(mix);
+    //mix_audio_resume(mix);
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;
@@ -911,6 +911,8 @@ void MrstSstComponent::ProcessorProcess(
 
     mix_audio_get_stream_state(mix, &mstream_state);
     if (mstream_state != MIX_STREAM_PLAYING) {
+        LOGV("%s(): mix current stream state = %d, call mix_audio_start\n",
+             __func__, mstream_state);
         mret = mix_audio_start(mix);
         if (!MIX_SUCCEEDED(mret)) {
             LOGE("%s(),%d: faild to mix_audio_start (ret == 0x%08x)",
@@ -920,18 +922,38 @@ void MrstSstComponent::ProcessorProcess(
     }
 
     if (codec_mode == MIX_CODING_DECODE) {
+        OMX_U64 consumed = 0;
+
         if (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG) {
             outfilledlen = 0;
             outtimestamp = 0;
             goto out;
         }
 
-        mret = mix_audio_decode(mix, (const MixIOVec *)mixio, 1, NULL, NULL);
+        mret = mix_audio_decode(mix,
+                                (const MixIOVec *)mixio, 1, &consumed,
+                                NULL, 0, NULL);
         if (!MIX_SUCCEEDED(mret)) {
-            LOGV("_decode returns fail. Error code:0x%08x", mret);
+            LOGE("%s(), %d: exit, mix_audio_decode failed (ret == 0x%08x)",
+                 __func__, __LINE__, mret);
             return;
         }
         mix_audio_get_timestamp(mix, (OMX_U64 *)&outtimestamp);
+
+        buffers[INPORT_INDEX]->nFilledLen -= (OMX_U32)consumed;
+        if (buffers[INPORT_INDEX]->nFilledLen) {
+            buffers[INPORT_INDEX]->nOffset += (OMX_U32)consumed;
+            retain[INPORT_INDEX] = true;
+
+            LOGD("%s(): input buffer NOT fully consumed %lu bytes consumed,"
+                 "%lu bytes remained\n", __func__, (OMX_U32)consumed,
+                 buffers[INPORT_INDEX]->nFilledLen);
+        }
+        else {
+            buffers[INPORT_INDEX]->nOffset = 0;
+            LOGV("%s(): %lu bytes fully consumed\n", __func__,
+                 (OMX_U32)consumed);
+        }
     }
     /*
     else {
@@ -942,8 +964,6 @@ void MrstSstComponent::ProcessorProcess(
 out:
     buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
     buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
-
-    buffers[INPORT_INDEX]->nFilledLen = 0;
 
     LOGV("%s(),%d: exit (ret = void)\n", __func__, __LINE__);
 }
