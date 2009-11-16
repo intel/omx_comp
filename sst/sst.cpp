@@ -1121,8 +1121,7 @@ static inline MIX_RESULT __AacChangeAcpWithConfigHeader(
         *acp_changed = true;
     }
 
-    /* 0:MPEG-2, 1:MPEG-4 */
-    MIX_ACP_AAC_MPEG_FORMAT(acp) = 0;
+    MIX_ACP_AAC_MPEG_ID(acp) = MIX_AAC_MPEG_2_ID;
     MIX_ACP_AAC_CRC(acp) = 0; /* 0:disabled, 1:enabled */
     MIX_ACP_AAC_AOT(acp) = aot; /* 1:Main, 2:LC, 3:SSR, 4:SBR */
     mix_acp_aac_set_bit_stream_format(MIX_AUDIOCONFIGPARAMSAAC(acp),
