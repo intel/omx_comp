@@ -29,3 +29,6 @@ PV_INCLUDES := \
 
 # mrst sst audio
 -include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/sst/Android.mk
+
+# poulsbo
+-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/psb/Android.mk
