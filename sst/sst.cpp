@@ -40,6 +40,90 @@ extern "C" {
 #define LOG_TAG "mrst_sst"
 #include <log.h>
 
+#define SST_PMIC_WORKAROUND 1
+
+#if SST_PMIC_WORKAROUND
+
+#include <fcntl.h>
+#include <linux/ioctl.h>
+#include <intel_sst_ioctl.h>
+
+#define SST_AM_DEVICE         "/dev/sst_am"
+static int pmic_frequency, pmic_channel;
+static int __sst_am_set_pmic(int frequency, int channel)
+{
+    struct snd_sst_target_device target;
+    int handle;
+    int ret;
+
+    LOGV("%s(): enter, frequency = %d, channel = %d", __func__,
+         frequency, channel);
+
+    if ((pmic_frequency == frequency) && (pmic_channel == channel)) {
+        LOGV("%s(),%d: exit, trying to set with the same value",
+             __func__, __LINE__);
+        return 0;
+    }
+
+    if (frequency < 44100 || frequency > 48000) {
+        LOGV("%s(),%d: exit, available only 44100 ~ 48000",
+             __func__, __LINE__);
+        return 0;
+    }
+
+    handle = open(SST_AM_DEVICE, O_RDWR);
+    if (handle < 0){
+        LOGE("%s(),%d: %s open failed : %s", __func__, __LINE__,
+             SST_AM_DEVICE, strerror(errno));
+        return -1;
+    }
+
+    memset(&target, 0, sizeof(struct snd_sst_target_device));
+
+    target.device_route = 0x0;
+    target.devices[0].mix_enable = 0x00;
+    target.devices[0].device_type = 0x00;
+    target.devices[0].device_instance = 0x01;
+    target.devices[0].target_type = SND_SST_TARGET_PMIC;
+    target.devices[0].slot[0] = 0x0100;
+    target.devices[0].slot[1] = 0x0100;
+    target.devices[0].master = 0x00;
+    target.devices[0].action = SND_SST_PORT_PREPARE;
+    target.devices[0].reserved = 0x0000;
+    target.devices[0].pcm_params.sfreq = frequency;
+    target.devices[0].pcm_params.num_chan = channel;
+    target.devices[0].pcm_params.pcm_wd_sz = 0x10;
+
+    ret = ioctl(handle, SNDRV_SST_SET_TARGET_DEVICE, &target);
+    if (ret) {
+        LOGE("%s(),%d: exit, error sending prepare message (%s)",
+             __func__, __LINE__, strerror(errno));
+        goto out;
+    }
+    LOGV("%s(),%d: success sending prepare message", __func__, __LINE__);
+
+    target.devices[0].action = SND_SST_PORT_ACTIVATE;
+
+    ret = ioctl(handle, SNDRV_SST_SET_TARGET_DEVICE, &target);
+    if (ret) {
+        LOGE("%s(),%d: exit, error sending activiate message (%s)",
+             __func__, __LINE__, strerror(errno));
+        goto out;
+    }
+    LOGV("%s(),%d: success sending activiate message", __func__, __LINE__);
+
+    pmic_frequency = frequency;
+    pmic_channel = channel;
+
+    LOGV("%s(),%d: exit, done", __func__, __LINE__);
+
+out:
+    close(handle);
+
+    return ret;
+}
+#endif /* SST_PMIC_WORKAROUND */
+
 /*
  * constructor & destructor
  */
@@ -829,6 +913,14 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
     this->mixio_in = mixio_in;
     this->mixio_out = mixio_out;
 
+#if SST_PMIC_WORKAROUND
+    /*
+     * the first call always fails.
+     * this call prevents ProcessorProcess()::__sst_am_set_pmic() from failure.
+     */
+    __sst_am_set_pmic(44100, 2);
+#endif
+
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, oret);
     return OMX_ErrorNone;
 
@@ -1014,6 +1106,11 @@ void MrstSstComponent::ProcessorProcess(
     }
 
 set_acp:
+#if SST_PMIC_WORKAROUND
+    if (acp_changed)
+        __sst_am_set_pmic(MIX_ACP_SAMPLE_FREQ(acp), MIX_ACP_NUM_CHANNELS(acp));
+#endif
+
     mix_audio_get_state(mix, &mstate);
     if (mstate == MIX_STATE_CONFIGURED)
         mix_audio_get_stream_state(mix, &mstream_state);
