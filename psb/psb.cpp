@@ -562,7 +562,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorResume(void)
 /* implement ComponentBase::ProcessorProcess */
 void MrstPsbComponent::ProcessorProcess(
     OMX_BUFFERHEADERTYPE **buffers,
-    bool *retain,
+    buffer_retain_t *retain,
     OMX_U32 nr_buffers)
 {
     OMX_U32 outfilledlen = 0;
@@ -570,7 +570,7 @@ void MrstPsbComponent::ProcessorProcess(
 
     LOGV("%s(): enter\n", __func__);
 
-    DumpBuffer(buffers[INPORT_INDEX]);
+    //DumpBuffer(buffers[INPORT_INDEX], false);
 
     if (!buffers[INPORT_INDEX]->nFilledLen) {
         LOGE("%s(),%d: exit, input buffer's nFilledLen is zero (ret = void)\n",
@@ -587,7 +587,7 @@ void MrstPsbComponent::ProcessorProcess(
              * processing codec data
              */
 
-            retain[OUTPORT_INDEX] = true;
+            retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
         }
 
         if (coding_type == OMX_VIDEO_CodingAVC) {
@@ -607,8 +607,8 @@ void MrstPsbComponent::ProcessorProcess(
     buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
     buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
 
-    //if (!retain[OUTPORT_INDEX])
-    //    DumpBuffer(buffers[OUTPORT_INDEX]);
+    //if (!retain[OUTPORT_INDEX] == BUFFER_RETAIN_NOT_RETAIN)
+    //    DumpBuffer(buffers[OUTPORT_INDEX], false);
 
     LOGV("%s(),%d: exit (ret = void)\n", __func__, __LINE__);
 }
