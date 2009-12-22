@@ -76,7 +76,7 @@ private:
     /* mix audio */
     MixAudio *mix;
     MixAudioConfigParams *acp;
-    MixIOVec *mixio;
+    MixIOVec *mixio_in, *mixio_out;
 
     OMX_AUDIO_CODINGTYPE coding_type;
     MixCodecMode codec_mode;
