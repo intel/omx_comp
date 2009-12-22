@@ -68,78 +68,15 @@ private:
     /*
      * parser wrappers
      */
-    class MixIO;
-
-    OMX_S32 Mp3FillMixIOAndChangeAcp(
-        OMX_BUFFERHEADERTYPE *bufferheader,
-        MixIO *mixio,
-        MixAudioConfigParams *acp, bool *acp_changed,
-        bool *acp_change_pending);
-
-    OMX_ERRORTYPE ChangeAcpWithCodecConfigData(
-        const OMX_U8 *buffer,
-        MixAudioConfigParams *acp, bool *acp_changed);
-
-    OMX_S32 AacFillMixIO(OMX_BUFFERHEADERTYPE *bufferheader, MixIO *mixio);
+    MIX_RESULT ChangeAcpWithConfigHeader(const unsigned char *buffer,
+                                         bool *acp_changed);
 
     /* end of parser wrappers */
 
     /* mix audio */
     MixAudio *mix;
     MixAudioConfigParams *acp;
-    bool acp_changed;
-    bool acp_change_pending;
-
-    /*
-     *                     MixIO
-     * start timestamp --> +-------+ <-- mixio vector 0 -+-
-     *                     |       |                     | frame length
-     *                     |-------| <-- mixio vector 1 -+-
-     *                     |       |
-     *                     |-------| <-- mixio vector 2
-     *                     |  ...  |         ...
-     * last timestamp -->  +-------+
-     */
-    class MixIO
-    {
-    public:
-        MixIO();
-        ~MixIO();
-
-        OMX_ERRORTYPE AllocateVector(OMX_U32 allocate_count);
-        void FreeVector(void);
-
-        OMX_ERRORTYPE SetOneVector(OMX_U8 *data, OMX_U32 size);
-
-        OMX_U32 GetFilledCount(void);
-        OMX_U32 GetFilledLength(void);
-        OMX_U32 GetAllocCount(void);
-
-        MixIOVec *GetVector(void);
-
-        OMX_TICKS GetTimeStamp(void);
-        void SetTimeStamp(OMX_TICKS timestamp);
-        OMX_TICKS GetLastTimeStamp(void);
-        void IncLastTimeStamp(OMX_TICKS duration);
-
-        void ResetVector(void);
-
-    private:
-        MixIO(const MixIO &other);
-        MixIO &operator=(const MixIO &other);
-
-        MixIOVec *iovector;
-
-        OMX_U32 filled_count;
-        OMX_U32 filled_len;
-        OMX_U32 alloc_count;
-
-        OMX_TICKS start;
-        OMX_TICKS last;
-    };
-
-    MixIO *mixio_in;
-    MixIO *mixio_out;
+    MixIOVec *mixio;
 
     OMX_AUDIO_CODINGTYPE coding_type;
     MixCodecMode codec_mode;
@@ -154,33 +91,21 @@ private:
     const static OMX_U32 INPORT_MP3_ACTUAL_BUFFER_COUNT = 5;
     const static OMX_U32 INPORT_MP3_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_MP3_BUFFER_SIZE = 4096;
-    const static OMX_U32 OUTPORT_MP3_ACTUAL_BUFFER_COUNT = 5;
+    const static OMX_U32 OUTPORT_MP3_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_MP3_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_MP3_BUFFER_SIZE = 4096;
+    const static OMX_U32 OUTPORT_MP3_BUFFER_SIZE = 1024;
     const static OMX_U32 INPORT_AAC_ACTUAL_BUFFER_COUNT = 5;
     const static OMX_U32 INPORT_AAC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_AAC_BUFFER_SIZE = 4096;
-    const static OMX_U32 OUTPORT_AAC_ACTUAL_BUFFER_COUNT = 5;
+    const static OMX_U32 OUTPORT_AAC_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_AAC_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_AAC_BUFFER_SIZE = 4096;
-    const static OMX_U32 INPORT_PCM_ACTUAL_BUFFER_COUNT = 5;
+    const static OMX_U32 OUTPORT_AAC_BUFFER_SIZE = 1024;
+    const static OMX_U32 INPORT_PCM_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 INPORT_PCM_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 INPORT_PCM_BUFFER_SIZE = 4096;
+    const static OMX_U32 INPORT_PCM_BUFFER_SIZE = 1024;
     const static OMX_U32 OUTPORT_PCM_ACTUAL_BUFFER_COUNT = 5;
     const static OMX_U32 OUTPORT_PCM_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_PCM_BUFFER_SIZE = 16384;
-
-    /* mixio */
-    const static OMX_U32 INPORT_MP3_MIXIO_VECTOR_COUNT = 5;
-    const static OMX_U32 OUTPORT_MP3_MIXIO_VECTOR_COUNT = 1;
-    const static OMX_U32 INPORT_AAC_MIXIO_VECTOR_COUNT = 5;
-    const static OMX_U32 OUTPORT_AAC_MIXIO_VECTOR_COUNT = 1;
-    const static OMX_U32 INPORT_PCM_MIXIO_VECTOR_COUNT = 1;
-    const static OMX_U32 OUTPORT_PCM_MIXIO_VECTOR_COUNT = 1;
-
-    /* mixio max length to be accumulated */
-    const static OMX_U32 MP3DEC_MAX_ACCUMULATE_LENGTH = 4096;
-    const static OMX_U32 AACDEC_MAX_ACCUMULATE_LENGTH = 4096;
 };
 
 #endif /* __WRS_OMXIL_INTEL_MRST_SST */
