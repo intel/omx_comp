@@ -84,6 +84,15 @@ private:
     OMX_ERRORTYPE ChangeAcpWithPortParam(MixAudioConfigParams *acp,
                                          PortBase *port,
                                          bool *acp_changed);
+
+    OMX_ERRORTYPE __PcmChangePortParamWithAcp(MixAudioConfigParams *acp,
+                                              PortPcm *port);
+    OMX_ERRORTYPE __Mp3ChangePortParamWithAcp(MixAudioConfigParams *acp,
+                                              PortMp3 *port);
+    OMX_ERRORTYPE __AacChangePortParamWithAcp(MixAudioConfigParams *acp,
+                                              PortAac *port);
+    OMX_ERRORTYPE ChangePortParamWithAcp(void);
+
     /* end of acp setting helpers */
 
     /* mix audio */

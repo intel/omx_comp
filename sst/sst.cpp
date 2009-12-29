@@ -990,6 +990,12 @@ void MrstSstComponent::ProcessorProcess(
                 goto out;
             }
             LOGV("%s(): mix audio configured", __func__);
+
+            /*
+             * port reconfigure
+             */
+            ChangePortParamWithAcp();
+            goto out;
         }
     }
     /*
@@ -1372,6 +1378,98 @@ OMX_ERRORTYPE MrstSstComponent::ChangeAcpWithPortParam(
 
     if (ret != OMX_ErrorNone)
         return ret;
+
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstSstComponent::__PcmChangePortParamWithAcp(
+    MixAudioConfigParams *acp, PortPcm *port)
+{
+    OMX_AUDIO_PARAM_PCMMODETYPE p;
+    OMX_ERRORTYPE ret;
+
+    memcpy(&p, port->GetPortPcmParam(), sizeof(OMX_AUDIO_PARAM_PCMMODETYPE));
+
+    if ((MIX_ACP_NUM_CHANNELS(acp) != (int)p.nChannels) ||
+        (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSamplingRate)) {
+
+        p.nChannels = MIX_ACP_NUM_CHANNELS(acp);
+        p.nSamplingRate = MIX_ACP_SAMPLE_FREQ(acp);
+    }
+
+    port->SetPortPcmParam(&p, false);
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstSstComponent::__Mp3ChangePortParamWithAcp(
+    MixAudioConfigParams *acp, PortMp3 *port)
+{
+    OMX_AUDIO_PARAM_MP3TYPE p;
+    OMX_ERRORTYPE ret;
+
+    memcpy(&p, port->GetPortMp3Param(), sizeof(OMX_AUDIO_PARAM_MP3TYPE));
+
+    if ((MIX_ACP_NUM_CHANNELS(acp) != (int)p.nChannels) ||
+        (MIX_ACP_BITRATE(acp) != (int)p.nBitRate/1000) ||
+        (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSampleRate)) {
+
+        p.nChannels = MIX_ACP_NUM_CHANNELS(acp);
+        p.nBitRate = MIX_ACP_BITRATE(acp);
+        p.nSampleRate = MIX_ACP_SAMPLE_FREQ(acp);
+    }
+
+    port->SetPortMp3Param(&p, false);
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstSstComponent::__AacChangePortParamWithAcp(
+    MixAudioConfigParams *acp, PortAac *port)
+{
+    OMX_AUDIO_PARAM_AACPROFILETYPE p;
+    OMX_ERRORTYPE ret;
+
+    memcpy(&p, port->GetPortAacParam(), sizeof(p));
+
+    if ((MIX_ACP_NUM_CHANNELS(acp) != (int)p.nChannels) ||
+        (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSampleRate)) {
+
+        p.nChannels = MIX_ACP_NUM_CHANNELS(acp);
+        p.nSampleRate = MIX_ACP_SAMPLE_FREQ(acp);
+    }
+
+    port->SetPortAacParam(&p, false);
+    return OMX_ErrorNone;
+}
+
+/* used only decode mode */
+OMX_ERRORTYPE MrstSstComponent::ChangePortParamWithAcp(void)
+{
+    OMX_ERRORTYPE ret;
+
+    if (coding_type == OMX_AUDIO_CodingMP3)
+        ret = __Mp3ChangePortParamWithAcp(
+            acp, static_cast<PortMp3 *>(ports[INPORT_INDEX]));
+    else if (coding_type == OMX_AUDIO_CodingAAC)
+        ret = __AacChangePortParamWithAcp(
+            acp, static_cast<PortAac *>(ports[INPORT_INDEX]));
+    else
+        return OMX_ErrorBadParameter;
+
+    if (ret != OMX_ErrorNone)
+        return ret;
+
+    ret = __PcmChangePortParamWithAcp(
+        acp, static_cast<PortPcm *>(ports[OUTPORT_INDEX]));
+    if (ret != OMX_ErrorNone)
+        return ret;
+
+    LOGV("%s(): report OMX_EventPortSettingsChanged event on %luth port",
+         __func__, OUTPORT_INDEX);
+
+    ret = static_cast<PortPcm *>(ports[OUTPORT_INDEX])->
+        ReportPortSettingsChanged();
+
+    LOGV("%s(): returned from event handler (ret : 0x%08x)\n", __func__, ret);
 
     return OMX_ErrorNone;
 }
