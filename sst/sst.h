@@ -66,12 +66,25 @@ private:
     /* end of component methods & helpers */
 
     /*
-     * parser wrappers
+     * acp setting helpers
      */
-    MIX_RESULT ChangeAcpWithConfigHeader(const unsigned char *buffer,
-                                         bool *acp_changed);
+    OMX_ERRORTYPE __Mp3ChangeAcpWithConfigHeader(const unsigned char *buffer,
+                                                 bool *acp_changed);
+    OMX_ERRORTYPE __AacChangeAcpWithConfigHeader(const unsigned char *buffer,
+                                                 bool *acp_changed);
+    OMX_ERRORTYPE ChangeAcpWithConfigHeader(const unsigned char *buffer,
+                                            bool *acp_changed);
 
-    /* end of parser wrappers */
+    OMX_ERRORTYPE __Mp3ChangeAcpWithPortParam(MixAudioConfigParams *acp,
+                                              PortMp3 *port,
+                                              bool *acp_changed);
+    OMX_ERRORTYPE __AacChangeAcpWithPortParam(MixAudioConfigParams *acp,
+                                              PortAac *port,
+                                              bool *acp_changed);
+    OMX_ERRORTYPE ChangeAcpWithPortParam(MixAudioConfigParams *acp,
+                                         PortBase *port,
+                                         bool *acp_changed);
+    /* end of acp setting helpers */
 
     /* mix audio */
     MixAudio *mix;
