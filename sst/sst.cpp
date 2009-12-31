@@ -11,6 +11,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <pthread.h>
+
 #include <OMX_Core.h>
 
 #include <audio_parser.h>
@@ -46,6 +48,129 @@ extern "C" {
  *   1 : Direct Render
  */
 #define SST_RENDER_MODE_DIRECT_RENDER 1
+
+/*
+ * MixAudioStreamCtrl
+ */
+
+#define SST_USE_STREAM_CTRL_WORKQUEUE 1
+
+static const char *mix_audio_command_string
+[MixAudioStreamCtrl::MIX_STREAM_RESUME+2] = {
+    "MIX_STREAM_START",
+    "MIX_STREAM_STOP_DROP",
+    "MIX_STREAM_STOP_DRAIN",
+    "MIX_STREAM_PAUSE",
+    "MIX_STREAM_RESUME",
+    "MIX_STREAM_UNKNOWN",
+};
+
+inline static const char *
+get_mix_audio_command_string(MixAudioStreamCtrl::mix_audio_command_t command)
+{
+    if (command > MixAudioStreamCtrl::MIX_STREAM_RESUME)
+        command = (MixAudioStreamCtrl::mix_audio_command_t)
+            (MixAudioStreamCtrl::MIX_STREAM_RESUME+1);
+
+    return mix_audio_command_string[command];
+}
+
+MixAudioStreamCtrl::MixAudioStreamCtrl(MixAudio *mix)
+{
+    __queue_init(&q);
+    pthread_mutex_init(&lock, NULL);
+
+    this->mix = mix;
+
+    StartWork(true);
+}
+
+MixAudioStreamCtrl::~MixAudioStreamCtrl()
+{
+    mix_audio_command_t *temp;
+
+    CancelScheduledWork(this);
+    StopWork();
+
+    while ((temp = PopCommand()))
+        free(temp);
+
+    pthread_mutex_destroy(&lock);
+}
+
+void MixAudioStreamCtrl::SendCommand(mix_audio_command_t command)
+{
+    mix_audio_command_t *copy;
+
+    if (command > MIX_STREAM_RESUME)
+        return;
+
+    copy = (mix_audio_command_t *)malloc(sizeof(*copy));
+    if (!copy)
+        return;
+    *copy = command;
+
+    LOGV("send mix audio stream command %s\n",
+         get_mix_audio_command_string(command));
+
+    pthread_mutex_lock(&lock);
+    queue_push_tail(&q, copy);
+    pthread_mutex_unlock(&lock);
+
+    ScheduleWork();
+}
+
+MixAudioStreamCtrl::mix_audio_command_t *MixAudioStreamCtrl::PopCommand(void)
+{
+    mix_audio_command_t *command;
+
+    pthread_mutex_lock(&lock);
+    command = (mix_audio_command_t *)queue_pop_head(&q);
+    pthread_mutex_unlock(&lock);
+
+    return command;
+}
+
+void MixAudioStreamCtrl::Work(void)
+{
+    mix_audio_command_t *command;
+    MIX_RESULT ret;
+
+    command = PopCommand();
+    if (command) {
+        switch ((int)*command) {
+        case MIX_STREAM_START:
+            ret = mix_audio_start(mix);
+            break;
+        case MIX_STREAM_STOP_DROP:
+            ret = mix_audio_stop_drop(mix);
+            break;
+        case MIX_STREAM_STOP_DRAIN:
+            ret = mix_audio_stop_drain(mix);
+            break;
+        case MIX_STREAM_PAUSE:
+            ret = mix_audio_pause(mix);
+            break;
+        case MIX_STREAM_RESUME:
+            ret = mix_audio_resume(mix);
+            break;
+        default:
+            ret = MIX_RESULT_FAIL;
+            LOGE("cannot handle mix audio stream command (%d)", *command);
+        }
+
+        if (MIX_SUCCEEDED(ret))
+            LOGV("done mix audio stream command %s\n",
+                 get_mix_audio_command_string(*command));
+        else
+            LOGE("failed mix audio stream command %s (ret : 0x%08x)\n",
+                 get_mix_audio_command_string(*command), ret);
+
+        free(command);
+    }
+}
+
+/* end of MixAudioStreamCtrl */
 
 /*
  * constructor & destructor
@@ -800,6 +925,18 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
     }
     LOGV("%s(): mix audio configured", __func__);
 
+#if SST_USE_STREAM_CTRL_WORKQUEUE
+    if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
+        (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL)) {
+        mix_stream_ctrl = new MixAudioStreamCtrl(mix);
+        if (!mix_stream_ctrl) {
+            LOGE("%s(),%d: exit, failed to new MixAudioStreamCtrl",
+                 __func__, __LINE__);
+            goto deinitialize_mix;
+        }
+    }
+#endif
+
     mixio_in = (MixIOVec *)malloc(sizeof(MixIOVec));
     if (!mixio_in) {
         LOGE("%s(),%d: exit, failed to allocate mbuffer (ret == 0x%08x)",
@@ -842,6 +979,12 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorDeinit(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
+
+#if SST_USE_STREAM_CTRL_WORKQUEUE
+    if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
+        (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
+        delete mix_stream_ctrl;
+#endif
 
     if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
         (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
@@ -1008,6 +1151,12 @@ void MrstSstComponent::ProcessorProcess(
         (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL)) {
         mix_audio_get_stream_state(mix, &mstream_state);
         if (mstream_state != MIX_STREAM_PLAYING) {
+#if SST_USE_STREAM_CTRL_WORKQUEUE
+            if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
+                (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
+                mix_stream_ctrl->SendCommand(
+                    MixAudioStreamCtrl::MIX_STREAM_START);
+#else
             LOGV("%s(): mix current stream state = %d, call mix_audio_start\n",
                  __func__, mstream_state);
             mret = mix_audio_start(mix);
@@ -1016,6 +1165,7 @@ void MrstSstComponent::ProcessorProcess(
                      __func__, __LINE__, mret);
                 goto out;
             }
+#endif
         }
     }
 

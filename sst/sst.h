@@ -16,6 +16,33 @@
 #include <portbase.h>
 #include <componentbase.h>
 
+class MixAudioStreamCtrl : public WorkQueue
+{
+public:
+    MixAudioStreamCtrl(MixAudio *mix);
+    ~MixAudioStreamCtrl();
+
+    typedef enum mix_audio_command_e {
+        MIX_STREAM_START = 0,
+        MIX_STREAM_STOP_DROP,
+        MIX_STREAM_STOP_DRAIN,
+        MIX_STREAM_PAUSE,
+        MIX_STREAM_RESUME,
+    } mix_audio_command_t;
+
+    void SendCommand(mix_audio_command_t command);
+
+private:
+    mix_audio_command_t *PopCommand(void);
+
+    virtual void Work(void);
+
+    struct queue q;
+    pthread_mutex_t lock;
+
+    MixAudio *mix;
+};
+
 class MrstSstComponent : public ComponentBase
 {
 public:
@@ -99,6 +126,8 @@ private:
     MixAudio *mix;
     MixAudioConfigParams *acp;
     MixIOVec *mixio_in, *mixio_out;
+
+    MixAudioStreamCtrl *mix_stream_ctrl;
 
     OMX_AUDIO_CODINGTYPE coding_type;
     MixCodecMode codec_mode;
