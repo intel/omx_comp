@@ -1344,7 +1344,7 @@ static inline OMX_ERRORTYPE __AacChangeAcp(MixAudioConfigParams *acp,
     MIX_ACP_AAC_CRC(acp) = 0; /* 0:disabled, 1:enabled */
     /* 0:CBR, 1:VBR */
     mix_acp_aac_set_bit_rate_type(MIX_AUDIOCONFIGPARAMSAAC(acp),
-                                  (MixACPBitrateType)0);
+                                  (MixAACBitrateType)0);
     mix_acp_aac_set_bit_stream_format(MIX_AUDIOCONFIGPARAMSAAC(acp),
                                       MIX_AAC_BS_RAW);
 
