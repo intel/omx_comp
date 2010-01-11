@@ -1,3 +1,4 @@
+# Copyright (c) 2009-2010 Wind River Systems, Inc.
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
