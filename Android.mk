@@ -1,4 +1,7 @@
 # Copyright (c) 2009-2010 Wind River Systems, Inc.
+
+ifeq ($(strip $(BOARD_USES_MRST_OMX)),true)
+
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -33,3 +36,5 @@ PV_INCLUDES := \
 
 # poulsbo
 -include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/psb/Android.mk
+
+endif #BOARD_USES_MRST_OMX
