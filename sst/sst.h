@@ -132,6 +132,8 @@ private:
     OMX_AUDIO_CODINGTYPE coding_type;
     MixCodecMode codec_mode;
 
+    OMX_U8 *codecdata;
+
     /* constant */
     /* ports */
     const static OMX_U32 NR_PORTS = 2;
@@ -150,10 +152,10 @@ private:
     const static OMX_U32 INPORT_AAC_BUFFER_SIZE = 4096;
     const static OMX_U32 OUTPORT_AAC_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_AAC_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_AAC_BUFFER_SIZE = 1024;
+    const static OMX_U32 OUTPORT_AAC_BUFFER_SIZE = 2048;
     const static OMX_U32 INPORT_PCM_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 INPORT_PCM_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 INPORT_PCM_BUFFER_SIZE = 1024;
+    const static OMX_U32 INPORT_PCM_BUFFER_SIZE = 4096;
     const static OMX_U32 OUTPORT_PCM_ACTUAL_BUFFER_COUNT = 5;
     const static OMX_U32 OUTPORT_PCM_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_PCM_BUFFER_SIZE = 16384;
