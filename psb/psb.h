@@ -16,7 +16,7 @@
 #include <portbase.h>
 #include <componentbase.h>
 
-//#defind PV_FULL_AVC_FRAME_MODE
+//#define PV_FULL_AVC_FRAME_MODE
 
 class MrstPsbComponent : public ComponentBase
 {
@@ -69,6 +69,22 @@ private:
     OMX_VIDEO_CODINGTYPE coding_type;
     bool isencoder;
 
+    /* mix video */
+    MixVideo *mix_video;
+    MixDrmParams *mix_drm;
+    MixVideoInitParams *init_params;
+    MixVideoDecodeParams *mix_decode_params;
+    MixVideoConfigParamsDec *config_params;
+    MixVideoRenderParams *mix_video_render_params;
+    MixVideoConfigParamsDecH264 *configH264;
+    MixDisplayX11 *mix_display_x11;
+
+    MixIOVec *mixio;
+    MixBuffer *mix_buffer;
+
+    unsigned char tBuff[4096];
+    int FrameCount;
+
     /* constant */
     /* ports */
     const static OMX_U32 NR_PORTS = 2;
@@ -79,16 +95,16 @@ private:
     /* FIXME */
     const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 5;
     const static OMX_U32 INPORT_AVC_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 4096;
+    const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 40960;
     const static OMX_U32 OUTPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_RAW_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_RAW_BUFFER_SIZE = 40960;
+    const static OMX_U32 OUTPORT_RAW_BUFFER_SIZE = 409600;
     const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 INPORT_RAW_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 40960;
+    const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 409600;
     const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 5;
     const static OMX_U32 OUTPORT_AVC_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 4096;
+    const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 40960;
 };
 
 #endif /* __WRS_OMXIL_INTEL_MRST_PSB */

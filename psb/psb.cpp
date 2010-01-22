@@ -19,6 +19,19 @@
 
 #include <pv_omxcore.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <mixdisplayx11.h>
+#include <mixvideo.h>
+#include <mixvideoformat_h264.h>
+#include <mixvideoconfigparamsdec_h264.h>
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
 #include "psb.h"
 
 #define LOG_NDEBUG 0
@@ -493,10 +506,90 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 
     LOGV("%s(): enter\n", __func__);
 
+    MixIOVec *mixio = NULL;
+    MixVideo *mix_video = NULL;
+    MixDrmParams *mix_drm = NULL;
+    MixVideoInitParams *init_params = NULL;
+    MixVideoDecodeParams *mix_decode_params = NULL;
+    MixVideoConfigParamsDec *config_params = NULL;
+    MixDisplayX11 *mix_display_x11 = NULL;
+    MixBuffer *mix_buffer = NULL;
+    MixVideoRenderParams *mix_video_render_params = NULL;
+    MixRect src_rect, dst_rect;
+
+    guint major, minor;
+
+    FrameCount = 0;
+
+    MIX_RESULT mret;
+
+    g_type_init();
+
+    /*
+     * common codes
+     */
+    mix_video = mix_video_new();
+    if (!mix_video) {
+        LOGE("%s(),%d: exit, mix_video_new failed", __func__, __LINE__);
+        goto exit_pinit;
+    }
+
+    mix_video_get_version(mix_video, &major, &minor);
+    LOGV("MixVideo version: %d.%d", major, minor);
+
+    mix_display_x11 = mix_displayx11_new();
+    if (!mix_display_x11) {
+        LOGE("%s(),%d: exit, mix_displayx11_new failed", __func__, __LINE__);
+        goto exit_pinit;
+    }
+
+    mret = mix_displayx11_set_drawable(mix_display_x11, 176);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_displayx11_set_drawable failed (ret == 0x%08x)",
+             __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    init_params = mix_videoinitparams_new();
+    if (!init_params) {
+        LOGE("%s(),%d: exit, mix_videoinitparams_new failed", __func__, __LINE__);
+        goto exit_pinit;
+    }
+
+    mret = mix_videoinitparams_set_display(init_params, MIX_DISPLAY(mix_display_x11));
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_videoinitparams_set_display failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    mix_drm = mix_drmparams_new();
+    if (!mix_drm) {
+        LOGE("%s(),%d: exit, mix_videoinitparams_new failed", __func__, __LINE__);
+        goto exit_pinit;
+    }
+
+    /*
+     * file format specific code
+     */
     if (coding_type == OMX_VIDEO_CodingAVC) {
-        /*
-         * avc decoder specific code
-         */
+        MixVideoConfigParamsDecH264 *configH264 = NULL;
+
+        LOGV("%s(%d)\n", __func__, __LINE__);
+        configH264 = mix_videoconfigparamsdec_h264_new();
+        config_params = MIX_VIDEOCONFIGPARAMSDEC(configH264);
+        /* mime type */
+        mret = mix_videoconfigparamsdec_set_mime_type(config_params, "video/x-h264");
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_mime_type failed (ret == 0x%08x)",
+                    __func__, __LINE__, mret);
+            goto exit_pinit;
+        }
+    } 
+    else {
+        LOGE("%s(),%d: exit, unkown role (ret == 0x%08x)\n",
+             __func__, __LINE__, OMX_ErrorInvalidState);
+        goto exit_pinit;
     }
 
     /* decoder */
@@ -504,20 +597,160 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
         /*
          * decoder specific code
          */
+        mret = mix_video_initialize(mix_video, MIX_CODEC_MODE_DECODE, init_params, mix_drm);
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(),%d: exit, mix_video_initialize failed (ret == 0x%08x)",
+                    __func__, __LINE__, mret);
+            goto exit_pinit;
+        }
+
+        /* set frame order mode */
+        mret = mix_videoconfigparamsdec_set_frame_order_mode(config_params, MIX_FRAMEORDER_MODE_DECODEORDER);
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_frame_order_mode failed (ret == 0x%08x)",
+                    __func__, __LINE__, mret);
+            goto exit_pinit;
+        }
+
+        mix_decode_params = mix_videodecodeparams_new();
+        if (!mix_decode_params) {
+            LOGE("%s(),%d: exit, mix_decode_params failed (ret == 0x%08x)",
+                    __func__, __LINE__, mret);
+            goto exit_pinit;
+        }
+
+        /* fill discontinuity flag */
+        mret = mix_videodecodeparams_set_discontinuity(mix_decode_params, FALSE);
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(),%d: exit, mix_videodecodeparams_set_discontinuity (ret == 0x%08x)",
+                    __func__, __LINE__, mret);
+            goto exit_pinit;
+        }
+    }
+    else {
+        LOGE("%s(),%d: exit, unkown mode (ret == 0x%08x)\n",
+             __func__, __LINE__, OMX_ErrorInvalidState);
+        goto exit_pinit;
     }
 
-    /*
-     * common codes
+    LOGV("%s(%d)\n", __func__, __LINE__);
+    /* configure params */
+
+    /* frame rate - TODO? numerator:30 denominator:1 */
+    mret = mix_videoconfigparamsdec_set_frame_rate(config_params, 15, 1);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_frame_rate failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    /* Picture resolution */
+    mret = mix_videoconfigparamsdec_set_picture_res(config_params, 176, 144);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_picture_res failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    /* buffer pool size */
+    mret = mix_videoconfigparamsdec_set_buffer_pool_size(config_params, 8);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_buffer_pool_size failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    mret = mix_videoconfigparamsdec_set_extra_surface_allocation(config_params, 4);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_extra_surface_allocation (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    mix_video_render_params = mix_videorenderparams_new();
+    if (!mix_video_render_params) {
+        LOGE("%s(),%d: exit, mix_videorenderparams_new failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    mret = mix_videorenderparams_set_display(mix_video_render_params, MIX_DISPLAY(mix_display_x11));
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_videorenderparams_set_display (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    /* fill src_rect, the video size */
+    src_rect.x = 0;
+    src_rect.y = 0;
+    src_rect.width = 176;
+    src_rect.height = 144;
+    /* fill dst_rect, the display size
+     * TODO: we shall calculate the dst video position
      */
+    dst_rect.x = 0;
+    dst_rect.y = 0;
+    dst_rect.width = 176;
+    dst_rect.height = 144;
+
+    mret = mix_videorenderparams_set_src_rect(mix_video_render_params, src_rect);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("Failed to set src_rect\n");
+        goto exit_pinit;
+    }
+    mret = mix_videorenderparams_set_dest_rect(mix_video_render_params, dst_rect);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("Failed to set dst_rect\n");
+        goto exit_pinit;
+    }
+    mret = mix_videorenderparams_set_clipping_rects(mix_video_render_params, NULL, 0);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("Failed to set clipping rects\n");
+        goto exit_pinit;
+    }
+
+    mixio = (MixIOVec *)malloc(sizeof(MixIOVec));
+    if (!mixio) {
+        LOGE("%s(),%d: exit, failed to allocate mbuffer (ret == 0x%08x)",
+             __func__, __LINE__, mret);
+        goto exit_pinit;
+    }
+
+    this->mix_video = mix_video;
+    this->mix_drm = mix_drm;
+    this->init_params = init_params;
+    this->mix_decode_params = mix_decode_params;
+    this->config_params = config_params;
+    this->configH264 = configH264;
+    this->mix_display_x11 = mix_display_x11;
+    this->mixio = mixio;
+    this->mix_buffer = mix_buffer;
+    this->mix_video_render_params = mix_video_render_params;
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;
+
+ exit_pinit:
+    mix_videoconfigparamsdec_unref(config_params);
+    g_object_unref(G_OBJECT(mix_video));
+    mix_displayx11_unref(mix_display_x11);
+    mix_videoinitparams_unref(init_params);
+    mix_params_unref(MIX_PARAMS(mix_drm));
+
+    return OMX_ErrorInvalidState;
 }
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
+
+    mix_videoconfigparamsdec_unref(config_params);
+    g_object_unref(G_OBJECT(mix_video));
+    mix_displayx11_unref(mix_display_x11);
+    mix_videoinitparams_unref(init_params);
+    mix_params_unref(MIX_PARAMS(mix_drm));
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
     return ret;
@@ -559,6 +792,13 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorResume(void)
     return ret;
 }
 
+static void mix_buffer_callback(gulong token, guchar *data)
+{
+    if (token) {
+
+    }
+}
+
 /* implement ComponentBase::ProcessorProcess */
 void MrstPsbComponent::ProcessorProcess(
     OMX_BUFFERHEADERTYPE **buffers,
@@ -567,10 +807,16 @@ void MrstPsbComponent::ProcessorProcess(
 {
     OMX_U32 outfilledlen = 0;
     OMX_S64 outtimestamp = 0;
+    OMX_S64 delta_timestamp = 1;
+    int i;
+
+    MIX_RESULT mret;
+
+    MixBuffer *mix_buffer_array[1];
 
     LOGV("%s(): enter\n", __func__);
 
-    //DumpBuffer(buffers[INPORT_INDEX], false);
+//    DumpBuffer(buffers[INPORT_INDEX], false);
 
     if (!buffers[INPORT_INDEX]->nFilledLen) {
         LOGE("%s(),%d: exit, input buffer's nFilledLen is zero (ret = void)\n",
@@ -578,37 +824,196 @@ void MrstPsbComponent::ProcessorProcess(
         return;
     }
 
-    /* decoder */
-    if (!isencoder) {
-        if ((buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_ENDOFFRAME) &&
-            (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG)) {
+    mixio->data = buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
+    LOGV("pBuffer=%p, nOffset=%d \n", buffers[INPORT_INDEX]->pBuffer, buffers[INPORT_INDEX]->nOffset);
+    mixio->size = buffers[INPORT_INDEX]->nFilledLen;
+    LOGV("FilledLen:%d \n", mixio->size);
 
-            /*
-             * processing codec data
-             */
-
-            retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-        }
-
-        if (coding_type == OMX_VIDEO_CodingAVC) {
-            /*
-             * avc decoding specific code
-             */
-        }
-
-        /*
-         * decoding common code
-         */
-
-        outfilledlen = buffers[OUTPORT_INDEX]->nAllocLen;
-        outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
+#if 0
+    LOGV("nFlags=0x%08x", buffers[INPORT_INDEX]->nFlags);
+    LOGV(">");
+    unsigned char xBuff[40];
+    memcpy(xBuff, mixio->data, 40);
+    for(i = 0; i < 40; i+=8) {
+        LOGV("%02X %02X %02X %02X %02X %02X %02X %02X",
+        xBuff[i], xBuff[i+1], xBuff[i+2], xBuff[i+3],
+        xBuff[i+4], xBuff[i+5], xBuff[i+6], xBuff[i+7]);
     }
+    LOGV("<");
+#endif
+
+
+    if ((buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_ENDOFFRAME) &&
+        (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG)) {
+
+        if(FrameCount == 0) {
+            tBuff[0] = 0x00;
+            tBuff[1] = 0x00;
+            tBuff[2] = 0x00;
+            tBuff[3] = 0x00;
+            tBuff[4] = 0x03;
+            tBuff[5] = 0x01;
+            tBuff[6] = 0x00;
+            tBuff[7] = 0x17;
+            memcpy(tBuff+8, mixio->data, mixio->size);
+        } 
+        else if(FrameCount == 1) {
+            tBuff[31] = 0x01;
+            tBuff[32] = 0x00;
+            tBuff[33] = 0x04;
+            memcpy(tBuff+8+23+3, mixio->data, mixio->size);
+
+            for(i = 0; i < 40; i+=8) {
+                LOGV("%02X %02X %02X %02X %02X %02X %02X %02X",
+                tBuff[i], tBuff[i+1], tBuff[i+2], tBuff[i+3],
+                tBuff[i+4], tBuff[i+5], tBuff[i+6], tBuff[i+7]);
+            }
+
+            mixio->data = tBuff;
+            mixio->size = 38;
+
+            mret = mix_videoconfigparamsdec_set_header(config_params, mixio);
+            if (mret != MIX_RESULT_SUCCESS) {
+                LOGE("%s(), %d: exit, mix_videoconfigparamsdec_set_header failed (ret == 0x%08x)",
+                        __func__, __LINE__, mret);
+                return;
+            }
+            mret = mix_video_configure(mix_video, (MixVideoConfigParams *)config_params, mix_drm);
+            if (mret != MIX_RESULT_SUCCESS) {
+                LOGE("%s(), %d: exit, mix_video_configure failed (ret == 0x%08x)",
+                        __func__, __LINE__, mret);
+                return;
+            }
+        }
+        FrameCount++;
+
+	retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+        return;
+    }
+
+    tBuff[3] = buffers[INPORT_INDEX]->nFilledLen & 0xFF;
+    tBuff[2] = (buffers[INPORT_INDEX]->nFilledLen >> 8) & 0xFF;
+    tBuff[1] = (buffers[INPORT_INDEX]->nFilledLen >> 16) & 0xFF;
+    tBuff[0] = (buffers[INPORT_INDEX]->nFilledLen >> 24) & 0xFF;
+    memcpy(tBuff+4, mixio->data, mixio->size);
+    mixio->data = tBuff;
+    mixio->size = mixio->size+4;
+
+    /* get MixBuffer */
+    mret = mix_video_get_mixbuffer(mix_video, &mix_buffer);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(), %d: exit, mix_video_get_mixbuffer failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        return;
+    }
+
+    /* fill MixBuffer */
+    mix_buffer->token = 0;
+    mret = mix_buffer_set_data(mix_buffer, mixio->data, mixio->size, (gulong)0, mix_buffer_callback);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(), %d: exit, mix_buffer_set_data failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        return;
+    }
+    mix_buffer_array[0] = mix_buffer;
+
+    /* set timestamp */
+    mix_videodecodeparams_set_timestamp(mix_decode_params, outtimestamp);
+
+    /* decode */
+ retry_decode:
+    mret = mix_video_decode(mix_video, mix_buffer_array, 1, NULL, 0, mix_decode_params);
+    LOGV("%s(%d)\n", __func__, __LINE__);
+    if (mret != MIX_RESULT_SUCCESS) {
+        if (mret == MIX_RESULT_OUTOFSURFACES) {
+            LOGV("%s() mix_video_decode() MIX_RESULT_OUTOFSURFACES", __func__);
+            goto retry_decode;
+        }
+        else if (mret == MIX_RESULT_DROPFRAME) {
+            LOGV("%s() mix_video_decode() Frame is dropped", __func__);
+            return;
+        }
+        LOGE("%s(), %d: exit, mix_video_decode failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        return;
+    }
+
+ retry_getframe:
+    /* ToDo - ready to send decoded frame to downstream */
+    MixVideoFrame *mixvideoframe;
+    mret = mix_video_get_frame(mix_video, &mixvideoframe);
+    if (mret != MIX_RESULT_SUCCESS) {
+        if (mret == MIX_RESULT_FRAME_NOTAVAIL) {
+            LOGE("mix_video_get_frame() MIX_RESULT_FRAME_NOTAVAIL");
+	} else if (mret == MIX_RESULT_EOS) {
+            LOGE("mix_video_get_frame() MIX_RESULT_EOS");
+	} else {
+            LOGE("%s(), %d mix_video_get_frame() failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+	}
+	goto end_getframe;
+    }
+    /* shall never happen */
+    if (!mixvideoframe) {
+        LOGE("mixvideoframe == NULL");
+	return;
+    }
+
+#if 0
+    mret = mix_video_eos(mix_video);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(), %d mix_video_eos() failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        return;
+    }
+#endif
+
+
+    MixIOVec *out_mixio;
+    out_mixio = (MixIOVec *)malloc(sizeof(MixIOVec));
+    if (!out_mixio) {
+        LOGE("%s(),%d: exit, failed to allocate out_mixio", __func__, __LINE__);
+        return;
+    }
+    //out_mixio->data = buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
+    out_mixio->data = buffers[OUTPORT_INDEX]->pBuffer + outfilledlen;
+
+    mret = mix_video_get_decoded_data(mix_video, out_mixio, mix_video_render_params, mixvideoframe);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(), %d: exit, mix_video_get_decoded_data failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        return;
+    }
+
+    mret = mix_video_release_frame(mix_video, mixvideoframe);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(), %d mix_video_release_frame() failed (ret == 0x%08x)",
+                __func__, __LINE__, mret);
+        return;
+    }
+
+//    /* set timestamp */
+//    mix_videodecodeparams_set_timestamp(mix_decode_params, outtimestamp);
+
+    outfilledlen += out_mixio->size;
+    goto retry_getframe;
+
+ end_getframe:
+ 
+
+    /* release MixBuffer */
+    if (mix_buffer) {
+        mix_video_release_mixbuffer(mix_video, mix_buffer);
+    }
+
+
+    outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
 
     buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
     buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
 
-    //if (!retain[OUTPORT_INDEX] == BUFFER_RETAIN_NOT_RETAIN)
-    //    DumpBuffer(buffers[OUTPORT_INDEX], false);
+    FrameCount++;
+    retain[OUTPORT_INDEX] = BUFFER_RETAIN_NOT_RETAIN;
 
     LOGV("%s(),%d: exit (ret = void)\n", __func__, __LINE__);
 }
