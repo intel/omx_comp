@@ -16,8 +16,6 @@
 #include <portbase.h>
 #include <componentbase.h>
 
-//#define PV_FULL_AVC_FRAME_MODE
-
 class MrstPsbComponent : public ComponentBase
 {
 public:
@@ -66,8 +64,16 @@ private:
 
     /* end of component methods & helpers */
 
-    OMX_VIDEO_CODINGTYPE coding_type;
-    bool isencoder;
+    /*
+     * vcp setting helpers
+     */
+    OMX_ERRORTYPE __RawChangePortParamWithVcp(MixVideoConfigParamsDec *vcp,
+                                              PortVideo *port);
+    OMX_ERRORTYPE __AvcChangePortParamWithVcp(MixVideoConfigParamsDec *vcp,
+                                              PortAvc *port);
+    OMX_ERRORTYPE ChangePortParamWithVcp(void);
+
+    /* end of vcp setting helpers */
 
     /* mix video */
     MixVideo *mix_video;
@@ -76,14 +82,17 @@ private:
     MixVideoDecodeParams *mix_decode_params;
     MixVideoConfigParamsDec *config_params;
     MixVideoRenderParams *mix_video_render_params;
-    MixVideoConfigParamsDecH264 *configH264;
     MixDisplayX11 *mix_display_x11;
 
-    MixIOVec *mixio;
+    MixIOVec *mixio_in;
+    MixIOVec *mixio_out;
     MixBuffer *mix_buffer;
 
-    unsigned char tBuff[4096];
+    OMX_VIDEO_CODINGTYPE coding_type;
+    bool isencoder;
     int FrameCount;
+    /* FIXME: tBuff is only for copying input NAL frame with it's size */
+    unsigned char tBuff[40960];
 
     /* constant */
     /* ports */
