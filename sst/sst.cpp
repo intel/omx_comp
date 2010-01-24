@@ -1477,7 +1477,7 @@ OMX_ERRORTYPE MrstSstComponent::__Mp3ChangeAcpWithPortParam(
         return OMX_ErrorBadParameter;
 
     return __Mp3ChangeAcp(acp, acp_changed,
-                          p.nChannels, p.nSampleRate, p.nBitRate/1000,
+                          p.nChannels, p.nSampleRate, p.nBitRate,
                           format, 3, 0);
 }
 
@@ -1560,7 +1560,7 @@ OMX_ERRORTYPE MrstSstComponent::__Mp3ChangePortParamWithAcp(
     memcpy(&p, port->GetPortMp3Param(), sizeof(OMX_AUDIO_PARAM_MP3TYPE));
 
     if ((MIX_ACP_NUM_CHANNELS(acp) != (int)p.nChannels) ||
-        (MIX_ACP_BITRATE(acp) != (int)p.nBitRate/1000) ||
+        (MIX_ACP_BITRATE(acp) != (int)p.nBitRate) ||
         (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSampleRate)) {
 
         p.nChannels = MIX_ACP_NUM_CHANNELS(acp);
