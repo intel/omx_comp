@@ -83,7 +83,6 @@ private:
     MixVideoConfigParamsDec *config_params;
     MixVideoRenderParams *mix_video_render_params;
     MixDisplayX11 *mix_display_x11;
-
     MixIOVec *mixio_in;
     MixIOVec *mixio_out;
     MixBuffer *mix_buffer;
@@ -91,6 +90,11 @@ private:
     OMX_VIDEO_CODINGTYPE coding_type;
     bool isencoder;
     int FrameCount;
+    unsigned int iFrameWidth;
+    unsigned int iFrameHeight;
+    unsigned int iStride;
+    unsigned int iSliceHeight;
+    unsigned int iFramerate;
     /* FIXME: tBuff is only for copying input NAL frame with it's size */
     unsigned char tBuff[40960];
 
@@ -100,20 +104,19 @@ private:
     const static OMX_U32 INPORT_INDEX = 0;
     const static OMX_U32 OUTPORT_INDEX = 1;
 
-    /* buffer */
-    /* FIXME */
-    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 5;
+    /* default buffer */
+    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 INPORT_AVC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 40960;
     const static OMX_U32 OUTPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_RAW_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_RAW_BUFFER_SIZE = 409600;
+    const static OMX_U32 OUTPORT_RAW_BUFFER_SIZE = 38016;
     const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 INPORT_RAW_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 409600;
-    const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 5;
+    const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 38016;
+    const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 OUTPORT_AVC_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 40960;
+    const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 2000;
 };
 
 #endif /* __WRS_OMXIL_INTEL_MRST_PSB */

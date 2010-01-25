@@ -44,6 +44,14 @@ extern "C" {
 
 #define PV_FULL_AVC_FRAME_MODE 0
 
+#if PV_FULL_AVC_FRAME_MODE
+ #define _MAX_NAL_PER_FRAME 100
+#else
+ #define _MAX_NAL_PER_FRAME 1
+#endif
+
+#define USE_G_CHIPSET_OVERLAY 0
+
 /*
  * constructor & destructor
  */
@@ -95,10 +103,6 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentAllocatePorts(void)
     else
         isencoder = false;
 
-    working_role = strpbrk(working_role, ".");
-    if (!strcmp(working_role, ".avc"))
-        coding_type = OMX_VIDEO_CodingAVC;
-
     if (isencoder) {
         raw_port_index = INPORT_INDEX;
         codec_port_index = OUTPORT_INDEX;
@@ -112,8 +116,16 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentAllocatePorts(void)
         raw_port_dir = OMX_DirOutput;
     }
 
-    if (coding_type == OMX_VIDEO_CodingAVC)
+    working_role = strpbrk(working_role, ".");
+    if (!working_role)
+        return OMX_ErrorUndefined;
+    working_role++;
+
+    if (!strcmp(working_role, "avc")) {
         ret = __AllocateAvcPort(codec_port_index, codec_port_dir);
+        coding_type = OMX_VIDEO_CodingAVC;
+    } else
+        ret = OMX_ErrorUndefined;
 
     if (ret != OMX_ErrorNone)
         goto free_ports;
@@ -178,7 +190,7 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateAvcPort(OMX_U32 port_index,
     if (dir == OMX_DirInput) {
         avcportdefinition.nBufferCountActual = INPORT_AVC_ACTUAL_BUFFER_COUNT;
         avcportdefinition.nBufferCountMin = INPORT_AVC_MIN_BUFFER_COUNT;
-        avcportdefinition.nBufferSize = INPORT_AVC_BUFFER_SIZE;
+        avcportdefinition.nBufferSize = (INPORT_AVC_BUFFER_SIZE * _MAX_NAL_PER_FRAME);
     }
     else {
         avcportdefinition.nBufferCountActual = OUTPORT_AVC_ACTUAL_BUFFER_COUNT;
@@ -262,13 +274,13 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateRawPort(OMX_U32 port_index,
     rawportdefinition.format.video.pNativeRender = NULL;
     rawportdefinition.format.video.nFrameWidth = 176;
     rawportdefinition.format.video.nFrameHeight = 144;
-    rawportdefinition.format.video.nStride = 0;
-    rawportdefinition.format.video.nSliceHeight = 0;
+    rawportdefinition.format.video.nStride = 176;
+    rawportdefinition.format.video.nSliceHeight = 144;
     rawportdefinition.format.video.nBitrate = 64000;
     rawportdefinition.format.video.xFramerate = 15 << 16;
     rawportdefinition.format.video.bFlagErrorConcealment = OMX_FALSE;
     rawportdefinition.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
-    rawportdefinition.format.video.eColorFormat = OMX_COLOR_FormatUnused;
+    rawportdefinition.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
     rawportdefinition.format.video.pNativeWindow = NULL;
     rawportdefinition.bBuffersContiguous = OMX_FALSE;
     rawportdefinition.nBufferAlignment = 0;
@@ -527,7 +539,13 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 
     g_type_init();
 
+    /* Initialize member variables */
     FrameCount = 0;
+    iFrameWidth = 176;
+    iFrameHeight = 144;
+    iStride = 176;
+    iSliceHeight = 144;
+    iFramerate = 15;
 
     /*
      * common codes
@@ -581,7 +599,6 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
         if (coding_type == OMX_VIDEO_CodingAVC) {
             MixVideoConfigParamsDecH264 *configH264 = NULL;
 
-            LOGV("%s(%d)\n", __func__, __LINE__);
             configH264 = mix_videoconfigparamsdec_h264_new();
             config_params = MIX_VIDEOCONFIGPARAMSDEC(configH264);
             /* mime type */
@@ -591,7 +608,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
                         __func__, __LINE__, mret);
                 goto exit_pinit;
             }
-        } 
+        }
         else {
             LOGE("%s(),%d: exit, unkown role (ret == 0x%08x)\n",
                  __func__, __LINE__, OMX_ErrorInvalidState);
@@ -637,8 +654,6 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
         goto exit_pinit;
     }
 
-    LOGV("%s(%d)\n", __func__, __LINE__);
-
     mixio_in = (MixIOVec *)malloc(sizeof(MixIOVec));
     if (!mixio_in) {
         LOGE("%s(),%d: exit, failed to allocate mixio_in (ret == 0x%08x)",
@@ -669,11 +684,12 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
  free_mixio_in:
     free(mixio_in);
  exit_pinit:
+    mix_videodecodeparams_unref(mix_decode_params);
     mix_videoconfigparamsdec_unref(config_params);
-    g_object_unref(G_OBJECT(mix_video));
     mix_displayx11_unref(mix_display_x11);
     mix_videoinitparams_unref(init_params);
     mix_params_unref(MIX_PARAMS(mix_drm));
+    mix_video_unref(mix_video);
 
     return OMX_ErrorInvalidState;
 }
@@ -683,11 +699,13 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     LOGV("%s(): enter\n", __func__);
 
+    mix_videodecodeparams_unref(mix_decode_params);
+    mix_videorenderparams_unref(mix_video_render_params);
     mix_videoconfigparamsdec_unref(config_params);
-    g_object_unref(G_OBJECT(mix_video));
     mix_displayx11_unref(mix_display_x11);
     mix_videoinitparams_unref(init_params);
     mix_params_unref(MIX_PARAMS(mix_drm));
+    mix_video_unref(mix_video);
 
     free(mixio_in);
     free(mixio_out);
@@ -773,6 +791,7 @@ void MrstPsbComponent::ProcessorProcess(
     mixio_out->size = buffers[OUTPORT_INDEX]->nAllocLen;
 
     LOGV("%s(): mixio_in->size=%d", __func__, mixio_in->size);
+    LOGV("%s(): mixio_out->size=%d", __func__, mixio_out->size);
 
 #if 0
     LOGV("nFlags=0x%08x", buffers[INPORT_INDEX]->nFlags);
@@ -792,29 +811,41 @@ void MrstPsbComponent::ProcessorProcess(
         (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG)) {
 
         if(FrameCount == 0) {
-            unsigned int width, height, framerate;
+            unsigned int width, height, stride, sliceheight, framerate;
 
-            tBuff[0] = 0x00;
-            tBuff[1] = 0x00;
-            tBuff[2] = 0x00;
-            tBuff[3] = 0x00;
-            tBuff[4] = 0x03;
-            tBuff[5] = 0x01;
-            tBuff[6] = 0x00;
-            tBuff[7] = 0x17;
-            memcpy(tBuff+8, mixio_in->data, mixio_in->size);
+            if (coding_type == OMX_VIDEO_CodingAVC) {
+                tBuff[0] = 0x00;
+                tBuff[1] = 0x00;
+                tBuff[2] = 0x00;
+                tBuff[3] = 0x00;
+                tBuff[4] = 0x03;
+                tBuff[5] = 0x01;
+                tBuff[6] = 0x00;
+                tBuff[7] = 0x17;
+                memcpy(tBuff+8, mixio_in->data, mixio_in->size);
 
-	    mret = nal_sps_parse(mixio_in->data, mixio_in->size, &width, &height, &framerate);
-            if (mret != H264_STATUS_OK) {
-                LOGE("%s(),%d: exit, nal_sps_parse failed (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
+                mret = nal_sps_parse(mixio_in->data, mixio_in->size, &width, &height,
+                                     &stride, &sliceheight, &framerate);
+                if (mret != H264_STATUS_OK) {
+                    LOGE("%s(),%d: exit, nal_sps_parse failed (ret == 0x%08x)",
+                            __func__, __LINE__, mret);
+                    return;
+                }
+                iFrameWidth = width;
+                iFrameHeight = height;
+                iStride = stride;
+                iSliceHeight = sliceheight;
+                iFramerate = framerate;
+            } else {
+                LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
+                        __func__, __LINE__, coding_type);
                 return;
-	    }
+            }
 
             /* configure params */
 
             /* frame rate - TODO? numerator:30 denominator:1 */
-            mret = mix_videoconfigparamsdec_set_frame_rate(config_params, framerate, 1);
+            mret = mix_videoconfigparamsdec_set_frame_rate(config_params, iFramerate, 1);
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_frame_rate failed (ret == 0x%08x)",
                         __func__, __LINE__, mret);
@@ -822,7 +853,7 @@ void MrstPsbComponent::ProcessorProcess(
             }
 
             /* Picture resolution */
-            mret = mix_videoconfigparamsdec_set_picture_res(config_params, width, height);
+            mret = mix_videoconfigparamsdec_set_picture_res(config_params, iFrameWidth, iFrameHeight);
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_picture_res failed (ret == 0x%08x)",
                         __func__, __LINE__, mret);
@@ -865,15 +896,15 @@ void MrstPsbComponent::ProcessorProcess(
             /* fill src_rect, the video size */
             src_rect.x = 0;
             src_rect.y = 0;
-            src_rect.width = width;
-            src_rect.height = height;
+            src_rect.width = iFrameWidth;
+            src_rect.height = iFrameHeight;
             /* fill dst_rect, the display size
              * TODO: we shall calculate the dst video position
              */
             dst_rect.x = 0;
             dst_rect.y = 0;
-            dst_rect.width = width;
-            dst_rect.height = height;
+            dst_rect.width = iFrameWidth;
+            dst_rect.height = iFrameHeight;
 
             mret = mix_videorenderparams_set_src_rect(mix_video_render_params, src_rect);
             if (mret != MIX_RESULT_SUCCESS) {
@@ -893,19 +924,27 @@ void MrstPsbComponent::ProcessorProcess(
             this->mix_video_render_params = mix_video_render_params;
         } 
         else if(FrameCount == 1) {
-            tBuff[31] = 0x01;
-            tBuff[32] = 0x00;
-            tBuff[33] = 0x04;
-            memcpy(tBuff+8+23+3, mixio_in->data, mixio_in->size);
+            if (coding_type == OMX_VIDEO_CodingAVC) {
+                tBuff[31] = 0x01;
+                tBuff[32] = 0x00;
+                tBuff[33] = 0x04;
+                memcpy(tBuff+8+23+3, mixio_in->data, mixio_in->size);
 
-            for(i = 0; i < 40; i+=8) {
-                LOGV("%02X %02X %02X %02X %02X %02X %02X %02X",
-                tBuff[i], tBuff[i+1], tBuff[i+2], tBuff[i+3],
-                tBuff[i+4], tBuff[i+5], tBuff[i+6], tBuff[i+7]);
+#if 0
+                for(i = 0; i < 40; i+=8) {
+                    LOGV("%02X %02X %02X %02X %02X %02X %02X %02X",
+                    tBuff[i], tBuff[i+1], tBuff[i+2], tBuff[i+3],
+                    tBuff[i+4], tBuff[i+5], tBuff[i+6], tBuff[i+7]);
+                }
+#endif
+
+                mixio_in->data = tBuff;
+                mixio_in->size = 38;
+            } else {
+                LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
+                        __func__, __LINE__, coding_type);
+                return;
             }
-
-            mixio_in->data = tBuff;
-            mixio_in->size = 38;
 
             mret = mix_videoconfigparamsdec_set_header(config_params, mixio_in);
             if (mret != MIX_RESULT_SUCCESS) {
@@ -919,26 +958,32 @@ void MrstPsbComponent::ProcessorProcess(
                         __func__, __LINE__, mret);
                 return;
             }
-	    LOGV("%s(): mix video configured", __func__);
+            LOGV("%s(): mix video configured", __func__);
 
-	    /*
-	     * port reconfigure
-	     */
-	    ChangePortParamWithVcp();
+            /*
+             * port reconfigure
+             */
+            ChangePortParamWithVcp();
         }
         FrameCount++;
 
-	retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+        retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
         return;
     }
 
-    tBuff[3] = buffers[INPORT_INDEX]->nFilledLen & 0xFF;
-    tBuff[2] = (buffers[INPORT_INDEX]->nFilledLen >> 8) & 0xFF;
-    tBuff[1] = (buffers[INPORT_INDEX]->nFilledLen >> 16) & 0xFF;
-    tBuff[0] = (buffers[INPORT_INDEX]->nFilledLen >> 24) & 0xFF;
-    memcpy(tBuff+4, mixio_in->data, mixio_in->size);
-    mixio_in->data = tBuff;
-    mixio_in->size = mixio_in->size+4;
+    if (coding_type == OMX_VIDEO_CodingAVC) {
+        tBuff[3] = buffers[INPORT_INDEX]->nFilledLen & 0xFF;
+        tBuff[2] = (buffers[INPORT_INDEX]->nFilledLen >> 8) & 0xFF;
+        tBuff[1] = (buffers[INPORT_INDEX]->nFilledLen >> 16) & 0xFF;
+        tBuff[0] = (buffers[INPORT_INDEX]->nFilledLen >> 24) & 0xFF;
+        memcpy(tBuff+4, mixio_in->data, mixio_in->size);
+        mixio_in->data = tBuff;
+        mixio_in->size = mixio_in->size+4;
+    } else {
+        LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
+               __func__, __LINE__, coding_type);
+        return;
+    }
 
     /* get MixBuffer */
     mret = mix_video_get_mixbuffer(mix_video, &mix_buffer);
@@ -964,7 +1009,6 @@ void MrstPsbComponent::ProcessorProcess(
     /* decode */
  retry_decode:
     mret = mix_video_decode(mix_video, mix_buffer_array, 1, NULL, 0, mix_decode_params);
-    LOGV("%s(%d)\n", __func__, __LINE__);
     if (mret != MIX_RESULT_SUCCESS) {
         if (mret == MIX_RESULT_OUTOFSURFACES) {
             LOGV("%s() mix_video_decode() MIX_RESULT_OUTOFSURFACES", __func__);
@@ -1008,12 +1052,17 @@ void MrstPsbComponent::ProcessorProcess(
     }
 #endif
 
+#if USE_G_CHIPSET_OVERLAY
+#else
     mret = mix_video_get_decoded_data(mix_video, mixio_out, mix_video_render_params, mixvideoframe);
     if (mret != MIX_RESULT_SUCCESS) {
         LOGE("%s(), %d: exit, mix_video_get_decoded_data failed (ret == 0x%08x)",
                 __func__, __LINE__, mret);
         return;
     }
+
+    outfilledlen += mixio_out->size;
+#endif
 
     mret = mix_video_release_frame(mix_video, mixvideoframe);
     if (mret != MIX_RESULT_SUCCESS) {
@@ -1022,10 +1071,8 @@ void MrstPsbComponent::ProcessorProcess(
         return;
     }
 
-//    /* set timestamp */
+    /* set timestamp */
 //    mix_videodecodeparams_set_timestamp(mix_decode_params, outtimestamp);
-
-    outfilledlen += mixio_out->size;
 
  end_getframe:
  
@@ -1059,40 +1106,28 @@ OMX_ERRORTYPE MrstPsbComponent::__RawChangePortParamWithVcp(
 {
     OMX_VIDEO_PARAM_PORTFORMATTYPE pf;
     OMX_PARAM_PORTDEFINITIONTYPE pd;
-    unsigned int framerate, fr_denom, width, height;
-    MIX_RESULT mret;
 
     memcpy(&pf, port->GetPortVideoParam(), sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE));
     memcpy(&pd, port->GetPortDefinition(), sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
 
-    /* get frame rate */
-    mret = mix_videoconfigparamsdec_get_frame_rate(vcp, &framerate, &fr_denom);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(),%d: exit, mix_videoconfigparamsdec_get_frame_rate failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        return OMX_ErrorBadParameter;
-    }
-
-    /* get picture resolution */
-    mret = mix_videoconfigparamsdec_get_picture_res(vcp, &width, &height);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(),%d: exit, mix_videoconfigparamsdec_get_picture_res failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        return OMX_ErrorBadParameter;
-    }
-
-    if ((framerate != (pf.xFramerate >> 16)) ||
-        (framerate != (pd.format.video.xFramerate >> 16)) ||
-        (width != pd.format.video.nFrameWidth) ||
-        (height != pd.format.video.nFrameHeight)) {
-        pf.xFramerate = framerate << 16;
-        pd.format.video.xFramerate = framerate << 16;
-        pd.format.video.nFrameWidth = width;
-        pd.format.video.nFrameHeight = height;
+    /* compare old value with new one */
+    if ((iFramerate != (pf.xFramerate >> 16)) ||
+        (iFramerate != (pd.format.video.xFramerate >> 16)) ||
+        (iFrameWidth != pd.format.video.nFrameWidth) ||
+        (iFrameHeight != pd.format.video.nFrameHeight) ||
+        (iStride != pd.format.video.nStride) ||
+        (iSliceHeight != pd.format.video.nSliceHeight)) {
+        pf.xFramerate = iFramerate << 16;
+        pd.format.video.xFramerate = iFramerate << 16;
+        pd.format.video.nFrameWidth = iFrameWidth;
+        pd.format.video.nFrameHeight = iFrameHeight;
+        pd.format.video.nStride = iStride;
+        pd.format.video.nSliceHeight = iSliceHeight;
+        pd.nBufferSize = (iSliceHeight * iStride * 3) >> 1;
     }
 
     port->SetPortVideoParam(&pf, false);
-    port->SetPortDefinition(&pd, false);
+    port->SetPortDefinition(&pd, true);
     return OMX_ErrorNone;
 }
 
@@ -1101,36 +1136,19 @@ OMX_ERRORTYPE MrstPsbComponent::__AvcChangePortParamWithVcp(
 {
     OMX_VIDEO_PARAM_PORTFORMATTYPE pf;
     OMX_PARAM_PORTDEFINITIONTYPE pd;
-    unsigned int framerate, fr_denom, width, height;
-    MIX_RESULT mret;
 
     memcpy(&pf, port->GetPortVideoParam(), sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE));
     memcpy(&pd, port->GetPortDefinition(), sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
 
-    /* get frame rate */
-    mret = mix_videoconfigparamsdec_get_frame_rate(vcp, &framerate, &fr_denom);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(),%d: exit, mix_videoconfigparamsdec_get_frame_rate failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        return OMX_ErrorBadParameter;
-    }
-
-    /* get picture resolution */
-    mret = mix_videoconfigparamsdec_get_picture_res(vcp, &width, &height);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(),%d: exit, mix_videoconfigparamsdec_get_picture_res failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        return OMX_ErrorBadParameter;
-    }
-
-    if ((framerate != (pf.xFramerate >> 16)) ||
-        (framerate != (pd.format.video.xFramerate >> 16)) ||
-        (width != pd.format.video.nFrameWidth) ||
-        (height != pd.format.video.nFrameHeight)) {
-        pf.xFramerate = framerate << 16;
-        pd.format.video.xFramerate = framerate << 16;
-        pd.format.video.nFrameWidth = width;
-        pd.format.video.nFrameHeight = height;
+    /* compare old value with new one */
+    if ((iFramerate != (pf.xFramerate >> 16)) ||
+        (iFramerate != (pd.format.video.xFramerate >> 16)) ||
+        (iFrameWidth != pd.format.video.nFrameWidth) ||
+        (iFrameHeight != pd.format.video.nFrameHeight)) {
+        pf.xFramerate = iFramerate << 16;
+        pd.format.video.xFramerate = iFramerate << 16;
+        pd.format.video.nFrameWidth = iFrameWidth;
+        pd.format.video.nFrameHeight = iFrameHeight;
     }
 
     port->SetPortVideoParam(&pf, false);
