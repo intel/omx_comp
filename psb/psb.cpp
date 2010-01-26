@@ -971,20 +971,6 @@ void MrstPsbComponent::ProcessorProcess(
         return;
     }
 
-    if (coding_type == OMX_VIDEO_CodingAVC) {
-        tBuff[3] = buffers[INPORT_INDEX]->nFilledLen & 0xFF;
-        tBuff[2] = (buffers[INPORT_INDEX]->nFilledLen >> 8) & 0xFF;
-        tBuff[1] = (buffers[INPORT_INDEX]->nFilledLen >> 16) & 0xFF;
-        tBuff[0] = (buffers[INPORT_INDEX]->nFilledLen >> 24) & 0xFF;
-        memcpy(tBuff+4, mixio_in->data, mixio_in->size);
-        mixio_in->data = tBuff;
-        mixio_in->size = mixio_in->size+4;
-    } else {
-        LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
-               __func__, __LINE__, coding_type);
-        return;
-    }
-
     /* get MixBuffer */
     mret = mix_video_get_mixbuffer(mix_video, &mix_buffer);
     if (mret != MIX_RESULT_SUCCESS) {
