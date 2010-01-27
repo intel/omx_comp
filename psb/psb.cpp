@@ -445,6 +445,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
                 return OMX_ErrorIncorrectStateOperation;
             }
         }
+        iFramerate = (p->xFramerate>>16);
 
         ret = port->SetPortVideoParam(p, false);
         break;
@@ -545,7 +546,6 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     iFrameHeight = 144;
     iStride = 176;
     iSliceHeight = 144;
-    iFramerate = 15;
 
     /*
      * common codes
@@ -811,7 +811,7 @@ void MrstPsbComponent::ProcessorProcess(
         (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG)) {
 
         if(FrameCount == 0) {
-            unsigned int width, height, stride, sliceheight, framerate;
+            unsigned int width, height, stride, sliceheight;
 
             if (coding_type == OMX_VIDEO_CodingAVC) {
                 tBuff[0] = 0x00;
@@ -825,7 +825,7 @@ void MrstPsbComponent::ProcessorProcess(
                 memcpy(tBuff+8, mixio_in->data, mixio_in->size);
 
                 mret = nal_sps_parse(mixio_in->data, mixio_in->size, &width, &height,
-                                     &stride, &sliceheight, &framerate);
+                                     &stride, &sliceheight);
                 if (mret != H264_STATUS_OK) {
                     LOGE("%s(),%d: exit, nal_sps_parse failed (ret == 0x%08x)",
                             __func__, __LINE__, mret);
@@ -835,7 +835,6 @@ void MrstPsbComponent::ProcessorProcess(
                 iFrameHeight = height;
                 iStride = stride;
                 iSliceHeight = sliceheight;
-                iFramerate = framerate;
             } else {
                 LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
                         __func__, __LINE__, coding_type);
@@ -1096,6 +1095,19 @@ OMX_ERRORTYPE MrstPsbComponent::__RawChangePortParamWithVcp(
     memcpy(&pf, port->GetPortVideoParam(), sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE));
     memcpy(&pd, port->GetPortDefinition(), sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
 
+    LOGV("%s(): iFramerate=%d, pf.xFramerate=%d", __func__,
+                iFramerate, (pf.xFramerate >> 16));
+    LOGV("%s(): iFramerate=%d, pf.format.video.xFramerate=%d", __func__,
+                iFramerate, (pd.format.video.xFramerate >> 16));
+    LOGV("%s(): iFrameWidth=%d, pd.format.video.nFrameWidth=%d", __func__,
+                iFrameWidth, pd.format.video.nFrameWidth);
+    LOGV("%s(): iFrameHeight=%d, pd.format.video.nFrameHeight=%d", __func__,
+                iFrameHeight, pd.format.video.nFrameHeight);
+    LOGV("%s(): iStride=%d, pd.format.video.nStride=%d", __func__,
+                iStride, pd.format.video.nStride);
+    LOGV("%s(): iSliceHeight=%d, pd.format.video.nSliceHeight=%d", __func__,
+                iSliceHeight, pd.format.video.nSliceHeight);
+
     /* compare old value with new one */
     if ((iFramerate != (pf.xFramerate >> 16)) ||
         (iFramerate != (pd.format.video.xFramerate >> 16)) ||
@@ -1110,6 +1122,7 @@ OMX_ERRORTYPE MrstPsbComponent::__RawChangePortParamWithVcp(
         pd.format.video.nStride = iStride;
         pd.format.video.nSliceHeight = iSliceHeight;
         pd.nBufferSize = (iSliceHeight * iStride * 3) >> 1;
+        LOGV("%s(): Replace old value with new one", __func__);
     }
 
     port->SetPortVideoParam(&pf, false);
