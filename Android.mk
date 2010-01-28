@@ -1,5 +1,3 @@
-# Copyright (c) 2009-2010 Wind River Systems, Inc.
-
 ifeq ($(strip $(BOARD_USES_MRST_OMX)),true)
 
 LOCAL_PATH := $(call my-dir)
