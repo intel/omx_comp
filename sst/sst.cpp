@@ -1341,7 +1341,8 @@ static inline OMX_ERRORTYPE __AacChangeAcp(MixAudioConfigParams *acp,
 
     if ((MIX_ACP_NUM_CHANNELS(acp) != channel) ||
         (MIX_ACP_SAMPLE_FREQ(acp) != frequency) ||
-        (MIX_ACP_AAC_AOT(acp) != (unsigned)aot) ||
+        (mix_acp_aac_get_aot(MIX_AUDIOCONFIGPARAMSAAC(acp)) !=
+         (unsigned)aot) ||
         (mix_acp_aac_get_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp)) !=
          (aot - 1))) {
 
@@ -1361,7 +1362,8 @@ static inline OMX_ERRORTYPE __AacChangeAcp(MixAudioConfigParams *acp,
         MIX_ACP_SAMPLE_FREQ(acp) = frequency;
         MIX_ACP_BITRATE(acp) = bitrate;
 
-        MIX_ACP_AAC_AOT(acp) = aot; /* 1:Main, 2:LC, 3:SSR, 4:SBR */
+        /* 1:Main, 2:LC, 3:SSR, 4:SBR */
+        mix_acp_aac_set_aot(MIX_AUDIOCONFIGPARAMSAAC(acp), aot);
         /* 0:Main, 1:LC, 2:SSR, 3:SBR */
         mix_acp_aac_set_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp),
                                     (MixAACProfile)(aot - 1));
@@ -1373,7 +1375,7 @@ static inline OMX_ERRORTYPE __AacChangeAcp(MixAudioConfigParams *acp,
         LOGV("%s():   channel : %d\n", __func__, MIX_ACP_NUM_CHANNELS(acp));
     }
 
-    MIX_ACP_AAC_MPEG_ID(acp) = MIX_AAC_MPEG_4_ID;
+    mix_acp_aac_set_mpeg_id(MIX_AUDIOCONFIGPARAMSAAC(acp), MIX_AAC_MPEG_4_ID);
     MIX_ACP_AAC_CRC(acp) = 0; /* 0:disabled, 1:enabled */
     /* 0:CBR, 1:VBR */
     mix_acp_aac_set_bit_rate_type(MIX_AUDIOCONFIGPARAMSAAC(acp),
