@@ -902,11 +902,12 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
         LOGV("%s:   crc              : %d\n", __func__, MIX_ACP_MP3_CRC(acp));
     }
     else if (coding_type == OMX_AUDIO_CodingAAC) {
-        LOGV("%s:   aot              : %d", __func__, MIX_ACP_AAC_AOT(acp));
+        LOGV("%s:   aot              : %d", __func__,
+             mix_acp_aac_get_aot(MIX_AUDIOCONFIGPARAMSAAC(acp)));
         LOGV("%s:   aac profile      : %d", __func__,
              mix_acp_aac_get_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp)));
         LOGV("%s:   MPEG id          : %d", __func__,
-             MIX_ACP_AAC_MPEG_ID(acp));
+             mix_acp_aac_get_mpeg_id(MIX_AUDIOCONFIGPARAMSAAC(acp)));
         LOGV("%s:   bitstream format : %d", __func__,
              mix_acp_aac_get_bit_stream_format(MIX_AUDIOCONFIGPARAMSAAC(acp)));
         LOGV("%s:   bitrate type     : %d", __func__,
@@ -1341,7 +1342,8 @@ static inline OMX_ERRORTYPE __AacChangeAcp(MixAudioConfigParams *acp,
 
     if ((MIX_ACP_NUM_CHANNELS(acp) != channel) ||
         (MIX_ACP_SAMPLE_FREQ(acp) != frequency) ||
-        (MIX_ACP_AAC_AOT(acp) != (unsigned)aot) ||
+        (mix_acp_aac_get_aot(MIX_AUDIOCONFIGPARAMSAAC(acp)) !=
+         (unsigned)aot) ||
         (mix_acp_aac_get_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp)) !=
          (aot - 1))) {
 
@@ -1352,7 +1354,7 @@ static inline OMX_ERRORTYPE __AacChangeAcp(MixAudioConfigParams *acp,
         LOGV_IF("%s(): samplingrate : %d != %d\n", __func__,
                 MIX_ACP_SAMPLE_FREQ(acp), frequency);
         LOGV_IF("%s(): aot : %d != %d\n", __func__,
-                MIX_ACP_AAC_AOT(acp), aot);
+                mix_acp_aac_get_aot(MIX_AUDIOCONFIGPARAMSAAC(acp)), aot);
         LOGV_IF("%s(): profile : %d != %d\n", __func__,
                 mix_acp_aac_get_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp)),
                 (aot - 1));
@@ -1361,19 +1363,24 @@ static inline OMX_ERRORTYPE __AacChangeAcp(MixAudioConfigParams *acp,
         MIX_ACP_SAMPLE_FREQ(acp) = frequency;
         MIX_ACP_BITRATE(acp) = bitrate;
 
-        MIX_ACP_AAC_AOT(acp) = aot; /* 1:Main, 2:LC, 3:SSR, 4:SBR */
+        MIX_ACP_AAC_SAMPLE_RATE(acp) = frequency;
+        MIX_ACP_AAC_CHANNELS(acp) = channel;
+
+        /* 1:Main, 2:LC, 3:SSR, 4:SBR */
+        mix_acp_aac_set_aot(MIX_AUDIOCONFIGPARAMSAAC(acp), aot);
         /* 0:Main, 1:LC, 2:SSR, 3:SBR */
         mix_acp_aac_set_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp),
                                     (MixAACProfile)(aot - 1));
 
         LOGV("%s(): audio configration parameter has been chagned\n",
              __func__);
-        LOGV("%s():   aot : %d\n", __func__, MIX_ACP_AAC_AOT(acp));
+        LOGV("%s():   aot : %d\n", __func__,
+             mix_acp_aac_get_aot(MIX_AUDIOCONFIGPARAMSAAC(acp)));
         LOGV("%s():   frequency : %d\n", __func__, MIX_ACP_SAMPLE_FREQ(acp));
         LOGV("%s():   channel : %d\n", __func__, MIX_ACP_NUM_CHANNELS(acp));
     }
 
-    MIX_ACP_AAC_MPEG_ID(acp) = MIX_AAC_MPEG_4_ID;
+    mix_acp_aac_set_mpeg_id(MIX_AUDIOCONFIGPARAMSAAC(acp), MIX_AAC_MPEG_4_ID);
     MIX_ACP_AAC_CRC(acp) = 0; /* 0:disabled, 1:enabled */
     /* 0:CBR, 1:VBR */
     mix_acp_aac_set_bit_rate_type(MIX_AUDIOCONFIGPARAMSAAC(acp),
