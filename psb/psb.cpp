@@ -784,14 +784,16 @@ void MrstPsbComponent::ProcessorProcess(
 
     mixio_in->data = buffers[INPORT_INDEX]->pBuffer +
         buffers[INPORT_INDEX]->nOffset;
-    mixio_in->size = buffers[INPORT_INDEX]->nFilledLen;
+    mixio_in->data_size = buffers[INPORT_INDEX]->nFilledLen;
+    mixio_in->buffer_size = buffers[INPORT_INDEX]->nAllocLen;
 
     mixio_out->data = buffers[OUTPORT_INDEX]->pBuffer +
         buffers[OUTPORT_INDEX]->nOffset;
-    mixio_out->size = buffers[OUTPORT_INDEX]->nAllocLen;
+    mixio_out->data_size = 0;
+    mixio_out->buffer_size = buffers[OUTPORT_INDEX]->nAllocLen;
 
-    LOGV("%s(): mixio_in->size=%d", __func__, mixio_in->size);
-    LOGV("%s(): mixio_out->size=%d", __func__, mixio_out->size);
+    LOGV("%s(): mixio_in->data_size=%d", __func__, mixio_in->data_size);
+    LOGV("%s(): mixio_out->buffer_size=%d", __func__, mixio_out->buffer_size);
 
 #if 0
     LOGV("nFlags=0x%08x", buffers[INPORT_INDEX]->nFlags);
@@ -822,9 +824,9 @@ void MrstPsbComponent::ProcessorProcess(
                 tBuff[5] = 0x01;
                 tBuff[6] = 0x00;
                 tBuff[7] = 0x17;
-                memcpy(tBuff+8, mixio_in->data, mixio_in->size);
+                memcpy(tBuff+8, mixio_in->data, mixio_in->data_size);
 
-                mret = nal_sps_parse(mixio_in->data, mixio_in->size, &width, &height,
+                mret = nal_sps_parse(mixio_in->data, mixio_in->data_size, &width, &height,
                                      &stride, &sliceheight);
                 if (mret != H264_STATUS_OK) {
                     LOGE("%s(),%d: exit, nal_sps_parse failed (ret == 0x%08x)",
@@ -927,7 +929,7 @@ void MrstPsbComponent::ProcessorProcess(
                 tBuff[31] = 0x01;
                 tBuff[32] = 0x00;
                 tBuff[33] = 0x04;
-                memcpy(tBuff+8+23+3, mixio_in->data, mixio_in->size);
+                memcpy(tBuff+8+23+3, mixio_in->data, mixio_in->data_size);
 
 #if 0
                 for(i = 0; i < 40; i+=8) {
@@ -938,7 +940,7 @@ void MrstPsbComponent::ProcessorProcess(
 #endif
 
                 mixio_in->data = tBuff;
-                mixio_in->size = 38;
+                mixio_in->data_size = 38;
             } else {
                 LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
                         __func__, __LINE__, coding_type);
@@ -980,7 +982,7 @@ void MrstPsbComponent::ProcessorProcess(
 
     /* fill MixBuffer */
     mix_buffer->token = 0;
-    mret = mix_buffer_set_data(mix_buffer, mixio_in->data, mixio_in->size, (gulong)0, mix_buffer_callback);
+    mret = mix_buffer_set_data(mix_buffer, mixio_in->data, mixio_in->data_size, (gulong)0, mix_buffer_callback);
     if (mret != MIX_RESULT_SUCCESS) {
         LOGE("%s(), %d: exit, mix_buffer_set_data failed (ret == 0x%08x)",
                 __func__, __LINE__, mret);
@@ -993,7 +995,7 @@ void MrstPsbComponent::ProcessorProcess(
 
     /* decode */
  retry_decode:
-    mret = mix_video_decode(mix_video, mix_buffer_array, 1, NULL, 0, mix_decode_params);
+    mret = mix_video_decode(mix_video, mix_buffer_array, 1, mix_decode_params);
     if (mret != MIX_RESULT_SUCCESS) {
         if (mret == MIX_RESULT_OUTOFSURFACES) {
             LOGV("%s() mix_video_decode() MIX_RESULT_OUTOFSURFACES", __func__);
@@ -1046,7 +1048,7 @@ void MrstPsbComponent::ProcessorProcess(
         return;
     }
 
-    outfilledlen += mixio_out->size;
+    outfilledlen += mixio_out->data_size;
 #endif
 
     mret = mix_video_release_frame(mix_video, mixvideoframe);
