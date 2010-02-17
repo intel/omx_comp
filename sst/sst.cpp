@@ -1050,7 +1050,7 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorResume(void)
 }
 
 /* implement ComponentBase::ProcessorProcess */
-void MrstSstComponent::ProcessorProcess(
+OMX_ERRORTYPE MrstSstComponent::ProcessorProcess(
     OMX_BUFFERHEADERTYPE **buffers,
     buffer_retain_t *retain,
     OMX_U32 nr_buffers)
@@ -1064,7 +1064,7 @@ void MrstSstComponent::ProcessorProcess(
     MixState mstate;
     bool acp_changed = false;
 
-    OMX_ERRORTYPE oret;
+    OMX_ERRORTYPE oret = OMX_ErrorNone;
     MIX_RESULT mret;
 
     LOGV("%s(): enter\n", __func__);
@@ -1129,6 +1129,7 @@ void MrstSstComponent::ProcessorProcess(
             if (!MIX_SUCCEEDED(mret)) {
                 LOGE("%s(),%d: exit, mix_audio_configure failed "
                      "(ret == 0x%08x)", __func__, __LINE__, mret);
+                oret = OMX_ErrorUndefined;
                 goto out;
             }
             LOGV("%s(): mix audio configured", __func__);
@@ -1176,6 +1177,7 @@ void MrstSstComponent::ProcessorProcess(
             if (!MIX_SUCCEEDED(mret)) {
                 LOGE("%s(),%d: faild to mix_audio_start (ret == 0x%08x)",
                      __func__, __LINE__, mret);
+                oret = OMX_ErrorUndefined;
                 goto out;
             }
 #endif
@@ -1195,6 +1197,7 @@ void MrstSstComponent::ProcessorProcess(
         if (!MIX_SUCCEEDED(mret)) {
             LOGE("%s(), %d: exit, mix_audio_decode failed (ret == 0x%08x)",
                  __func__, __LINE__, mret);
+            oret = OMX_ErrorUndefined;
             goto out;
         }
         //LOGV("%s(): returned from mix_audio_decode()\n", __func__);
@@ -1205,6 +1208,7 @@ void MrstSstComponent::ProcessorProcess(
         if (!MIX_SUCCEEDED(mret)) {
             LOGE("%s(), %d: exit, mix_audio_decode failed (ret == 0x%08x)",
                  __func__, __LINE__, mret);
+            oret = OMX_ErrorUndefined;
             goto out;
         }
         //LOGV("%s(): returned from mix_audio_capture_encode()\n", __func__);
@@ -1262,6 +1266,8 @@ out:
 #endif
 
     LOGV("%s(),%d: exit, done\n", __func__, __LINE__);
+
+    return oret;
 }
 
 /* end of implement ComponentBase::Processor[*] */
