@@ -758,7 +758,7 @@ static void mix_buffer_callback(gulong token, guchar *data)
 }
 
 /* implement ComponentBase::ProcessorProcess */
-void MrstPsbComponent::ProcessorProcess(
+OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
     OMX_BUFFERHEADERTYPE **buffers,
     buffer_retain_t *retain,
     OMX_U32 nr_buffers)
@@ -779,7 +779,7 @@ void MrstPsbComponent::ProcessorProcess(
     if (!buffers[INPORT_INDEX]->nFilledLen) {
         LOGE("%s(),%d: exit, input buffer's nFilledLen is zero (ret = void)\n",
              __func__, __LINE__);
-        return;
+        return OMX_ErrorNone;
     }
 
     mixio_in->data = buffers[INPORT_INDEX]->pBuffer +
@@ -831,7 +831,7 @@ void MrstPsbComponent::ProcessorProcess(
                 if (mret != H264_STATUS_OK) {
                     LOGE("%s(),%d: exit, nal_sps_parse failed (ret == 0x%08x)",
                             __func__, __LINE__, mret);
-                    return;
+                    return OMX_ErrorUndefined;
                 }
                 iFrameWidth = width;
                 iFrameHeight = height;
@@ -840,7 +840,7 @@ void MrstPsbComponent::ProcessorProcess(
             } else {
                 LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
                         __func__, __LINE__, coding_type);
-                return;
+                return OMX_ErrorUndefined;
             }
 
             /* configure params */
@@ -850,7 +850,7 @@ void MrstPsbComponent::ProcessorProcess(
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_frame_rate failed (ret == 0x%08x)",
                         __func__, __LINE__, mret);
-                return;
+                return OMX_ErrorUndefined;
             }
 
             /* Picture resolution */
@@ -858,7 +858,7 @@ void MrstPsbComponent::ProcessorProcess(
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_picture_res failed (ret == 0x%08x)",
                         __func__, __LINE__, mret);
-                return;
+                return OMX_ErrorUndefined;
             }
 
             /* buffer pool size */
@@ -866,14 +866,14 @@ void MrstPsbComponent::ProcessorProcess(
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_buffer_pool_size failed (ret == 0x%08x)",
                         __func__, __LINE__, mret);
-                return;
+                return OMX_ErrorUndefined;
             }
 
             mret = mix_videoconfigparamsdec_set_extra_surface_allocation(config_params, 4);
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_extra_surface_allocation (ret == 0x%08x)",
                         __func__, __LINE__, mret);
-                return;
+                return OMX_ErrorUndefined;
             }
 
             MixVideoRenderParams *mix_video_render_params = NULL;
@@ -882,14 +882,14 @@ void MrstPsbComponent::ProcessorProcess(
             if (!mix_video_render_params) {
                 LOGE("%s(),%d: exit, mix_videorenderparams_new failed (ret == 0x%08x)",
                         __func__, __LINE__, mret);
-                return;
+                return OMX_ErrorUndefined;
             }
 
             mret = mix_videorenderparams_set_display(mix_video_render_params, MIX_DISPLAY(mix_display_x11));
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(),%d: exit, mix_videorenderparams_set_display (ret == 0x%08x)",
                         __func__, __LINE__, mret);
-                return;
+                return OMX_ErrorUndefined;
             }
 
             MixRect src_rect, dst_rect;
@@ -910,17 +910,17 @@ void MrstPsbComponent::ProcessorProcess(
             mret = mix_videorenderparams_set_src_rect(mix_video_render_params, src_rect);
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("Failed to set src_rect\n");
-                return;
+                return OMX_ErrorUndefined;
             }
             mret = mix_videorenderparams_set_dest_rect(mix_video_render_params, dst_rect);
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("Failed to set dst_rect\n");
-                return;
+                return OMX_ErrorUndefined;
             }
             mret = mix_videorenderparams_set_clipping_rects(mix_video_render_params, NULL, 0);
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("Failed to set clipping rects\n");
-                return;
+                return OMX_ErrorUndefined;
             }
             this->mix_video_render_params = mix_video_render_params;
 
@@ -946,20 +946,20 @@ void MrstPsbComponent::ProcessorProcess(
             } else {
                 LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
                         __func__, __LINE__, coding_type);
-                return;
+                return OMX_ErrorUndefined;
             }
 
             mret = mix_videoconfigparamsdec_set_header(config_params, mixio_in);
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(), %d: exit, mix_videoconfigparamsdec_set_header failed (ret == 0x%08x)",
                         __func__, __LINE__, mret);
-                return;
+                return OMX_ErrorUndefined;
             }
             mret = mix_video_configure(mix_video, (MixVideoConfigParams *)config_params, mix_drm);
             if (mret != MIX_RESULT_SUCCESS) {
                 LOGE("%s(), %d: exit, mix_video_configure failed (ret == 0x%08x)",
                         __func__, __LINE__, mret);
-                return;
+                return OMX_ErrorUndefined;
             }
             LOGV("%s(): mix video configured", __func__);
 
@@ -970,7 +970,7 @@ void MrstPsbComponent::ProcessorProcess(
         }
         FrameCount++;
 
-        return;
+        return OMX_ErrorNone;
     }
 
     /* get MixBuffer */
@@ -978,7 +978,7 @@ void MrstPsbComponent::ProcessorProcess(
     if (mret != MIX_RESULT_SUCCESS) {
         LOGE("%s(), %d: exit, mix_video_get_mixbuffer failed (ret == 0x%08x)",
                 __func__, __LINE__, mret);
-        return;
+        return OMX_ErrorUndefined;
     }
 
     /* fill MixBuffer */
@@ -987,7 +987,7 @@ void MrstPsbComponent::ProcessorProcess(
     if (mret != MIX_RESULT_SUCCESS) {
         LOGE("%s(), %d: exit, mix_buffer_set_data failed (ret == 0x%08x)",
                 __func__, __LINE__, mret);
-        return;
+        return OMX_ErrorUndefined;
     }
     mix_buffer_array[0] = mix_buffer;
 
@@ -1004,11 +1004,11 @@ void MrstPsbComponent::ProcessorProcess(
         }
         else if (mret == MIX_RESULT_DROPFRAME) {
             LOGV("%s() mix_video_decode() Frame is dropped", __func__);
-            return;
+            return OMX_ErrorNone;
         }
         LOGE("%s(), %d: exit, mix_video_decode failed (ret == 0x%08x)",
                 __func__, __LINE__, mret);
-        return;
+        return OMX_ErrorUndefined;
     }
 
     /* ToDo - ready to send decoded frame to downstream */
@@ -1028,7 +1028,7 @@ void MrstPsbComponent::ProcessorProcess(
     /* shall never happen */
     if (!mixvideoframe) {
         LOGE("mixvideoframe == NULL");
-	return;
+	return OMX_ErrorUndefined;
     }
 
 #if 0
@@ -1036,7 +1036,7 @@ void MrstPsbComponent::ProcessorProcess(
     if (mret != MIX_RESULT_SUCCESS) {
         LOGE("%s(), %d mix_video_eos() failed (ret == 0x%08x)",
                 __func__, __LINE__, mret);
-        return;
+        return OMX_ErrorUndefined;
     }
 #endif
 
@@ -1046,7 +1046,7 @@ void MrstPsbComponent::ProcessorProcess(
     if (mret != MIX_RESULT_SUCCESS) {
         LOGE("%s(), %d: exit, mix_video_get_decoded_data failed (ret == 0x%08x)",
                 __func__, __LINE__, mret);
-        return;
+        return OMX_ErrorUndefined;
     }
 
     outfilledlen += mixio_out->data_size;
@@ -1056,7 +1056,7 @@ void MrstPsbComponent::ProcessorProcess(
     if (mret != MIX_RESULT_SUCCESS) {
         LOGE("%s(), %d mix_video_release_frame() failed (ret == 0x%08x)",
                 __func__, __LINE__, mret);
-        return;
+        return OMX_ErrorUndefined;
     }
 
     /* set timestamp */
@@ -1079,7 +1079,7 @@ void MrstPsbComponent::ProcessorProcess(
     retain[OUTPORT_INDEX] = BUFFER_RETAIN_NOT_RETAIN;
 
     LOGV("%s(),%d: exit (ret = void)\n", __func__, __LINE__);
-    return;
+    return OMX_ErrorNone;
 
 }
 

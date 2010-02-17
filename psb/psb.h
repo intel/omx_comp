@@ -58,9 +58,9 @@ private:
     virtual OMX_ERRORTYPE ProcessorStop(void);  /* Executing/Pause to Idle */
     virtual OMX_ERRORTYPE ProcessorPause(void); /* Executing to Pause */
     virtual OMX_ERRORTYPE ProcessorResume(void);/* Pause to Executing */
-    virtual void ProcessorProcess(OMX_BUFFERHEADERTYPE **buffers,
-                                  buffer_retain_t *retain,
-                                  OMX_U32 nr_buffers);
+    virtual OMX_ERRORTYPE ProcessorProcess(OMX_BUFFERHEADERTYPE **buffers,
+                                           buffer_retain_t *retain,
+                                           OMX_U32 nr_buffers);
 
     /* end of component methods & helpers */
 
