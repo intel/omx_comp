@@ -67,34 +67,43 @@ private:
     /*
      * vcp setting helpers
      */
-    OMX_ERRORTYPE __RawChangePortParamWithVcp(MixVideoConfigParamsDec *vcp,
+    OMX_ERRORTYPE __RawChangePortParamWithVcp(MixVideoConfigParams *vcp,
                                               PortVideo *port);
-    OMX_ERRORTYPE __AvcChangePortParamWithVcp(MixVideoConfigParamsDec *vcp,
+    OMX_ERRORTYPE __AvcChangePortParamWithVcp(MixVideoConfigParams *vcp,
                                               PortAvc *port);
     OMX_ERRORTYPE ChangePortParamWithVcp(void);
+
+    OMX_ERRORTYPE __AvcChangeVcpWithPortParam(MixVideoConfigParams *vcp,
+                                             PortAvc *port, bool *vcp_changed);
+    OMX_ERRORTYPE ChangeVcpWithPortParam(MixVideoConfigParams *vcp,
+                                         PortBase *port, bool *vcp_changed);
+
+    OMX_ERRORTYPE __AvcChangePortParamWithCodecData(const OMX_U8 *codec_data,
+                                                    OMX_U32 size,
+                                                    PortBase **ports);
+    OMX_ERRORTYPE ChangePortParamWithCodecData(const OMX_U8 *codec_data,
+                                               OMX_U32 size,
+                                               PortBase **ports);
+
+    OMX_ERRORTYPE ChangeVrpWithPortParam(MixVideoRenderParams *vrp,
+                                         PortVideo *port);
 
     /* end of vcp setting helpers */
 
     /* mix video */
-    MixVideo *mix_video;
-    MixDrmParams *mix_drm;
-    MixVideoInitParams *init_params;
-    MixVideoDecodeParams *mix_decode_params;
-    MixVideoConfigParamsDec *config_params;
-    MixVideoRenderParams *mix_video_render_params;
-    MixDisplayX11 *mix_display_x11;
-    MixIOVec *mixio_in;
-    MixIOVec *mixio_out;
-    MixBuffer *mix_buffer;
+    MixVideo *mix;
+    MixVideoInitParams *vip;
+    MixParams *mvp;
+    MixVideoConfigParams *vcp;
+    MixVideoRenderParams *vrp;
+    MixDisplayX11 *display;
+    MixBuffer *mixbuffer_in[1];
+    MixIOVec *mixiovec_out[1];
 
     OMX_VIDEO_CODINGTYPE coding_type;
-    bool isencoder;
+    MixCodecMode codec_mode;
+
     int FrameCount;
-    unsigned int iFrameWidth;
-    unsigned int iFrameHeight;
-    unsigned int iStride;
-    unsigned int iSliceHeight;
-    unsigned int iFramerate;
     /* FIXME: tBuff is only for copying input NAL frame with it's size */
     unsigned char tBuff[40960];
 

@@ -36,7 +36,7 @@ extern "C" {
 
 #include "psb.h"
 
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #define LOG_TAG "mrst_psb"
 #include <log.h>
@@ -59,14 +59,14 @@ MrstPsbComponent::MrstPsbComponent()
 {
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = void)\n", __func__, __LINE__);
+    LOGV("%s(),%d: exit\n", __func__, __LINE__);
 }
 
 MrstPsbComponent::~MrstPsbComponent()
 {
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = void)\n", __func__, __LINE__);
+    LOGV("%s(),%d: exit\n", __func__, __LINE__);
 }
 
 /* end of constructor & destructor */
@@ -82,6 +82,8 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentAllocatePorts(void)
     OMX_PORT_PARAM_TYPE portparam;
 
     const char *working_role;
+
+    bool isencoder;
 
     OMX_ERRORTYPE ret = OMX_ErrorUndefined;
 
@@ -134,6 +136,8 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentAllocatePorts(void)
     if (ret != OMX_ErrorNone)
         goto free_codecport;
 
+    codec_mode = isencoder ? MIX_CODEC_MODE_ENCODE : MIX_CODEC_MODE_DECODE;
+
     /* OMX_PORT_PARAM_TYPE */
     memset(&portparam, 0, sizeof(portparam));
     SetTypeHeader(&portparam, sizeof(portparam));
@@ -143,7 +147,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentAllocatePorts(void)
     memcpy(&this->portparam, &portparam, sizeof(portparam));
     /* end of OMX_PORT_PARAM_TYPE */
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
 
 free_codecport:
@@ -159,7 +163,7 @@ free_ports:
     this->ports = NULL;
     this->nr_ports = 0;
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
@@ -175,7 +179,7 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateAvcPort(OMX_U32 port_index,
 
     ports[port_index] = new PortAvc;
     if (!ports[port_index]) {
-        LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+        LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
              OMX_ErrorInsufficientResources);
         return OMX_ErrorInsufficientResources;
     }
@@ -190,7 +194,8 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateAvcPort(OMX_U32 port_index,
     if (dir == OMX_DirInput) {
         avcportdefinition.nBufferCountActual = INPORT_AVC_ACTUAL_BUFFER_COUNT;
         avcportdefinition.nBufferCountMin = INPORT_AVC_MIN_BUFFER_COUNT;
-        avcportdefinition.nBufferSize = (INPORT_AVC_BUFFER_SIZE * _MAX_NAL_PER_FRAME);
+        avcportdefinition.nBufferSize =
+            (INPORT_AVC_BUFFER_SIZE * _MAX_NAL_PER_FRAME);
     }
     else {
         avcportdefinition.nBufferCountActual = OUTPORT_AVC_ACTUAL_BUFFER_COUNT;
@@ -229,7 +234,7 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateAvcPort(OMX_U32 port_index,
     avcport->SetPortAvcParam(&avcportparam, true);
     /* end of OMX_VIDEO_PARAM_AVCTYPE */
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
 }
 
@@ -245,7 +250,7 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateRawPort(OMX_U32 port_index,
 
     ports[port_index] = new PortVideo;
     if (!ports[port_index]) {
-        LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+        LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
              OMX_ErrorInsufficientResources);
         return OMX_ErrorInsufficientResources;
     }
@@ -299,7 +304,7 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateRawPort(OMX_U32 port_index,
 
     /* end of OMX_VIDEO_PARAM_PORTFORMATTYPE */
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
 }
 
@@ -328,7 +333,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -336,7 +341,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
             port = static_cast<PortVideo *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -351,14 +356,14 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         PortAvc *port = NULL;
 
         if (strcmp(GetWorkingRole(), "video_decoder.avc")) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorUnsupportedIndex);
             return OMX_ErrorUnsupportedIndex;
         }
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -366,7 +371,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
             port = static_cast<PortAvc *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -400,7 +405,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         ret = OMX_ErrorUnsupportedIndex;
     } /* switch */
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
@@ -421,7 +426,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -429,7 +434,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             port = static_cast<PortVideo *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -440,12 +445,11 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             CBaseGetState((void *)GetComponentHandle(), &state);
             if (state != OMX_StateLoaded &&
                 state != OMX_StateWaitForResources) {
-                LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                      OMX_ErrorIncorrectStateOperation);
                 return OMX_ErrorIncorrectStateOperation;
             }
         }
-        iFramerate = (p->xFramerate>>16);
 
         ret = port->SetPortVideoParam(p, false);
         break;
@@ -458,7 +462,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -466,7 +470,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             port = static_cast<PortAvc *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -477,7 +481,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             CBaseGetState((void *)GetComponentHandle(), &state);
             if (state != OMX_StateLoaded &&
                 state != OMX_StateWaitForResources) {
-                LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                      OMX_ErrorIncorrectStateOperation);
                 return OMX_ErrorIncorrectStateOperation;
             }
@@ -490,7 +494,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
         ret = OMX_ErrorUnsupportedIndex;
     } /* switch */
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
@@ -502,7 +506,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetConfig(
     OMX_ERRORTYPE ret = OMX_ErrorUnsupportedIndex;
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
@@ -513,248 +517,199 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetConfig(
     OMX_ERRORTYPE ret = OMX_ErrorUnsupportedIndex;
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
 /* implement ComponentBase::Processor[*] */
 OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 {
-    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    MixVideo *mix = NULL;
+    MixVideoInitParams *vip = NULL;
+    MixParams *mvp = NULL;
+    MixVideoConfigParams *vcp = NULL;
+    MixDisplayX11 *display = NULL;
+    MixVideoRenderParams *vrp = NULL;
 
-    LOGV("%s(): enter\n", __func__);
-
-    MixIOVec *mixio_in = NULL;
-    MixIOVec *mixio_out = NULL;
-    MixVideo *mix_video = NULL;
-    MixDrmParams *mix_drm = NULL;
-    MixVideoInitParams *init_params = NULL;
-    MixVideoDecodeParams *mix_decode_params = NULL;
-    MixVideoConfigParamsDec *config_params = NULL;
-    MixDisplayX11 *mix_display_x11 = NULL;
-    MixBuffer *mix_buffer = NULL;
+    OMX_U32 port_index = (OMX_U32)-1;
 
     guint major, minor;
 
+    OMX_ERRORTYPE oret = OMX_ErrorNone;
     MIX_RESULT mret;
 
-    g_type_init();
+    LOGV("%s(): enter\n", __func__);
 
-    /* Initialize member variables */
-    FrameCount = 0;
-    iFrameWidth = 176;
-    iFrameHeight = 144;
-    iStride = 176;
-    iSliceHeight = 144;
+    g_type_init();
 
     /*
      * common codes
      */
-    mix_video = mix_video_new();
-    if (!mix_video) {
+    mix = mix_video_new();
+    if (!mix) {
         LOGE("%s(),%d: exit, mix_video_new failed", __func__, __LINE__);
-        goto exit_pinit;
+        goto error_out;
     }
 
-    mix_video_get_version(mix_video, &major, &minor);
+    mix_video_get_version(mix, &major, &minor);
     LOGV("MixVideo version: %d.%d", major, minor);
 
-    mix_display_x11 = mix_displayx11_new();
-    if (!mix_display_x11) {
-        LOGE("%s(),%d: exit, mix_displayx11_new failed", __func__, __LINE__);
-        goto exit_pinit;
-    }
-
-    mret = mix_displayx11_set_drawable(mix_display_x11, 0xbcd);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(),%d: exit, mix_displayx11_set_drawable failed (ret == 0x%08x)",
-             __func__, __LINE__, mret);
-        goto exit_pinit;
-    }
-
-    init_params = mix_videoinitparams_new();
-    if (!init_params) {
-        LOGE("%s(),%d: exit, mix_videoinitparams_new failed", __func__, __LINE__);
-        goto exit_pinit;
-    }
-
-    mret = mix_videoinitparams_set_display(init_params, MIX_DISPLAY(mix_display_x11));
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(),%d: exit, mix_videoinitparams_set_display failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        goto exit_pinit;
-    }
-
-    mix_drm = mix_drmparams_new();
-    if (!mix_drm) {
-        LOGE("%s(),%d: exit, mix_videoinitparams_new failed", __func__, __LINE__);
-        goto exit_pinit;
-    }
-
     /* decoder */
-    if (!isencoder) {
-        /*
-         * file format specific code
-         */
-        if (coding_type == OMX_VIDEO_CodingAVC) {
-            MixVideoConfigParamsDecH264 *configH264 = NULL;
+    if (codec_mode == MIX_CODEC_MODE_DECODE) {
+        if (coding_type == OMX_VIDEO_CodingAVC)
+            vcp = MIX_VIDEOCONFIGPARAMS(mix_videoconfigparamsdec_h264_new());
 
-            configH264 = mix_videoconfigparamsdec_h264_new();
-            config_params = MIX_VIDEOCONFIGPARAMSDEC(configH264);
-            /* mime type */
-            mret = mix_videoconfigparamsdec_set_mime_type(config_params, "video/x-h264");
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_mime_type failed (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                goto exit_pinit;
-            }
-        }
-        else {
-            LOGE("%s(),%d: exit, unkown role (ret == 0x%08x)\n",
-                 __func__, __LINE__, OMX_ErrorInvalidState);
-            goto exit_pinit;
-        }
-
-        /*
-         * decoder specific code
-         */
-        mret = mix_video_initialize(mix_video, MIX_CODEC_MODE_DECODE, init_params, mix_drm);
-        if (mret != MIX_RESULT_SUCCESS) {
-            LOGE("%s(),%d: exit, mix_video_initialize failed (ret == 0x%08x)",
-                    __func__, __LINE__, mret);
-            goto exit_pinit;
-        }
-
-        /* set frame order mode */
-        mret = mix_videoconfigparamsdec_set_frame_order_mode(config_params, MIX_FRAMEORDER_MODE_DECODEORDER);
-        if (mret != MIX_RESULT_SUCCESS) {
-            LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_frame_order_mode failed (ret == 0x%08x)",
-                    __func__, __LINE__, mret);
-            goto exit_pinit;
-        }
-
-        mix_decode_params = mix_videodecodeparams_new();
-        if (!mix_decode_params) {
-            LOGE("%s(),%d: exit, mix_decode_params failed (ret == 0x%08x)",
-                    __func__, __LINE__, mret);
-            goto exit_pinit;
-        }
-
-        /* fill discontinuity flag */
-        mret = mix_videodecodeparams_set_discontinuity(mix_decode_params, FALSE);
-        if (mret != MIX_RESULT_SUCCESS) {
-            LOGE("%s(),%d: exit, mix_videodecodeparams_set_discontinuity (ret == 0x%08x)",
-                    __func__, __LINE__, mret);
-            goto exit_pinit;
-        }
-    }
-    else {
-        LOGE("%s(),%d: exit, unkown mode (ret == 0x%08x)\n",
-             __func__, __LINE__, OMX_ErrorInvalidState);
-        goto exit_pinit;
+        mvp = MIX_PARAMS(mix_videodecodeparams_new());
+        port_index = INPORT_INDEX;
     }
 
-    mixio_in = (MixIOVec *)malloc(sizeof(MixIOVec));
-    if (!mixio_in) {
-        LOGE("%s(),%d: exit, failed to allocate mixio_in (ret == 0x%08x)",
+    if (!vcp || !mvp || (port_index == (OMX_U32)-1)) {
+        LOGE("%s(),%d: exit, failed to allocate vcp, mvp, port_index\n",
+             __func__, __LINE__);
+        goto error_out;
+    }
+
+    oret = ChangeVcpWithPortParam(vcp, ports[port_index], NULL);
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(),%d: exit, ChangeVcpWithPortParam failed (ret == 0x%08x)\n",
+             __func__, __LINE__, oret);
+        goto error_out;
+    }
+
+    display = mix_displayx11_new();
+    if (!display) {
+        LOGE("%s(),%d: exit, mix_displayx11_new failed", __func__, __LINE__);
+        goto error_out;
+    }
+
+    vip = mix_videoinitparams_new();
+    if (!vip) {
+        LOGE("%s(),%d: exit, mix_videoinitparams_new failed", __func__,
+             __LINE__);
+        goto error_out;
+    }
+
+    vrp = mix_videorenderparams_new();
+    if (!vrp) {
+        LOGE("%s(),%d: exit, mix_videorenderparams_new failed",
+             __func__, __LINE__);
+        goto error_out;
+    }
+
+    mret = mix_displayx11_set_drawable(display, 0xbcd);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_displayx11_set_drawable failed "
+             "(ret == 0x%08x)", __func__, __LINE__, mret);
+        goto error_out;
+    }
+
+    mret = mix_videoinitparams_set_display(vip, MIX_DISPLAY(display));
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_videoinitparams_set_display failed "
+             "(ret == 0x%08x)", __func__, __LINE__, mret);
+        goto error_out;
+    }
+
+    mret = mix_videorenderparams_set_display(vrp, MIX_DISPLAY(display));
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_videorenderparams_set_display "
+             "(ret == 0x%08x)", __func__, __LINE__, mret);
+        goto error_out;
+    }
+
+    mret = mix_video_initialize(mix, codec_mode, vip, NULL);
+    if (mret != MIX_RESULT_SUCCESS) {
+        LOGE("%s(),%d: exit, mix_video_initialize failed (ret == 0x%08x)",
              __func__, __LINE__, mret);
-        goto exit_pinit;
+        goto error_out;
     }
 
-    mixio_out = (MixIOVec *)malloc(sizeof(MixIOVec));
-    if (!mixio_out) {
-        LOGE("%s(),%d: exit, failed to allocate mixio_out (ret == 0x%08x)",
-             __func__, __LINE__, mret);
-        goto free_mixio_in;
-    }
+    this->mix = mix;
+    this->vip = vip;
+    this->mvp = mvp;
+    this->vrp = vrp;
+    this->vcp = vcp;
+    this->display = display;
+    this->mixbuffer_in[0] = NULL;
 
-    this->mix_video = mix_video;
-    this->mix_drm = mix_drm;
-    this->init_params = init_params;
-    this->mix_decode_params = mix_decode_params;
-    this->config_params = config_params;
-    this->mix_display_x11 = mix_display_x11;
-    this->mixio_in = mixio_in;
-    this->mixio_out = mixio_out;
-    this->mix_buffer = mix_buffer;
+    FrameCount = 0;
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
-    return ret;
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, oret);
+    return oret;
 
- free_mixio_in:
-    free(mixio_in);
- exit_pinit:
-    mix_videodecodeparams_unref(mix_decode_params);
-    mix_videoconfigparamsdec_unref(config_params);
-    mix_displayx11_unref(mix_display_x11);
-    mix_videoinitparams_unref(init_params);
-    mix_params_unref(MIX_PARAMS(mix_drm));
-    mix_video_unref(mix_video);
+ error_out:
+    mix_params_unref(mvp);
+    mix_videorenderparams_unref(vrp);
+    mix_videoconfigparams_unref(vcp);
+    mix_displayx11_unref(display);
+    mix_videoinitparams_unref(vip);
+    mix_video_unref(mix);
 
-    return OMX_ErrorInvalidState;
+    return OMX_ErrorUndefined;
 }
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
+
     LOGV("%s(): enter\n", __func__);
 
-    mix_videodecodeparams_unref(mix_decode_params);
-    mix_videorenderparams_unref(mix_video_render_params);
-    mix_videoconfigparamsdec_unref(config_params);
-    mix_displayx11_unref(mix_display_x11);
-    mix_videoinitparams_unref(init_params);
-    mix_params_unref(MIX_PARAMS(mix_drm));
-    mix_video_unref(mix_video);
+    mix_video_deinitialize(mix);
 
-    free(mixio_in);
-    free(mixio_out);
+    mix_params_unref(mvp);
+    mix_videorenderparams_unref(vrp);
+    mix_videoconfigparams_unref(vcp);
+    mix_displayx11_unref(display);
+    mix_videoinitparams_unref(vip);
+    mix_video_unref(mix);
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    if (mixbuffer_in[0]) {
+        mix_video_release_mixbuffer(mix, mixbuffer_in[0]);
+        mixbuffer_in[0] = NULL;
+    }
+
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorStart(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
+
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorStop(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
+
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorPause(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
+
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorResume(void)
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
+
     LOGV("%s(): enter\n", __func__);
 
-    LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
-}
-
-static void mix_buffer_callback(gulong token, guchar *data)
-{
-    if (token) {
-
-    }
 }
 
 /* implement ComponentBase::ProcessorProcess */
@@ -763,59 +718,50 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
     buffer_retain_t *retain,
     OMX_U32 nr_buffers)
 {
+    MixIOVec buffer_in, buffer_out;
     OMX_U32 outfilledlen = 0;
     OMX_S64 outtimestamp = 0;
-    OMX_S64 delta_timestamp = 1;
-    int i;
+    OMX_U32 outflags = 0;
 
+    OMX_ERRORTYPE oret = OMX_ErrorNone;
     MIX_RESULT mret;
-
-    MixBuffer *mix_buffer_array[1];
 
     LOGV("%s(): enter\n", __func__);
 
-//    DumpBuffer(buffers[INPORT_INDEX], false);
-
-    if (!buffers[INPORT_INDEX]->nFilledLen) {
-        LOGE("%s(),%d: exit, input buffer's nFilledLen is zero (ret = void)\n",
-             __func__, __LINE__);
-        return OMX_ErrorNone;
-    }
-
-    mixio_in->data = buffers[INPORT_INDEX]->pBuffer +
-        buffers[INPORT_INDEX]->nOffset;
-    mixio_in->data_size = buffers[INPORT_INDEX]->nFilledLen;
-    mixio_in->buffer_size = buffers[INPORT_INDEX]->nAllocLen;
-
-    mixio_out->data = buffers[OUTPORT_INDEX]->pBuffer +
-        buffers[OUTPORT_INDEX]->nOffset;
-    mixio_out->data_size = 0;
-    mixio_out->buffer_size = buffers[OUTPORT_INDEX]->nAllocLen;
-
-    LOGV("%s(): mixio_in->data_size=%d", __func__, mixio_in->data_size);
-    LOGV("%s(): mixio_out->buffer_size=%d", __func__, mixio_out->buffer_size);
-
 #if 0
-    LOGV("nFlags=0x%08x", buffers[INPORT_INDEX]->nFlags);
-    LOGV(">");
-    unsigned char xBuff[40];
-    memcpy(xBuff, mixio_in->data, 40);
-    for(i = 0; i < 40; i+=8) {
-        LOGV("%02X %02X %02X %02X %02X %02X %02X %02X",
-        xBuff[i], xBuff[i+1], xBuff[i+2], xBuff[i+3],
-        xBuff[i+4], xBuff[i+5], xBuff[i+6], xBuff[i+7]);
-    }
-    LOGV("<");
+    if (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG)
+        DumpBuffer(buffers[INPORT_INDEX], true);
+    else
+        DumpBuffer(buffers[INPORT_INDEX], false);
 #endif
 
+    LOGV_IF(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS,
+            "%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
 
+    if (!buffers[INPORT_INDEX]->nFilledLen) {
+        LOGV("%s(),%d: input buffer's nFilledLen is zero\n",
+             __func__, __LINE__);
+        goto out;
+    }
+
+    buffer_in.data =
+        buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
+    buffer_in.data_size = buffers[INPORT_INDEX]->nFilledLen;
+    buffer_in.buffer_size = buffers[INPORT_INDEX]->nAllocLen;
+
+    buffer_out.data =
+        buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
+    buffer_out.data_size = 0;
+    buffer_out.buffer_size = buffers[OUTPORT_INDEX]->nAllocLen;
+    mixiovec_out[0] = &buffer_out;
+
+    /* only in case of decode mode */
     if ((buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_ENDOFFRAME) &&
         (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG)) {
+        if (coding_type == OMX_VIDEO_CodingAVC) {
+            if (FrameCount == 0) {
+                unsigned int width, height, stride, sliceheight;
 
-        if(FrameCount == 0) {
-            unsigned int width, height, stride, sliceheight;
-
-            if (coding_type == OMX_VIDEO_CodingAVC) {
                 tBuff[0] = 0x00;
                 tBuff[1] = 0x00;
                 tBuff[2] = 0x00;
@@ -824,263 +770,193 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
                 tBuff[5] = 0x01;
                 tBuff[6] = 0x00;
                 tBuff[7] = 0x17;
-                memcpy(tBuff+8, mixio_in->data, mixio_in->data_size);
+                memcpy(tBuff+8, buffer_in.data, buffer_in.data_size);
 
-                mret = nal_sps_parse(mixio_in->data, mixio_in->data_size, &width, &height,
-                                     &stride, &sliceheight);
-                if (mret != H264_STATUS_OK) {
-                    LOGE("%s(),%d: exit, nal_sps_parse failed (ret == 0x%08x)",
-                            __func__, __LINE__, mret);
-                    return OMX_ErrorUndefined;
+                oret = ChangePortParamWithCodecData(buffer_in.data,
+                                                    buffer_in.data_size,
+                                                    ports);
+                if (oret != OMX_ErrorNone) {
+                    LOGE("%s(),%d: exit ChangePortParamWithCodecData failed "
+                         "(ret:0x%08x)\n",
+                         __func__, __LINE__, oret);
+                    goto out;
                 }
-                iFrameWidth = width;
-                iFrameHeight = height;
-                iStride = stride;
-                iSliceHeight = sliceheight;
-            } else {
-                LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
-                        __func__, __LINE__, coding_type);
-                return OMX_ErrorUndefined;
+
+                oret = ChangeVcpWithPortParam(vcp,
+                                              ports[INPORT_INDEX],
+                                              NULL);
+                if (oret != OMX_ErrorNone) {
+                    LOGE("%s(),%d: exit ChangeVcpWithPortParam failed "
+                         "(ret:0x%08x)\n", __func__, __LINE__, oret);
+                    goto out;
+                }
+
+                oret = ChangeVrpWithPortParam(vrp,
+                              static_cast<PortVideo *>(ports[INPORT_INDEX]));
+                if (oret != OMX_ErrorNone) {
+                    LOGE("%s(),%d: exit ChangeVrpWithPortParam failed "
+                         "(ret:0x%08x)\n", __func__, __LINE__, oret);
+                    goto out;
+                }
+
+                retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+                goto out;
             }
-
-            /* configure params */
-
-            /* frame rate - TODO? numerator:30 denominator:1 */
-            mret = mix_videoconfigparamsdec_set_frame_rate(config_params, iFramerate, 1);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_frame_rate failed (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                return OMX_ErrorUndefined;
-            }
-
-            /* Picture resolution */
-            mret = mix_videoconfigparamsdec_set_picture_res(config_params, iFrameWidth, iFrameHeight);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_picture_res failed (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                return OMX_ErrorUndefined;
-            }
-
-            /* buffer pool size */
-            mret = mix_videoconfigparamsdec_set_buffer_pool_size(config_params, 8);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_buffer_pool_size failed (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                return OMX_ErrorUndefined;
-            }
-
-            mret = mix_videoconfigparamsdec_set_extra_surface_allocation(config_params, 4);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("%s(),%d: exit, mix_videoconfigparamsdec_set_extra_surface_allocation (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                return OMX_ErrorUndefined;
-            }
-
-            MixVideoRenderParams *mix_video_render_params = NULL;
-
-            mix_video_render_params = mix_videorenderparams_new();
-            if (!mix_video_render_params) {
-                LOGE("%s(),%d: exit, mix_videorenderparams_new failed (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                return OMX_ErrorUndefined;
-            }
-
-            mret = mix_videorenderparams_set_display(mix_video_render_params, MIX_DISPLAY(mix_display_x11));
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("%s(),%d: exit, mix_videorenderparams_set_display (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                return OMX_ErrorUndefined;
-            }
-
-            MixRect src_rect, dst_rect;
-
-            /* fill src_rect, the video size */
-            src_rect.x = 0;
-            src_rect.y = 0;
-            src_rect.width = iFrameWidth;
-            src_rect.height = iFrameHeight;
-            /* fill dst_rect, the display size
-             * TODO: we shall calculate the dst video position
-             */
-            dst_rect.x = 0;
-            dst_rect.y = 0;
-            dst_rect.width = iFrameWidth;
-            dst_rect.height = iFrameHeight;
-
-            mret = mix_videorenderparams_set_src_rect(mix_video_render_params, src_rect);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("Failed to set src_rect\n");
-                return OMX_ErrorUndefined;
-            }
-            mret = mix_videorenderparams_set_dest_rect(mix_video_render_params, dst_rect);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("Failed to set dst_rect\n");
-                return OMX_ErrorUndefined;
-            }
-            mret = mix_videorenderparams_set_clipping_rects(mix_video_render_params, NULL, 0);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("Failed to set clipping rects\n");
-                return OMX_ErrorUndefined;
-            }
-            this->mix_video_render_params = mix_video_render_params;
-
-            retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-        } 
-        else if(FrameCount == 1) {
-            if (coding_type == OMX_VIDEO_CodingAVC) {
+            else if (FrameCount == 1) {
+                LOGV("%s,%d:\n", __func__, __LINE__);
                 tBuff[31] = 0x01;
                 tBuff[32] = 0x00;
                 tBuff[33] = 0x04;
-                memcpy(tBuff+8+23+3, mixio_in->data, mixio_in->data_size);
-
+                memcpy(tBuff+8+23+3, buffer_in.data, buffer_in.data_size);
 #if 0
                 for(i = 0; i < 40; i+=8) {
                     LOGV("%02X %02X %02X %02X %02X %02X %02X %02X",
-                    tBuff[i], tBuff[i+1], tBuff[i+2], tBuff[i+3],
-                    tBuff[i+4], tBuff[i+5], tBuff[i+6], tBuff[i+7]);
+                         tBuff[i], tBuff[i+1], tBuff[i+2], tBuff[i+3],
+                         tBuff[i+4], tBuff[i+5], tBuff[i+6], tBuff[i+7]);
                 }
 #endif
 
-                mixio_in->data = tBuff;
-                mixio_in->data_size = 38;
-            } else {
-                LOGE("%s(),%d: exit, not supported coding_type=0x%08x",
-                        __func__, __LINE__, coding_type);
-                return OMX_ErrorUndefined;
-            }
+                buffer_in.data = tBuff;
+                buffer_in.data_size = 38;
 
-            mret = mix_videoconfigparamsdec_set_header(config_params, mixio_in);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("%s(), %d: exit, mix_videoconfigparamsdec_set_header failed (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                return OMX_ErrorUndefined;
-            }
-            mret = mix_video_configure(mix_video, (MixVideoConfigParams *)config_params, mix_drm);
-            if (mret != MIX_RESULT_SUCCESS) {
-                LOGE("%s(), %d: exit, mix_video_configure failed (ret == 0x%08x)",
-                        __func__, __LINE__, mret);
-                return OMX_ErrorUndefined;
-            }
-            LOGV("%s(): mix video configured", __func__);
+                mret = mix_videoconfigparamsdec_set_header(
+                    MIX_VIDEOCONFIGPARAMSDEC(vcp), &buffer_in);
+                if (mret != MIX_RESULT_SUCCESS) {
+                    LOGE("%s(), %d: exit, "
+                         "mix_videoconfigparamsdec_set_header failed "
+                         "(ret:0x%08x)", __func__, __LINE__, mret);
+                    oret = OMX_ErrorUndefined;
+                    goto out;
+                }
+                mret = mix_video_configure(mix, vcp, NULL);
+                if (mret != MIX_RESULT_SUCCESS) {
+                    LOGE("%s(), %d: exit, mix_video_configure failed "
+                         "(ret:0x%08x)", __func__, __LINE__, mret);
+                    oret = OMX_ErrorUndefined;
+                    goto out;
+                }
+                LOGV("%s(): mix video configured", __func__);
 
-            /*
-             * port reconfigure
-             */
-            ChangePortParamWithVcp();
-        }
-        FrameCount++;
-
-        return OMX_ErrorNone;
-    }
+                /*
+                 * port reconfigure
+                 */
+                ports[OUTPORT_INDEX]->ReportPortSettingsChanged();
+                goto out;
+            } /* FrameCount */
+        } /* OMX_VIDEO_CodingAVC */
+    } /* OMX_BUFFERFLAG_ENDOFFRAME && OMX_BUFFERFLAG_CODECCONFIG */
 
     /* get MixBuffer */
-    mret = mix_video_get_mixbuffer(mix_video, &mix_buffer);
+    mret = mix_video_get_mixbuffer(mix, &mixbuffer_in[0]);
     if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(), %d: exit, mix_video_get_mixbuffer failed (ret == 0x%08x)",
+        LOGE("%s(), %d: exit, mix_video_get_mixbuffer failed (ret:0x%08x)",
                 __func__, __LINE__, mret);
-        return OMX_ErrorUndefined;
+        oret = OMX_ErrorUndefined;
+        goto out;
     }
 
     /* fill MixBuffer */
-    mix_buffer->token = 0;
-    mret = mix_buffer_set_data(mix_buffer, mixio_in->data, mixio_in->data_size, (gulong)0, mix_buffer_callback);
+    mret = mix_buffer_set_data(mixbuffer_in[0],
+                              buffer_in.data, buffer_in.data_size,
+                              0, NULL);
     if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(), %d: exit, mix_buffer_set_data failed (ret == 0x%08x)",
+        LOGE("%s(), %d: exit, mix_buffer_set_data failed (ret:0x%08x)",
                 __func__, __LINE__, mret);
-        return OMX_ErrorUndefined;
-    }
-    mix_buffer_array[0] = mix_buffer;
-
-    /* set timestamp */
-    mix_videodecodeparams_set_timestamp(mix_decode_params, outtimestamp);
-
-    /* decode */
- retry_decode:
-    mret = mix_video_decode(mix_video, mix_buffer_array, 1, mix_decode_params);
-    if (mret != MIX_RESULT_SUCCESS) {
-        if (mret == MIX_RESULT_OUTOFSURFACES) {
-            LOGV("%s() mix_video_decode() MIX_RESULT_OUTOFSURFACES", __func__);
-            goto retry_decode;
-        }
-        else if (mret == MIX_RESULT_DROPFRAME) {
-            LOGV("%s() mix_video_decode() Frame is dropped", __func__);
-            return OMX_ErrorNone;
-        }
-        LOGE("%s(), %d: exit, mix_video_decode failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        return OMX_ErrorUndefined;
+        oret = OMX_ErrorUndefined;
+        goto out;
     }
 
-    /* ToDo - ready to send decoded frame to downstream */
-    MixVideoFrame *mixvideoframe;
-    mret = mix_video_get_frame(mix_video, &mixvideoframe);
-    if (mret != MIX_RESULT_SUCCESS) {
-        if (mret == MIX_RESULT_FRAME_NOTAVAIL) {
-            LOGE("mix_video_get_frame() MIX_RESULT_FRAME_NOTAVAIL");
-	} else if (mret == MIX_RESULT_EOS) {
-            LOGE("mix_video_get_frame() MIX_RESULT_EOS");
-	} else {
+    if (codec_mode == MIX_CODEC_MODE_DECODE) {
+        MixVideoFrame *frame;
+
+        /* set timestamp */
+        outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
+        mix_videodecodeparams_set_timestamp(MIX_VIDEODECODEPARAMS(mvp),
+                                            outtimestamp);
+
+    retry_decode:
+        mret = mix_video_decode(mix,
+                                mixbuffer_in, 1,
+                                MIX_VIDEODECODEPARAMS(mvp));
+        if (mret != MIX_RESULT_SUCCESS) {
+            if (mret == MIX_RESULT_OUTOFSURFACES) {
+                LOGV("%s(),%d: mix_video_decode() failed, "
+                     "out of surfaces waits 10000 us and try again\n",
+                     __func__, __LINE__);
+                usleep(10000);
+                goto retry_decode;
+            }
+            else if (mret == MIX_RESULT_DROPFRAME) {
+                LOGE("%s(),%d: exit, mix_video_decode() failed, "
+                     "frame dropped\n",
+                     __func__, __LINE__);
+                /* not an error */
+                goto out;
+            }
+            else {
+                LOGE("%s(),%d: exit, mix_video_decode() failed\n",
+                     __func__, __LINE__);
+                oret = OMX_ErrorUndefined;
+                goto out;
+            }
+        }
+
+        mret = mix_video_get_frame(mix, &frame);
+        if (mret != MIX_RESULT_SUCCESS) {
             LOGE("%s(), %d mix_video_get_frame() failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-	}
-	goto end_getframe;
-    }
-    /* shall never happen */
-    if (!mixvideoframe) {
-        LOGE("mixvideoframe == NULL");
-	return OMX_ErrorUndefined;
-    }
+                 __func__, __LINE__, mret);
+            oret = OMX_ErrorUndefined;
+            goto out;
+        }
 
-#if 0
-    mret = mix_video_eos(mix_video);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(), %d mix_video_eos() failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        return OMX_ErrorUndefined;
-    }
-#endif
+#if !USE_G_CHIPSET_OVERLAY
+        mret = mix_video_get_decoded_data(mix, mixiovec_out[0], vrp, frame);
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(), %d: exit, mix_video_get_decoded_data failed "
+                 "(ret == 0x%08x)\n", __func__, __LINE__, mret);
+            oret = OMX_ErrorUndefined;
+            goto release_frame;
+        }
 
-#if USE_G_CHIPSET_OVERLAY
+        outfilledlen = mixiovec_out[0]->data_size;
 #else
-    mret = mix_video_get_decoded_data(mix_video, mixio_out, mix_video_render_params, mixvideoframe);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(), %d: exit, mix_video_get_decoded_data failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        return OMX_ErrorUndefined;
-    }
-
-    outfilledlen += mixio_out->data_size;
+ #error "the overlay feature needs implementing"
 #endif
 
-    mret = mix_video_release_frame(mix_video, mixvideoframe);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(), %d mix_video_release_frame() failed (ret == 0x%08x)",
-                __func__, __LINE__, mret);
-        return OMX_ErrorUndefined;
+    release_frame:
+        mret = mix_video_release_frame(mix, frame);
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(), %d mix_video_release_frame() failed (ret == 0x%08x)",
+                 __func__, __LINE__, mret);
+            oret = OMX_ErrorUndefined;
+            goto out;
+        }
+
+        outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
+    } /* MIX_CODEC_MODE_DECODE */
+
+out:
+    if (mixbuffer_in[0]) {
+        mix_video_release_mixbuffer(mix, mixbuffer_in[0]);
+        mixbuffer_in[0] = NULL;
     }
-
-    /* set timestamp */
-//    mix_videodecodeparams_set_timestamp(mix_decode_params, outtimestamp);
-
- end_getframe:
- 
-
-    /* release MixBuffer */
-    if (mix_buffer) {
-        mix_video_release_mixbuffer(mix_video, mix_buffer);
-    }
-
-    outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
 
     buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
     buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
+    buffers[OUTPORT_INDEX]->nFlags = outflags;
 
-    FrameCount++;
-    retain[OUTPORT_INDEX] = BUFFER_RETAIN_NOT_RETAIN;
+    if ((oret == OMX_ErrorNone) &&
+        (retain[INPORT_INDEX] == BUFFER_RETAIN_NOT_RETAIN))
+        FrameCount++;
 
-    LOGV("%s(),%d: exit (ret = void)\n", __func__, __LINE__);
-    return OMX_ErrorNone;
+#if 0
+    if (retain[OUTPORT_INDEX] == BUFFER_RETAIN_NOT_RETAIN)
+        DumpBuffer(buffers[OUTPORT_INDEX], false);
+#endif
 
+    LOGV_IF(oret == OMX_ErrorNone,
+            "%s(),%d: exit, done\n", __func__, __LINE__);
+    return oret;
 }
 
 /* end of implement ComponentBase::Processor[*] */
@@ -1089,101 +965,182 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
  * vcp setting helpers
  */
 
-OMX_ERRORTYPE MrstPsbComponent::__RawChangePortParamWithVcp(
-    MixVideoConfigParamsDec *vcp, PortVideo *port)
+OMX_ERRORTYPE MrstPsbComponent::__AvcChangePortParamWithCodecData(
+    const OMX_U8 *codec_data, OMX_U32 size, PortBase **ports)
 {
-    OMX_VIDEO_PARAM_PORTFORMATTYPE pf;
-    OMX_PARAM_PORTDEFINITIONTYPE pd;
+    PortAvc *avcport = static_cast<PortAvc *>(ports[INPORT_INDEX]);
+    PortVideo *rawport = static_cast<PortVideo *>(ports[OUTPORT_INDEX]);
 
-    memcpy(&pf, port->GetPortVideoParam(), sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE));
-    memcpy(&pd, port->GetPortDefinition(), sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+    OMX_PARAM_PORTDEFINITIONTYPE avcpd, rawpd;
 
-    LOGV("%s(): iFramerate=%d, pf.xFramerate=%d", __func__,
-                iFramerate, (pf.xFramerate >> 16));
-    LOGV("%s(): iFramerate=%d, pf.format.video.xFramerate=%d", __func__,
-                iFramerate, (pd.format.video.xFramerate >> 16));
-    LOGV("%s(): iFrameWidth=%d, pd.format.video.nFrameWidth=%d", __func__,
-                iFrameWidth, pd.format.video.nFrameWidth);
-    LOGV("%s(): iFrameHeight=%d, pd.format.video.nFrameHeight=%d", __func__,
-                iFrameHeight, pd.format.video.nFrameHeight);
-    LOGV("%s(): iStride=%d, pd.format.video.nStride=%d", __func__,
-                iStride, pd.format.video.nStride);
-    LOGV("%s(): iSliceHeight=%d, pd.format.video.nSliceHeight=%d", __func__,
-                iSliceHeight, pd.format.video.nSliceHeight);
+    unsigned int width, height, stride, sliceheight;
 
-    /* compare old value with new one */
-    if ((iFramerate != (pf.xFramerate >> 16)) ||
-        (iFramerate != (pd.format.video.xFramerate >> 16)) ||
-        (iFrameWidth != pd.format.video.nFrameWidth) ||
-        (iFrameHeight != pd.format.video.nFrameHeight) ||
-        (iStride != pd.format.video.nStride) ||
-        (iSliceHeight != pd.format.video.nSliceHeight)) {
-        pf.xFramerate = iFramerate << 16;
-        pd.format.video.xFramerate = iFramerate << 16;
-        pd.format.video.nFrameWidth = iFrameWidth;
-        pd.format.video.nFrameHeight = iFrameHeight;
-        pd.format.video.nStride = iStride;
-        pd.format.video.nSliceHeight = iSliceHeight;
-        pd.nBufferSize = (iSliceHeight * iStride * 3) >> 1;
-        LOGV("%s(): Replace old value with new one", __func__);
+    int ret;
+
+    ret = nal_sps_parse((OMX_U8 *)codec_data, size, &width, &height,
+                        &stride, &sliceheight);
+    if (ret != H264_STATUS_OK) {
+        LOGE("%s(),%d: exit, nal_sps_parse failed (ret == 0x%08x)\n",
+             __func__, __LINE__, ret);
+        return OMX_ErrorBadParameter;
     }
 
-    port->SetPortVideoParam(&pf, false);
-    port->SetPortDefinition(&pd, true);
+    memcpy(&avcpd, avcport->GetPortDefinition(),
+           sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+
+    if (avcpd.format.video.nFrameWidth != width) {
+        LOGV("%s(): width : %lu != %d", __func__,
+             avcpd.format.video.nFrameWidth, width);
+        avcpd.format.video.nFrameWidth = width;
+    }
+    if (avcpd.format.video.nFrameHeight != height) {
+        LOGV("%s(): height : %lu != %d", __func__,
+             avcpd.format.video.nFrameHeight, height);
+        avcpd.format.video.nFrameHeight = height;
+    }
+    if (avcpd.format.video.nStride != (OMX_S32)stride) {
+        LOGV("%s(): stride : %lu != %d", __func__,
+             avcpd.format.video.nStride, stride);
+        avcpd.format.video.nStride = stride;
+    }
+    if (avcpd.format.video.nSliceHeight != sliceheight) {
+        LOGV("%s(): sliceheight : %ld != %d", __func__,
+             avcpd.format.video.nSliceHeight, sliceheight);
+        avcpd.format.video.nSliceHeight = sliceheight;
+    }
+
+    memcpy(&rawpd, rawport->GetPortDefinition(),
+           sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+
+    if (rawpd.format.video.nFrameWidth != width)
+        rawpd.format.video.nFrameWidth = width;
+    if (rawpd.format.video.nFrameHeight != height)
+        rawpd.format.video.nFrameHeight = height;
+    if (rawpd.format.video.nStride != (OMX_S32)stride)
+        rawpd.format.video.nStride = stride;
+    if (rawpd.format.video.nSliceHeight != sliceheight)
+        rawpd.format.video.nSliceHeight = sliceheight;
+
+    rawpd.nBufferSize = (stride * sliceheight * 3) >> 1;
+
+    avcport->SetPortDefinition(&avcpd, true);
+    rawport->SetPortDefinition(&rawpd, true);
+
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::__AvcChangePortParamWithVcp(
-    MixVideoConfigParamsDec *vcp, PortAvc *port)
+OMX_ERRORTYPE MrstPsbComponent::ChangePortParamWithCodecData(
+    const OMX_U8 *codec_data,
+    OMX_U32 size,
+    PortBase **ports)
 {
-    OMX_VIDEO_PARAM_PORTFORMATTYPE pf;
-    OMX_PARAM_PORTDEFINITIONTYPE pd;
+    OMX_ERRORTYPE ret = OMX_ErrorBadParameter;
 
-    memcpy(&pf, port->GetPortVideoParam(), sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE));
-    memcpy(&pd, port->GetPortDefinition(), sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
-
-    /* compare old value with new one */
-    if ((iFramerate != (pf.xFramerate >> 16)) ||
-        (iFramerate != (pd.format.video.xFramerate >> 16)) ||
-        (iFrameWidth != pd.format.video.nFrameWidth) ||
-        (iFrameHeight != pd.format.video.nFrameHeight)) {
-        pf.xFramerate = iFramerate << 16;
-        pd.format.video.xFramerate = iFramerate << 16;
-        pd.format.video.nFrameWidth = iFrameWidth;
-        pd.format.video.nFrameHeight = iFrameHeight;
+    if (coding_type == OMX_VIDEO_CodingAVC) {
+        ret = __AvcChangePortParamWithCodecData(codec_data, size, ports);
     }
 
-    port->SetPortVideoParam(&pf, false);
-    port->SetPortDefinition(&pd, false);
-    return OMX_ErrorNone;
+    return ret;
 }
 
-/* used only decode mode */
-OMX_ERRORTYPE MrstPsbComponent::ChangePortParamWithVcp(void)
+OMX_ERRORTYPE MrstPsbComponent::__AvcChangeVcpWithPortParam(
+    MixVideoConfigParams *vcp, PortAvc *port, bool *vcp_changed)
+{
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+
+    if (codec_mode == MIX_CODEC_MODE_DECODE) {
+        MixVideoConfigParamsDec *config = MIX_VIDEOCONFIGPARAMSDEC(vcp);
+        const OMX_PARAM_PORTDEFINITIONTYPE *pd = port->GetPortDefinition();
+
+        if (config->frame_rate_num != (pd->format.video.xFramerate >> 16)) {
+            LOGV("%s(): framerate : %u != %ld", __func__,
+                 config->frame_rate_num, pd->format.video.xFramerate >> 16);
+            mix_videoconfigparamsdec_set_frame_rate(config,
+                                            pd->format.video.xFramerate >> 16,
+                                            1);
+            if (vcp_changed)
+                *vcp_changed = true;
+        }
+
+        if ((config->picture_width != pd->format.video.nFrameWidth) ||
+            (config->picture_height != pd->format.video.nFrameHeight)) {
+            LOGV("%s(): width : %ld != %ld", __func__,
+                 config->picture_width, pd->format.video.nFrameWidth);
+            LOGV("%s(): height : %ld != %ld", __func__,
+                 config->picture_height, pd->format.video.nFrameHeight);
+
+            mix_videoconfigparamsdec_set_picture_res(config,
+                                                pd->format.video.nFrameWidth,
+                                                pd->format.video.nFrameHeight);
+            if (vcp_changed)
+                *vcp_changed = true;
+        }
+
+        /* common */
+
+        /* mime type */
+        mix_videoconfigparamsdec_set_mime_type(MIX_VIDEOCONFIGPARAMSDEC(vcp),
+                                               "video/x-h264");
+        /* fill discontinuity flag */
+        mix_videodecodeparams_set_discontinuity(MIX_VIDEODECODEPARAMS(mvp),
+                                                FALSE);
+        /* set frame order mode */
+        mix_videoconfigparamsdec_set_frame_order_mode(
+            MIX_VIDEOCONFIGPARAMSDEC(vcp), MIX_FRAMEORDER_MODE_DECODEORDER);
+
+        /* buffer pool size */
+        mix_videoconfigparamsdec_set_buffer_pool_size(
+            MIX_VIDEOCONFIGPARAMSDEC(vcp), 8);
+        /* extra surface */
+        mix_videoconfigparamsdec_set_extra_surface_allocation(
+            MIX_VIDEOCONFIGPARAMSDEC(vcp), 4);
+    }
+    else {
+        ret = OMX_ErrorBadParameter;
+    }
+
+    return ret;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
+    MixVideoConfigParams *vcp,
+    PortBase *port,
+    bool *vcp_changed)
 {
     OMX_ERRORTYPE ret;
 
     if (coding_type == OMX_VIDEO_CodingAVC)
-        ret = __AvcChangePortParamWithVcp(
-            config_params, static_cast<PortAvc *>(ports[INPORT_INDEX]));
+        ret = __AvcChangeVcpWithPortParam(vcp,
+                                          static_cast<PortAvc *>(port),
+                                          vcp_changed);
     else
-        return OMX_ErrorBadParameter;
+        ret = OMX_ErrorBadParameter;
 
-    if (ret != OMX_ErrorNone)
-        return ret;
+    return ret;
+}
 
-    ret = __RawChangePortParamWithVcp(
-        config_params, static_cast<PortVideo *>(ports[OUTPORT_INDEX]));
-    if (ret != OMX_ErrorNone)
-        return ret;
+OMX_ERRORTYPE MrstPsbComponent::ChangeVrpWithPortParam(
+    MixVideoRenderParams *vrp,
+    PortVideo *port)
+{
+    const OMX_PARAM_PORTDEFINITIONTYPE *pd = port->GetPortDefinition();
+    MixRect src, dst;
 
-    LOGV("%s(): report OMX_EventPortSettingsChanged event on %luth port",
-         __func__, OUTPORT_INDEX);
+    /* fill source, the video size */
+    src.x = 0;
+    src.y = 0;
+    src.width = pd->format.video.nFrameWidth;
+    src.height = pd->format.video.nFrameHeight;
 
-    ret = static_cast<PortVideo *>(ports[OUTPORT_INDEX])->
-        ReportPortSettingsChanged();
+    /* fill destination, the display size */
+    dst.x = 0;
+    dst.y = 0;
+    dst.width = pd->format.video.nFrameWidth;
+    dst.height = pd->format.video.nFrameHeight;
 
-    LOGV("%s(): returned from event handler (ret : 0x%08x)\n", __func__, ret);
+    mix_videorenderparams_set_src_rect(vrp, src);
+    mix_videorenderparams_set_dest_rect(vrp, dst);
+    mix_videorenderparams_set_clipping_rects(vrp, NULL, 0);
 
     return OMX_ErrorNone;
 }
