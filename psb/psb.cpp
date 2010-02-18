@@ -923,6 +923,8 @@ void MrstPsbComponent::ProcessorProcess(
                 return;
             }
             this->mix_video_render_params = mix_video_render_params;
+
+            retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
         } 
         else if(FrameCount == 1) {
             if (coding_type == OMX_VIDEO_CodingAVC) {
@@ -968,7 +970,6 @@ void MrstPsbComponent::ProcessorProcess(
         }
         FrameCount++;
 
-        retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
         return;
     }
 
