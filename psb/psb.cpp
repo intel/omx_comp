@@ -13,8 +13,6 @@
 
 #include <OMX_Core.h>
 
-#include <h264_parser.h>
-
 #include <cmodule.h>
 #include <portvideo.h>
 #include <componentbase.h>
@@ -1184,16 +1182,26 @@ OMX_ERRORTYPE MrstPsbComponent::__AvcChangePortParamWithCodecData(
 
     int ret;
 
-    ret = nal_sps_parse((OMX_U8 *)codec_data, size, &width, &height,
-                        &stride, &sliceheight);
-    if (ret != H264_STATUS_OK) {
-        LOGE("%s(),%d: exit, nal_sps_parse failed (ret == 0x%08x)\n",
-             __func__, __LINE__, ret);
-        return OMX_ErrorBadParameter;
-    }
-
     memcpy(&avcpd, avcport->GetPortDefinition(),
            sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+
+#if 0
+    /*
+     * FIXME
+     *  - parsing codec data (sps/pps) and geting parameters
+     */
+    #error "no h264 codec data parser"
+#else
+    LOGV("nFrameWidth = %lu", avcpd.format.video.nFrameWidth);
+    LOGV("nFrameHeight = %lu", avcpd.format.video.nFrameHeight);
+    LOGV("nStride = %lu", avcpd.format.video.nStride);
+    LOGV("nSliceHeight = %lu", avcpd.format.video.nSliceHeight);
+
+    width = avcpd.format.video.nFrameWidth;
+    height = avcpd.format.video.nFrameHeight;
+    stride = width;
+    sliceheight = height;
+#endif
 
     if (avcpd.format.video.nFrameWidth != width) {
         LOGV("%s(): width : %lu != %d", __func__,
