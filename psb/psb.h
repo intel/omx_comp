@@ -33,6 +33,7 @@ private:
     virtual OMX_ERRORTYPE ComponentAllocatePorts(void);
 
     OMX_ERRORTYPE __AllocateAvcPort(OMX_U32 port_index, OMX_DIRTYPE dir);
+    OMX_ERRORTYPE __AllocateMpeg4Port(OMX_U32 port_index, OMX_DIRTYPE dir);
     OMX_ERRORTYPE __AllocateRawPort(OMX_U32 port_index, OMX_DIRTYPE dir);
 
     /* implement ComponentBase::ComponentGet/SetPatameter */
@@ -71,14 +72,21 @@ private:
                                               PortVideo *port);
     OMX_ERRORTYPE __AvcChangePortParamWithVcp(MixVideoConfigParams *vcp,
                                               PortAvc *port);
+    OMX_ERRORTYPE __Mpeg4ChangePortParamWithVcp(MixVideoConfigParams *vcp,
+                                              PortMpeg4 *port);
     OMX_ERRORTYPE ChangePortParamWithVcp(void);
 
     OMX_ERRORTYPE __AvcChangeVcpWithPortParam(MixVideoConfigParams *vcp,
                                              PortAvc *port, bool *vcp_changed);
+    OMX_ERRORTYPE __Mpeg4ChangeVcpWithPortParam(MixVideoConfigParams *vcp,
+                                             PortMpeg4 *port, bool *vcp_changed);
     OMX_ERRORTYPE ChangeVcpWithPortParam(MixVideoConfigParams *vcp,
                                          PortBase *port, bool *vcp_changed);
 
     OMX_ERRORTYPE __AvcChangePortParamWithCodecData(const OMX_U8 *codec_data,
+                                                    OMX_U32 size,
+                                                    PortBase **ports);
+    OMX_ERRORTYPE __Mpeg4ChangePortParamWithCodecData(const OMX_U8 *codec_data,
                                                     OMX_U32 size,
                                                     PortBase **ports);
     OMX_ERRORTYPE ChangePortParamWithCodecData(const OMX_U8 *codec_data,
@@ -126,6 +134,13 @@ private:
     const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 OUTPORT_AVC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 2000;
+    const static OMX_U32 INPORT_MPEG4_ACTUAL_BUFFER_COUNT = 10;
+    const static OMX_U32 INPORT_MPEG4_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 INPORT_MPEG4_BUFFER_SIZE = 16000;
+    const static OMX_U32 OUTPORT_MPEG4_ACTUAL_BUFFER_COUNT = 2;
+    const static OMX_U32 OUTPORT_MPEG4_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 OUTPORT_MPEG4_BUFFER_SIZE = 38016;
+
 };
 
 #endif /* __WRS_OMXIL_INTEL_MRST_PSB */
