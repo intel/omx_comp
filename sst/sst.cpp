@@ -837,23 +837,39 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
     MixAudioConfigParams *acp;
     bool acp_changed;
     MixIOVec *mixio_in, *mixio_out;
-    OMX_ERRORTYPE oret = OMX_ErrorNone;
+    OMX_ERRORTYPE oret;
     MIX_RESULT mret;
 
     LOGV("%s(): enter\n", __func__);
 
     g_type_init();
 
+    mix = mix_audio_new();
+    if (!mix) {
+        LOGE("%s(),%d: exit, mix_audio_new failed", __func__, __LINE__);
+        goto error_out;
+    }
+
     if (coding_type == OMX_AUDIO_CodingMP3) {
-        acp = MIX_AUDIOCONFIGPARAMS(mix_acp_mp3_new());
+        MixAudioConfigParamsMP3 *acp_mp3 = mix_acp_mp3_new();
+        if (!acp_mp3) {
+            LOGE("%s(),%d: exit, mix_acp_mp3_new failed", __func__, __LINE__);
+            goto free_mix;
+        }
+        acp = MIX_AUDIOCONFIGPARAMS(acp_mp3);
     }
     else if (coding_type == OMX_AUDIO_CodingAAC) {
-        acp = MIX_AUDIOCONFIGPARAMS(mix_acp_aac_new());
+        MixAudioConfigParamsAAC *acp_aac = mix_acp_aac_new();
+        if (!acp_aac) {
+            LOGE("%s(),%d: exit, mix_acp_aac_new failed", __func__, __LINE__);
+            goto free_mix;
+        }
+        acp = MIX_AUDIOCONFIGPARAMS(acp_aac);
     }
     else {
         LOGE("%s(),%d: exit, unkown role (ret == 0x%08x)\n",
              __func__, __LINE__, OMX_ErrorInvalidState);
-        return OMX_ErrorUndefined;
+        goto free_mix;
     }
 
     if (codec_mode == MIX_CODING_DECODE) {
@@ -883,16 +899,13 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
     if (!MIX_SUCCEEDED(mret)) {
         LOGE("%s(),%d: exit, mix_acp_set_streamname failed (ret == 0x%08x)",
              __func__, __LINE__, mret);
-        oret = OMX_ErrorUndefined;
         goto free_acp;
     }
 
-    mix = mix_audio_new();
     mret = mix_audio_initialize(mix, codec_mode, NULL, NULL);
     if (!(MIX_SUCCEEDED(mret))) {
         LOGE("%s(),%d: exit, mix_audio_initialize failed (ret == 0x%08x)",
              __func__, __LINE__, mret);
-        oret = OMX_ErrorUndefined;
         goto free_acp;
     }
     LOGV("%s(): mix audio initialized", __func__);
@@ -928,7 +941,6 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
     if (!MIX_SUCCEEDED(mret)) {
         LOGE("%s(),%d: exit, mix_audio_configure failed (ret == 0x%08x)",
              __func__, __LINE__, mret);
-        oret = OMX_ErrorUndefined;
         goto deinitialize_mix;
     }
     LOGV("%s(): mix audio configured", __func__);
@@ -949,7 +961,6 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
     if (!mixio_in) {
         LOGE("%s(),%d: exit, failed to allocate mbuffer (ret == 0x%08x)",
              __func__, __LINE__, mret);
-        oret = OMX_ErrorUndefined;
         goto deinitialize_mix;
     }
 
@@ -957,7 +968,6 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
     if (!mixio_out) {
         LOGE("%s(),%d: exit, failed to allocate mbuffer (ret == 0x%08x)",
              __func__, __LINE__, mret);
-        oret = OMX_ErrorUndefined;
         goto free_mixio_in;
     }
 
@@ -974,13 +984,16 @@ free_mixio_in:
 
 deinitialize_mix:
     mix_audio_deinitialize(mix);
-    mix_audio_unref(mix);
 
 free_acp:
-    mix_params_unref(MIX_PARAMS(acp));
+    mix_acp_unref(acp);
 
+free_mix:
+    mix_audio_unref(mix);
+
+error_out:
     LOGV("%s(),%d: exit, (ret = 0x%08x)\n", __func__, __LINE__, oret);
-    return oret;
+    return OMX_ErrorUndefined;
 }
 
 OMX_ERRORTYPE MrstSstComponent::ProcessorDeinit(void)
@@ -1094,11 +1107,13 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorProcess(
 
     mixio_in->data = buffers[INPORT_INDEX]->pBuffer +
         buffers[INPORT_INDEX]->nOffset;
-    mixio_in->size = buffers[INPORT_INDEX]->nFilledLen;
+    mixio_in->data_size = buffers[INPORT_INDEX]->nFilledLen;
+    mixio_in->buffer_size = buffers[INPORT_INDEX]->nAllocLen;
 
     mixio_out->data = buffers[OUTPORT_INDEX]->pBuffer +
         buffers[OUTPORT_INDEX]->nOffset;
-    mixio_out->size = buffers[OUTPORT_INDEX]->nAllocLen;
+    mixio_out->data_size = 0;
+    mixio_out->buffer_size = buffers[OUTPORT_INDEX]->nAllocLen;
 
     if (codec_mode == MIX_CODING_DECODE) {
         if (((coding_type == OMX_AUDIO_CodingMP3) &&
@@ -1203,13 +1218,14 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorProcess(
         //LOGV("%s(): call mix_audio_decode()\n", __func__);
         mret = mix_audio_decode(mix,
                                 (const MixIOVec *)mixio_in, 1, &consumed,
-                                mixio_out, 1, &produced);
+                                mixio_out, 1);
         if (!MIX_SUCCEEDED(mret)) {
             LOGE("%s(), %d: exit, mix_audio_decode failed (ret == 0x%08x)",
                  __func__, __LINE__, mret);
             oret = OMX_ErrorUndefined;
             goto out;
         }
+        produced = mixio_out->data_size;
         //LOGV("%s(): returned from mix_audio_decode()\n", __func__);
     }
     else {
@@ -1226,8 +1242,8 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorProcess(
         outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
 
         /* direct encode workaround */
-        consumed = mixio_in->size;
-        produced = mixio_out->size;
+        consumed = mixio_in->data_size;
+        produced = mixio_out->data_size;
 
 #if 0
         mix_audio_get_timestamp(mix, (OMX_U64 *)&outtimestamp);
