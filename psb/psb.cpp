@@ -35,9 +35,7 @@ extern "C" {
 
 #include <mixdisplayx11.h>
 #include <mixvideo.h>
-#include <mixvideoformat_h264.h>
 #include <mixvideoconfigparamsdec_h264.h>
-#include <mixvideoformat_mp42.h>
 #include <mixvideoconfigparamsdec_mp42.h>
 
 #ifdef __cplusplus
