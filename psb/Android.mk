@@ -38,4 +38,7 @@ LOCAL_C_INCLUDES := \
 	$(TARGET_OUT_HEADERS)/libmixvbp \
 	$(TARGET_OUT_HEADERS)/libpsb_drm 
 
+LOCAL_COPY_HEADERS_TO := libwrs_omxil_intel_mrst_psb
+LOCAL_COPY_HEADERS := vabuffer.h 
+
 include $(BUILD_SHARED_LIBRARY)
