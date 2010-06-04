@@ -16,6 +16,12 @@
  * limitations under the License.
  */
 
+//#define LOG_NDEBUG 0
+
+#define LOG_TAG "mrst_psb"
+#include <utils/Log.h>
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,11 +52,6 @@ extern "C" {
 #endif
 
 #include "psb.h"
-
-//#define LOG_NDEBUG 0
-
-#define LOG_TAG "mrst_psb"
-#include <log.h>
 
 #define SHOW_FPS 0
 
@@ -1428,7 +1429,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
         mix_videodecodeparams_set_timestamp(MIX_VIDEODECODEPARAMS(mvp),
                                             outtimestamp);
 
-        LOGV("Input timestamp = %"G_GINT64_FORMAT"\n", outtimestamp); 
+        LOGV("--- Input timestamp = %"G_GINT64_FORMAT"\n ---", outtimestamp); 
 
     retry_decode:
         mret = mix_video_decode(mix,
@@ -1490,6 +1491,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
               goto out;
         }
 
+#if 0
         mret = mix_videoframe_get_timestamp(frame, (guint64 *)&outtimestamp);  
         if (mret != MIX_RESULT_SUCCESS) {
               LOGE("%s(), %d mix_videoframe_get_timestamp() failed (ret == 0x%08x)",
@@ -1497,7 +1499,17 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
               oret = OMX_ErrorUndefined;
               goto out;
         }
+#endif        
+        uint32 frame_structure = 0;
+        mret = mix_videoframe_get_frame_structure(frame, (guint32 *)&frame_structure);
+        if (mret != MIX_RESULT_SUCCESS) {
+              LOGE("%s(), %d mix_videoframe_get_frame_structure() failed (ret == 0x%08x)",
+                                 __func__, __LINE__, mret);
+              oret = OMX_ErrorUndefined;
+              goto out;
+        }
 
+        LOGV(" frame_structure = %d \n", frame_structure);
         
         outfilledlen = sizeof(VABuffer);
         LOGV("In OMX DEC vadisplay = %x surfaceid = %x outfilledlen = %d\n",
@@ -1863,6 +1875,7 @@ OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
 
         /* hard coding */
         mix_videoconfigparamsdec_set_frame_order_mode(
+//            MIX_VIDEOCONFIGPARAMSDEC(vcp), MIX_FRAMEORDER_MODE_DECODEORDER);
             MIX_VIDEOCONFIGPARAMSDEC(vcp), MIX_FRAMEORDER_MODE_DISPLAYORDER);
         mix_videoconfigparamsdec_set_buffer_pool_size(
             MIX_VIDEOCONFIGPARAMSDEC(vcp), 8);
