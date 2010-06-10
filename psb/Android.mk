@@ -1,3 +1,4 @@
+ifeq ($(strip $(BOARD_USES_WRS_OMXIL_CORE)),true)
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -18,7 +19,9 @@ LOCAL_SHARED_LIBRARIES := \
 	libmixcommon \
 	libmixvideo \
 	libmixvbp \
-	libva
+        libva \
+	libva-android \
+        libva-tpi
 
 VENDORS_INTEL_MRST_MIXVBP_ROOT := $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/mix_vbp
 
@@ -42,3 +45,4 @@ LOCAL_COPY_HEADERS_TO := libwrs_omxil_intel_mrst_psb
 LOCAL_COPY_HEADERS := vabuffer.h 
 
 include $(BUILD_SHARED_LIBRARY)
+endif

@@ -115,7 +115,7 @@ private:
     MixParams *mvp;
     MixVideoConfigParams *vcp;
     MixVideoRenderParams *vrp;
-    MixDisplayX11 *display;
+    MixDisplayAndroid *display;
     MixBuffer *mixbuffer_in[1];
     MixIOVec *mixiovec_out[1];
 

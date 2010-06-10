@@ -41,30 +41,25 @@
 extern "C" {
 #endif
 
-#include <mixdisplayx11.h>
+#include <mixdisplayandroid.h>
 #include <mixvideo.h>
 #include <mixvideoconfigparamsdec_h264.h>
 #include <mixvideoconfigparamsenc_h264.h>
 #include <mixvideoconfigparamsdec_mp42.h>
 
+#include <va/va.h>
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
+
+#include <va/va_android.h>
 
 #include "psb.h"
 
+#define Display unsigned int
+
 #define SHOW_FPS 0
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <va/va.h>
-#include <va/va_x11.h>
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #include "vabuffer.h"
 
@@ -860,7 +855,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     MixVideoInitParams *vip = NULL;
     MixParams *mvp = NULL;
     MixVideoConfigParams *vcp = NULL;
-    MixDisplayX11 *display = NULL;
+    MixDisplayAndroid *display = NULL;
     MixVideoRenderParams *vrp = NULL;
 
     OMX_U32 port_index = (OMX_U32)-1;
@@ -920,9 +915,9 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
         goto error_out;
     }
 
-    display = mix_displayx11_new();
+    display = mix_displayandroid_new();
     if (!display) {
-        LOGE("%s(),%d: exit, mix_displayx11_new failed", __func__, __LINE__);
+        LOGE("%s(),%d: exit, mix_displayandroid_new failed", __func__, __LINE__);
         goto error_out;
     }
 
@@ -940,11 +935,16 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
         goto error_out;
     }
 
-    mret = mix_displayx11_set_drawable(display, 0xbcd);
-    if (mret != MIX_RESULT_SUCCESS) {
-        LOGE("%s(),%d: exit, mix_displayx11_set_drawable failed "
-             "(ret == 0x%08x)", __func__, __LINE__, mret);
-        goto error_out;
+    {
+        Display *android_display = (Display*)malloc(sizeof(Display));
+        *(android_display) = 0x18c34078;
+
+        mret = mix_displayandroid_set_display(display, android_display);
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(),%d: exit, mix_displayandroid_set_display failed "
+                "(ret == 0x%08x)", __func__, __LINE__, mret);
+            goto error_out;
+        }
     }
 
     mret = mix_videoinitparams_set_display(vip, MIX_DISPLAY(display));
@@ -1011,7 +1011,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     mix_params_unref(mvp);
     mix_videorenderparams_unref(vrp);
     mix_videoconfigparams_unref(vcp);
-    mix_displayx11_unref(display);
+    mix_displayandroid_unref(display);
     mix_videoinitparams_unref(vip);
     mix_video_unref(mix);
 
@@ -1033,7 +1033,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
     mix_params_unref(mvp);
     mix_videorenderparams_unref(vrp);
     mix_videoconfigparams_unref(vcp);
-    mix_displayx11_unref(display);
+    mix_displayandroid_unref(display);
     mix_videoinitparams_unref(vip);
     mix_video_unref(mix);
 
