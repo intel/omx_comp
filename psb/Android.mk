@@ -3,7 +3,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-	psb.cpp
+	psb.cpp \
+        avc.cpp
 
 LOCAL_MODULE := libwrs_omxil_intel_mrst_psb
 

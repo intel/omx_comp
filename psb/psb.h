@@ -70,6 +70,7 @@ private:
     virtual OMX_ERRORTYPE ProcessorStop(void);  /* Executing/Pause to Idle */
     virtual OMX_ERRORTYPE ProcessorPause(void); /* Executing to Pause */
     virtual OMX_ERRORTYPE ProcessorResume(void);/* Pause to Executing */
+    virtual OMX_ERRORTYPE ProcessorFlush(void);
     virtual OMX_ERRORTYPE ProcessorProcess(OMX_BUFFERHEADERTYPE **buffers,
                                            buffer_retain_t *retain,
                                            OMX_U32 nr_buffers);
@@ -104,9 +105,6 @@ private:
                                                OMX_U32 size,
                                                PortBase **ports);
 
-    OMX_ERRORTYPE ChangeVrpWithPortParam(MixVideoRenderParams *vrp,
-                                         PortVideo *port);
-
     /* end of vcp setting helpers */
 
     /* mix video */
@@ -114,7 +112,6 @@ private:
     MixVideoInitParams *vip;
     MixParams *mvp;
     MixVideoConfigParams *vcp;
-    MixVideoRenderParams *vrp;
     MixDisplayAndroid *display;
     MixBuffer *mixbuffer_in[1];
     MixIOVec *mixiovec_out[1];
@@ -127,8 +124,9 @@ private:
     OMX_U32 inframe_counter;
     OMX_U32 outframe_counter;
 
-    /* FIXME: tBuff is only for copying input NAL frame with it's size */
-    unsigned char tBuff[40960];
+    AvcCodecDataConstructor avc_codec_data;
+    AvcFrameNals avc_frame_nals;
+    OMX_S64 avc_dec_timestamp;
 
     /* for fps */
     OMX_TICKS last_ts;
