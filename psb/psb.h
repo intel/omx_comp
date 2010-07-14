@@ -70,7 +70,7 @@ private:
     virtual OMX_ERRORTYPE ProcessorStop(void);  /* Executing/Pause to Idle */
     virtual OMX_ERRORTYPE ProcessorPause(void); /* Executing to Pause */
     virtual OMX_ERRORTYPE ProcessorResume(void);/* Pause to Executing */
-    virtual OMX_ERRORTYPE ProcessorFlush(void);
+    virtual OMX_ERRORTYPE ProcessorFlush(OMX_U32 port_index);
     virtual OMX_ERRORTYPE ProcessorProcess(OMX_BUFFERHEADERTYPE **buffers,
                                            buffer_retain_t *retain,
                                            OMX_U32 nr_buffers);
@@ -139,7 +139,7 @@ private:
     const static OMX_U32 OUTPORT_INDEX = 1;
 
     /* default buffer */
-    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
+    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 32; //10;
     const static OMX_U32 INPORT_AVC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 40960;
     const static OMX_U32 OUTPORT_RAW_ACTUAL_BUFFER_COUNT = 2;

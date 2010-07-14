@@ -1410,11 +1410,13 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
          // FIXME: handle partial NAL
          if (coding_type == OMX_VIDEO_CodingAVC) {
 
+             LOGV("--- nFlags = 0x%x --\n", buffers[INPORT_INDEX]->nFlags);
+
 	     if ((avc_dec_timestamp == (OMX_S64) - 1) || (avc_dec_timestamp
                   == buffers[INPORT_INDEX]->nTimeStamp)) {
 
-                  LOGV("--- avc_ts = %"G_GINT64_FORMAT"\n ---", avc_dec_timestamp); 
-                  LOGV("--- in  ts = %"G_GINT64_FORMAT"\n ---", buffers[INPORT_INDEX]->nTimeStamp); 
+                  LOGV("--- avc_ts = %"G_GINT64_FORMAT" ---\n", avc_dec_timestamp); 
+                  LOGV("--- in  ts = %"G_GINT64_FORMAT" ---\n", buffers[INPORT_INDEX]->nTimeStamp); 
                   avc_frame_nals.add_nal(buffers[INPORT_INDEX]->pBuffer,
                                          buffers[INPORT_INDEX]->nOffset,
                                          buffers[INPORT_INDEX]->nFilledLen,
@@ -1464,6 +1466,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
 
         LOGV("--- Input timestamp = %"G_GINT64_FORMAT" ---\n", outtimestamp); 
 
+	int retry_decode_count = 0;
 
     retry_decode:
         mret = mix_video_decode(mix,
@@ -1474,6 +1477,12 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
                 LOGV("%s(),%d: mix_video_decode() failed, "
                      "out of surfaces waits 10000 us and try again\n",
                      __func__, __LINE__);
+
+                if(retry_decode_count ++ > 100) {
+                     oret = OMX_ErrorUndefined;
+                     goto out;
+                }
+
                 usleep(10000);
                 goto retry_decode;
             }
@@ -2038,20 +2047,22 @@ OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
     return ret;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::ProcessorFlush() {
+/* end of vcp setting helpers */
 
-     LOGV("Flushed !\n");   
-#if 0
-     if (codec_mode == MIX_CODEC_MODE_DECODE && coding_type
-                    == OMX_VIDEO_CodingAVC) {
-           ports[INPORT_INDEX]->ReturnAllRetainedBuffers();
-           avc_dec_timestamp = (OMX_S64)-1;
-           avc_frame_nals.reset();
-     }
-#endif
+OMX_ERRORTYPE MrstPsbComponent::ProcessorFlush(OMX_U32 port_index) {
+
+	LOGV("port_index = %d Flushed!\n", port_index);
+	
+	if (codec_mode == MIX_CODEC_MODE_DECODE && coding_type
+			== OMX_VIDEO_CodingAVC && (port_index == INPORT_INDEX || port_index
+			== OMX_ALL)) {
+//      ports[INPORT_INDEX]->ReturnAllRetainedBuffers();
+		avc_dec_timestamp = (OMX_S64) - 1;
+		avc_frame_nals.reset();
+		mix_video_flush( mix);
+	}
 }
 
-/* end of vcp setting helpers */
 
 /*
  * CModule Interface

@@ -1,4 +1,4 @@
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #define LOG_TAG "mrst_psb"
 #include <utils/Log.h>
