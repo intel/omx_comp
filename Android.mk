@@ -7,9 +7,9 @@ VENDORS_INTEL_MRST_COMPONENTS_ROOT := $(LOCAL_PATH)
 
 $(call add-prebuilt-files, ETC, wrs_omxil_components.list)
 
-WRS_OMXIL_CORE_ROOT := vendor/wrs/addon/libs/wrs-omxil-core
+WRS_OMXIL_CORE_ROOT := hardware/intel/wrs_omxil_core
 
-GLIB_TOP := external/glib
+GLIB_TOP := hardware/intel/glib
 
 PV_TOP := external/opencore
 PV_INCLUDES := \
