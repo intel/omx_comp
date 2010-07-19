@@ -274,6 +274,19 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateAvcPort(OMX_U32 port_index,
         bitrateparam.nTargetBitrate = 192000;
 
         avcport->SetPortBitrateParam(&bitrateparam, true);
+        
+        /* OMX_VIDEO_CONFIG_PRI_INFOTYPE */
+        OMX_VIDEO_CONFIG_PRI_INFOTYPE privateinfoparam;
+         
+        memset(&privateinfoparam, 0, sizeof(privateinfoparam));
+        SetTypeHeader(&privateinfoparam, sizeof(privateinfoparam));
+
+        privateinfoparam.nPortIndex = port_index;
+        privateinfoparam.nCapacity = 0;
+        privateinfoparam.nHolder = NULL;
+
+        avcport->SetPortPrivateInfoParam(&privateinfoparam, true);
+
         /* end of OMX_VIDEO_PARAM_BITRATETYPE */
     }
 
@@ -622,6 +635,32 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         memcpy(p, port->GetPortBitrateParam(), sizeof(*p));
         break;
     }
+    case OMX_IndexIntelPrivateInfo: {
+        OMX_VIDEO_CONFIG_PRI_INFOTYPE *p =
+            (OMX_VIDEO_CONFIG_PRI_INFOTYPE *)pComponentParameterStructure;
+        OMX_U32 index = p->nPortIndex;
+        PortVideo *port = NULL;
+
+        LOGV("%s(): port index : %lu\n", __func__, index);
+
+        ret = CheckTypeHeader(p, sizeof(*p));
+        if (ret != OMX_ErrorNone) {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            return ret;
+        }
+
+        if (index < nr_ports)
+            port = static_cast<PortVideo *>(ports[index]);
+
+        if (!port) {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                 OMX_ErrorBadPortIndex);
+            return OMX_ErrorBadPortIndex;
+        }
+
+        memcpy(p, port->GetPortPrivateInfoParam(), sizeof(*p));
+        break;
+    }   
     /* PVOpenCore */
     case (OMX_INDEXTYPE) PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX: {
         PV_OMXComponentCapabilityFlagsType *p =
@@ -808,6 +847,44 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
         }
 
         ret = port->SetPortBitrateParam(p, false);
+        break;
+    }
+    case OMX_IndexIntelPrivateInfo: {
+        OMX_VIDEO_CONFIG_PRI_INFOTYPE *p =
+            (OMX_VIDEO_CONFIG_PRI_INFOTYPE *)pComponentParameterStructure;
+        OMX_U32 index = p->nPortIndex;
+        PortVideo *port = NULL;
+
+        LOGV("%s(): port index : %lu\n", __func__, index);
+
+        ret = CheckTypeHeader(p, sizeof(*p));
+        if (ret != OMX_ErrorNone) {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            return ret;
+        }
+
+        if (index < nr_ports)
+            port = static_cast<PortVideo *>(ports[index]);
+ 
+        if (!port) {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                 OMX_ErrorBadPortIndex);
+            return OMX_ErrorBadPortIndex;
+        }
+
+        if (port->IsEnabled()) {
+            OMX_STATETYPE state;
+
+            CBaseGetState((void *)GetComponentHandle(), &state);
+            if (state != OMX_StateLoaded &&
+                state != OMX_StateWaitForResources) {
+                LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                     OMX_ErrorIncorrectStateOperation);
+                return OMX_ErrorIncorrectStateOperation;
+            }
+        }
+
+        ret = port->SetPortPrivateInfoParam(p, false);
         break;
     }
     default:
@@ -1057,7 +1134,17 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorStop(void)
         avc_dec_timestamp = (OMX_S64)-1;
 	avc_frame_nals.reset();
     }
+#if 0
+    if (codec_mode == MIX_CODEC_MODE_ENCODE && coding_type
+			== OMX_VIDEO_CodingAVC) {
 
+    	ports[OUTPORT_INDEX]->ReturnAllRetainedBuffers();
+        avcenc_first_frame = NULL;
+        inframe_counter = 0;
+        outframe_counter = 0;    	
+    }
+#endif    
+ 
     LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
@@ -2031,6 +2118,25 @@ OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
             if (vcp_changed)
                 *vcp_changed = true;
         }
+        
+        const OMX_BOOL *isbuffersharing = port->GetPortBufferSharingInfo();
+        const OMX_VIDEO_CONFIG_PRI_INFOTYPE *privateinfoparam = port->GetPortPrivateInfoParam();
+        if(*isbuffersharing == OMX_TRUE) {
+            LOGE("@@@@@ we are in buffer sharing mode @@@@@");
+            if(privateinfoparam->nHolder != NULL) {
+                guint size = (guint)privateinfoparam->nCapacity;
+                gulong * p = (gulong *)privateinfoparam->nHolder;
+                int i = 0;
+                for(i = 0; i < size; i++)                
+                    LOGE("@@@@@ nCapacity = %d, camera frame id array[%d] = 0x%08x @@@@@", size, i, p[i]);
+                mix_videoconfigparamsenc_set_ci_frame_info(config, (gulong *)privateinfoparam->nHolder, (guint)privateinfoparam->nCapacity);
+                mix_videoconfigparamsenc_set_share_buf_mode(config, TRUE);
+                free(privateinfoparam->nHolder);
+            }
+        } else {
+            LOGE("@@@@@ we are NOT in buffer sharing mode @@@@@");
+            mix_videoconfigparamsenc_set_share_buf_mode(config, FALSE);
+        }
 
         /* hard coding */
         mix_videoconfigparamsenc_set_raw_format(config,
@@ -2039,7 +2145,6 @@ OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
         mix_videoconfigparamsenc_set_min_qp(config, 1);
 
         mix_videoconfigparamsenc_set_buffer_pool_size(config, 8);
-        mix_videoconfigparamsenc_set_share_buf_mode(config, FALSE);
         mix_videoconfigparamsenc_set_drawable(config, 0x0);
         mix_videoconfigparamsenc_set_need_display(config, FALSE);
     }
