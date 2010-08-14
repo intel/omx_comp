@@ -4,7 +4,8 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
 	psb.cpp \
-        avc.cpp
+        avc.cpp \
+        h263.cpp
 
 LOCAL_MODULE := libwrs_omxil_intel_mrst_psb
 

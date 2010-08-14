@@ -44,6 +44,7 @@ private:
 
     OMX_ERRORTYPE __AllocateAvcPort(OMX_U32 port_index, OMX_DIRTYPE dir);
     OMX_ERRORTYPE __AllocateMpeg4Port(OMX_U32 port_index, OMX_DIRTYPE dir);
+    OMX_ERRORTYPE __AllocateH263Port(OMX_U32 port_index, OMX_DIRTYPE dir);
     OMX_ERRORTYPE __AllocateRawPort(OMX_U32 port_index, OMX_DIRTYPE dir);
     OMX_ERRORTYPE __AllocateRawVAPort(OMX_U32 port_index, OMX_DIRTYPE dir);
 
@@ -92,6 +93,8 @@ private:
                                              PortAvc *port, bool *vcp_changed);
     OMX_ERRORTYPE __Mpeg4ChangeVcpWithPortParam(MixVideoConfigParams *vcp,
                                              PortMpeg4 *port, bool *vcp_changed);
+    OMX_ERRORTYPE __H263ChangeVcpWithPortParam(MixVideoConfigParams *vcp,
+                                             PortH263 *port, bool *vcp_changed);
     OMX_ERRORTYPE ChangeVcpWithPortParam(MixVideoConfigParams *vcp,
                                          PortVideo *port, bool *vcp_changed);
 
@@ -101,9 +104,14 @@ private:
     OMX_ERRORTYPE __Mpeg4ChangePortParamWithCodecData(const OMX_U8 *codec_data,
                                                     OMX_U32 size,
                                                     PortBase **ports);
+    OMX_ERRORTYPE __H263ChangePortParamWithCodecData(const OMX_U8 *codec_data,
+                                                    OMX_U32 size,
+                                                    PortBase **ports);
     OMX_ERRORTYPE ChangePortParamWithCodecData(const OMX_U8 *codec_data,
                                                OMX_U32 size,
                                                PortBase **ports);
+
+    static void AvcEncMixBufferCallback(gulong token, guchar *data);
 
     /* end of vcp setting helpers */
 
@@ -142,21 +150,30 @@ private:
     const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 32; //10;
     const static OMX_U32 INPORT_AVC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 40960;
-    const static OMX_U32 OUTPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
-    const static OMX_U32 OUTPORT_RAW_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_RAW_BUFFER_SIZE = 38016;
-    const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
-    const static OMX_U32 INPORT_RAW_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 614400;
     const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 OUTPORT_AVC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 480000;
+    
+    const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 5; //2;
+    const static OMX_U32 INPORT_RAW_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 614400;
+    const static OMX_U32 OUTPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
+    const static OMX_U32 OUTPORT_RAW_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 OUTPORT_RAW_BUFFER_SIZE = 38016;
+    
     const static OMX_U32 INPORT_MPEG4_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 INPORT_MPEG4_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_MPEG4_BUFFER_SIZE = 16000;
     const static OMX_U32 OUTPORT_MPEG4_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_MPEG4_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_MPEG4_BUFFER_SIZE = 38016;
+    
+    const static OMX_U32 INPORT_H263_ACTUAL_BUFFER_COUNT = 10;
+    const static OMX_U32 INPORT_H263_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 INPORT_H263_BUFFER_SIZE = 16000;
+    const static OMX_U32 OUTPORT_H263_ACTUAL_BUFFER_COUNT = 2;
+    const static OMX_U32 OUTPORT_H263_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 OUTPORT_H263_BUFFER_SIZE = 38016;
 
 };
 
