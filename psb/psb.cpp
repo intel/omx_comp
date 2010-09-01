@@ -2556,6 +2556,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorFlush(OMX_U32 port_index) {
                 ports[INPORT_INDEX]->ReturnAllRetainedBuffers();
                 mix_video_flush( mix);
         }
+	return OMX_ErrorNone;
 }
 
 void MrstPsbComponent::AvcEncMixBufferCallback(gulong token, guchar *data) {
