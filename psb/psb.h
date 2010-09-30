@@ -124,21 +124,25 @@ private:
     MixBuffer *mixbuffer_in[1];
     MixIOVec *mixiovec_out[1];
 
-    MixIOVec *avcenc_first_frame;
-
     OMX_VIDEO_CODINGTYPE coding_type;
     MixCodecMode codec_mode;
+    OMX_BOOL is_mixvideodec_configured;
 
     OMX_U32 inframe_counter;
     OMX_U32 outframe_counter;
 
-    AvcCodecDataConstructor avc_codec_data;
-    AvcFrameNals avc_frame_nals;
-    OMX_S64 avc_dec_timestamp;
-
     /* for fps */
     OMX_TICKS last_ts;
     float last_fps;
+
+    OMX_U8 *avc_enc_buffer;   
+    OMX_U32 avc_enc_buffer_offset;
+    OMX_U32 avc_enc_buffer_length;
+    OMX_U32 avc_enc_frame_size_left;
+
+    OMX_NALUFORMATSTYPE avcEncNaluFormatType;
+    OMX_U32 avcEncIDRPeriod;
+    OMX_U32 avcEncPFrames;
 
     /* constant */
     /* ports */
@@ -147,7 +151,7 @@ private:
     const static OMX_U32 OUTPORT_INDEX = 1;
 
     /* default buffer */
-    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 32; //10;
+    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 10; //32; //10;
     const static OMX_U32 INPORT_AVC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 40960;
     const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 10;

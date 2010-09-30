@@ -4,7 +4,6 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
 	psb.cpp \
-        avc.cpp \
         h263.cpp
 
 LOCAL_MODULE := libwrs_omxil_intel_mrst_psb
@@ -18,6 +17,7 @@ LOCAL_SHARED_LIBRARIES := \
 	liblog \
 	libglib-2.0 \
 	libgobject-2.0 \
+        libgthread-2.0 \
 	libmixcommon \
 	libmixvideo \
 	libmixvbp \
