@@ -151,12 +151,12 @@ private:
     const static OMX_U32 OUTPORT_INDEX = 1;
 
     /* default buffer */
-    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 10; //32; //10;
+    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 256; //10; //32; //10;
     const static OMX_U32 INPORT_AVC_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 40960;
+    const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 1382400; //40960;
     const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 OUTPORT_AVC_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 480000;
+    const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 1382400; //480000;
     
     const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 5; //2;
     const static OMX_U32 INPORT_RAW_MIN_BUFFER_COUNT = 1;
