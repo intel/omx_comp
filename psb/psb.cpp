@@ -2920,6 +2920,13 @@ OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
                 *vcp_changed = true;
         }
 
+        /* This is temporary change for h264 slice number until IMG interface is fixed. */
+        if (coding_type == OMX_VIDEO_CodingAVC && config->picture_height > 480)
+        {
+             mix_videoconfigparamsenc_h264_set_slice_num(
+                     MIX_VIDEOCONFIGPARAMSENC_H264(config), 1);
+        }
+
         if (config->frame_rate_num != (pd->format.video.xFramerate >> 16)) {
             LOGV("%s(): framerate : %u != %ld", __func__,
                  config->frame_rate_num, pd->format.video.xFramerate >> 16);
