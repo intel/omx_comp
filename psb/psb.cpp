@@ -1893,12 +1893,12 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
     buffer_in.data =
         buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
     buffer_in.data_size = buffers[INPORT_INDEX]->nFilledLen;
-    buffer_in.buffer_size = buffers[INPORT_INDEX]->nAllocLen;
+    buffer_in.buffer_size = buffers[INPORT_INDEX]->nAllocLen - buffers[INPORT_INDEX]->nOffset;
 
     buffer_out.data =
         buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
     buffer_out.data_size = 0;
-    buffer_out.buffer_size = buffers[OUTPORT_INDEX]->nAllocLen;
+    buffer_out.buffer_size = buffers[OUTPORT_INDEX]->nAllocLen - buffers[OUTPORT_INDEX]->nOffset;
     mixiovec_out[0] = &buffer_out;
 
     if(codec_mode == MIX_CODEC_MODE_DECODE && is_mixvideodec_configured) {
