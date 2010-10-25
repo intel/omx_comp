@@ -812,7 +812,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         p->iIsOMXComponentMultiThreaded = OMX_TRUE;
         p->iOMXComponentSupportsExternalInputBufferAlloc = OMX_TRUE;
         p->iOMXComponentSupportsExternalOutputBufferAlloc = OMX_TRUE;
-        p->iOMXComponentSupportsMovableInputBuffers = OMX_TRUE;
+        p->iOMXComponentSupportsMovableInputBuffers = OMX_FALSE;
         p->iOMXComponentSupportsPartialFrames = OMX_TRUE;
         p->iOMXComponentCanHandleIncompleteFrames = OMX_TRUE;
 
