@@ -63,6 +63,7 @@ extern "C" {
 #include <va/va_android.h>
 
 #include "h263.h"
+#include "avcsps.h"
 #include "psb.h"
 
 #define Display unsigned int
@@ -1904,7 +1905,6 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
     if(codec_mode == MIX_CODEC_MODE_DECODE && is_mixvideodec_configured) {
     	MixVideoFrame *frame = NULL;
         VABuffer *vaBuf = (VABuffer *)(mixiovec_out[0]->data);
-        uint32 frame_structure = 0;
 
         mret = mix_video_get_frame(mix, &frame);
         if (mret != MIX_RESULT_SUCCESS) {
@@ -1946,7 +1946,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
 
         LOGV("--- Output timestamp = %"G_GINT64_FORMAT"\n ---", outtimestamp);
 
-        mret = mix_videoframe_get_frame_structure(frame, (guint32 *)&frame_structure);
+        mret = mix_videoframe_get_frame_structure(frame, (guint32 *)&vaBuf->frame_structure);
         if (mret != MIX_RESULT_SUCCESS) {
               LOGE("%s(), %d mix_videoframe_get_frame_structure() failed (ret == 0x%08x)",
                                  __func__, __LINE__, mret);
@@ -1954,7 +1954,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
               goto local_cleanup;
         }
 
-        LOGV(" frame_structure = %d \n", frame_structure);
+        LOGV(" frame_structure = %d \n", vaBuf->frame_structure);
 
         outfilledlen = sizeof(VABuffer);
         LOGV("In OMX DEC vadisplay = %x surfaceid = %x outfilledlen = %d\n",
@@ -2265,8 +2265,7 @@ normal_start:
 
         LOGV("--- Output timestamp = %"G_GINT64_FORMAT"\n ---", outtimestamp);
 #endif
-        uint32 frame_structure = 0;
-        mret = mix_videoframe_get_frame_structure(frame, (guint32 *)&frame_structure);
+        mret = mix_videoframe_get_frame_structure(frame, (guint32 *)&vaBuf->frame_structure);
         if (mret != MIX_RESULT_SUCCESS) {
               LOGE("%s(), %d mix_videoframe_get_frame_structure() failed (ret == 0x%08x)",
                                  __func__, __LINE__, mret);
@@ -2274,7 +2273,7 @@ normal_start:
               goto out;
         }
 
-        LOGV(" frame_structure = %d \n", frame_structure);
+        LOGV(" frame_structure = %d \n", vaBuf->frame_structure);
 
         outfilledlen = sizeof(VABuffer);
         LOGV("In OMX DEC vadisplay = %x surfaceid = %x outfilledlen = %d\n",
@@ -2513,12 +2512,25 @@ OMX_ERRORTYPE MrstPsbComponent::__AvcChangePortParamWithCodecData(
     memcpy(&avcpd, avcport->GetPortDefinition(),
            sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
 
-#if 0
+#if 1
     /*
-     * FIXME
      *  - parsing codec data (sps/pps) and geting parameters
      */
-    #error "no h264 codec data parser"
+    OMX_U8 *nalu = (OMX_U8 *)codec_data;
+    LOGV("%s(), nal_type = 0x%x", __func__, *nalu & 0x1F);
+
+    int cx, cy;
+    if((*nalu & 0x1F) == 0x07) {
+        ret = avc_parse_sps(nalu, size, &cx, &cy);
+        LOGV("%s(), avc_parse_sps() returns = %d", __func__, ret);
+        if(ret == 0) {
+            width = cx;
+            height = cy;
+            stride = width;
+            sliceheight = height;
+        }
+    }
+
 #else
     LOGV("nFrameWidth = %lu", avcpd.format.video.nFrameWidth);
     LOGV("nFrameHeight = %lu", avcpd.format.video.nFrameHeight);
