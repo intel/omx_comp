@@ -1723,7 +1723,8 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
 
     mix_video_deinitialize(mix);
     mix_video_unref(mix);
-
+    //to release glib thread resource;
+    g_thread_deinit();
     LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
