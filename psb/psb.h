@@ -135,7 +135,7 @@ private:
     OMX_TICKS last_ts;
     float last_fps;
 
-    OMX_U8 *avc_enc_buffer;   
+    OMX_U8 *avc_enc_buffer;
     OMX_U32 avc_enc_buffer_offset;
     OMX_U32 avc_enc_buffer_length;
     OMX_U32 avc_enc_frame_size_left;
@@ -143,6 +143,18 @@ private:
     OMX_NALUFORMATSTYPE avcEncNaluFormatType;
     OMX_U32 avcEncIDRPeriod;
     OMX_U32 avcEncPFrames;
+
+    OMX_VIDEO_PARAM_INTEL_BITRATETYPE avcEncParamIntelBitrateType;
+    OMX_VIDEO_CONFIG_INTEL_BITRATETYPE avcEncConfigIntelBitrateType;
+    OMX_VIDEO_CONFIG_NALSIZE avcEncConfigNalSize;
+    OMX_VIDEO_CONFIG_INTEL_SLICE_NUMBERS avcEncConfigSliceNumbers;
+    OMX_VIDEO_CONFIG_INTEL_AIR avcEncConfigAir;
+    OMX_CONFIG_FRAMERATETYPE avcEncFramerate;
+
+    OMX_VIDEO_PARAM_INTEL_AVC_DECODE_SETTINGS avcDecodeSettings;
+    OMX_U32 avcDecFrameWidth;
+    OMX_U32 avcDecFrameHeight;
+    OMX_BOOL avcDecGotRes;
 
     /* constant */
     /* ports */
@@ -157,28 +169,27 @@ private:
     const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 OUTPORT_AVC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 1382400; //480000;
-    
+
     const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 5; //2;
     const static OMX_U32 INPORT_RAW_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 614400;
     const static OMX_U32 OUTPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_RAW_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_RAW_BUFFER_SIZE = 38016;
-    
+
     const static OMX_U32 INPORT_MPEG4_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 INPORT_MPEG4_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_MPEG4_BUFFER_SIZE = 16000;
     const static OMX_U32 OUTPORT_MPEG4_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_MPEG4_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_MPEG4_BUFFER_SIZE = 38016;
-    
+
     const static OMX_U32 INPORT_H263_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 INPORT_H263_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_H263_BUFFER_SIZE = 16000;
     const static OMX_U32 OUTPORT_H263_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_H263_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_H263_BUFFER_SIZE = 38016;
-
 };
 
 #endif /* __WRS_OMXIL_INTEL_MRST_PSB */
