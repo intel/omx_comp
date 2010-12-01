@@ -2646,7 +2646,7 @@ normal_start:
                 if (avcDecGotRes == OMX_FALSE || decode_params->new_sequence) {
                     LOGV("%s(), avcDecGotRes == OMX_FALSE || decode_params->new_sequence", __func__);
 
-                    avcDecGotRes = OMX_TRUE;
+                 //   avcDecGotRes = OMX_TRUE;
                     MixVideoConfigParams *config_params = NULL;
                     mret = mix_video_get_config(mix, &config_params);
                     if (mret != MIX_RESULT_SUCCESS) {
@@ -2680,8 +2680,12 @@ normal_start:
                     LOGV("%s(), avcpd.format.video.nFrameWidth = %d avcpd.format.video.nFrameHeight = %d",
                             __func__, avcpd.format.video.nFrameWidth, avcpd.format.video.nFrameHeight);
 
+                    // avcDecGotRes == OMX_FALSE is a workaround for a video conferencing app issue
+                    // that if port setting change event is not signaled at begining, the app will
+                    // not send output buffers for decoding.
                     if (avcDecFrameWidth != avcpd.format.video.nFrameWidth ||
-                        avcDecFrameHeight != avcpd.format.video.nFrameHeight) {
+                        avcDecFrameHeight != avcpd.format.video.nFrameHeight ||
+                        avcDecGotRes == OMX_FALSE) {
 
                         LOGV("%s(), calls to ChangePortParamWithCodecData", __func__);
                         oret = ChangePortParamWithCodecData(buffer_in.data,
@@ -2696,6 +2700,8 @@ normal_start:
                         LOGV("%s(), calls to ReportPortSettingsChanged", __func__);
                         ports[OUTPORT_INDEX]->ReportPortSettingsChanged();
                     }
+
+                    avcDecGotRes = OMX_TRUE;
                     mix_videoconfigparams_unref(config_params);
                 }
             }
