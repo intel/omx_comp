@@ -5,6 +5,7 @@ LOCAL_SRC_FILES := \
 	sst.cpp
 
 LOCAL_MODULE := libwrs_omxil_intel_mrst_sst
+LOCAL_MODULE_TAGS := optional
 
 LOCAL_CPPFLAGS :=
 

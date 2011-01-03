@@ -7,6 +7,7 @@ LOCAL_SRC_FILES := \
 	h263.cpp
 
 LOCAL_MODULE := libwrs_omxil_intel_mrst_psb
+LOCAL_MODULE_TAGS := optional
 
 LOCAL_CPPFLAGS :=
 
