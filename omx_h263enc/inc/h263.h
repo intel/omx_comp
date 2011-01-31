@@ -1,11 +1,9 @@
 #ifndef __OMXIL_INTEL_H263__
 #define __OMXIL_INTEL_H263__
 
-
 typedef long int32;
-typedef unsigned long uint32;
 typedef unsigned char uint8;
-typedef unsigned short uint16;
+typedef unsigned long uint32;
 
 class H263HeaderParser {
 

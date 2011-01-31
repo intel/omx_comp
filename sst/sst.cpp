@@ -31,7 +31,7 @@
 #include <portaudio.h>
 #include <componentbase.h>
 
-#include <pv_omxcore.h>
+//#include <pv_omxcore.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -624,6 +624,7 @@ OMX_ERRORTYPE MrstSstComponent::ComponentGetParameter(
         memcpy(p, port->GetPortAacParam(), sizeof(*p));
         break;
     }
+#if 0
     case (OMX_INDEXTYPE) PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX: {
         PV_OMXComponentCapabilityFlagsType *p =
             (PV_OMXComponentCapabilityFlagsType *)pComponentParameterStructure;
@@ -638,6 +639,7 @@ OMX_ERRORTYPE MrstSstComponent::ComponentGetParameter(
         p->iOMXComponentUsesFullAVCFrames = OMX_FALSE;
         break;
     }
+#endif
     default:
         ret = OMX_ErrorUnsupportedIndex;
     } /* switch */

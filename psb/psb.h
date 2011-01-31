@@ -25,7 +25,7 @@
 #include <cmodule.h>
 #include <portbase.h>
 #include <componentbase.h>
-
+#define oscl_memset	memset
 class MrstPsbComponent : public ComponentBase
 {
 public:
@@ -179,17 +179,18 @@ private:
 
     const static OMX_U32 INPORT_MPEG4_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 INPORT_MPEG4_MIN_BUFFER_COUNT = 1;
+//    const static OMX_U32 INPORT_MPEG4_BUFFER_SIZE = 16000;
     const static OMX_U32 INPORT_MPEG4_BUFFER_SIZE = 1382400;
     const static OMX_U32 OUTPORT_MPEG4_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_MPEG4_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_MPEG4_BUFFER_SIZE = 1382400;
+    const static OMX_U32 OUTPORT_MPEG4_BUFFER_SIZE = 38016;
 
     const static OMX_U32 INPORT_H263_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 INPORT_H263_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 INPORT_H263_BUFFER_SIZE = 1382400;
+    const static OMX_U32 INPORT_H263_BUFFER_SIZE = 16000;
     const static OMX_U32 OUTPORT_H263_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_H263_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_H263_BUFFER_SIZE = 1382400;
+    const static OMX_U32 OUTPORT_H263_BUFFER_SIZE = 38016;
 };
 
 #endif /* __WRS_OMXIL_INTEL_MRST_PSB */

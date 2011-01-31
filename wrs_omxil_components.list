@@ -1,2 +1,5 @@
 #libwrs_omxil_intel_mrst_sst.so
 libwrs_omxil_intel_mrst_psb.so
+libwrs_omxil_intel_mrst_psb_stub_ve_avc_new.so
+libwrs_omxil_intel_mrst_psb_stub_ve_mpeg4.so
+libwrs_omxil_intel_mrst_psb_stub_ve_h263.so

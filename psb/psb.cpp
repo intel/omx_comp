@@ -38,15 +38,10 @@
 #include <portvideo.h>
 #include <componentbase.h>
 
-#include <pv_omxcore.h>
+//#include <pv_omxcore.h>
 
 #include <gthread.h>
 #include <glib.h>
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include <mixdisplayandroid.h>
 #include <mixvideo.h>
@@ -54,6 +49,11 @@ extern "C" {
 #include <mixvideoconfigparamsenc_h264.h>
 #include <mixvideoconfigparamsdec_mp42.h>
 #include <mixvideoconfigparamsenc_h263.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include <va/va.h>
 
@@ -876,6 +876,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         memcpy(p, port->GetPortPrivateInfoParam(), sizeof(*p));
         break;
     }
+#if 0
     /* PVOpenCore */
     case (OMX_INDEXTYPE) PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX: {
         PV_OMXComponentCapabilityFlagsType *p =
@@ -895,7 +896,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
 
         break;
     }
-
+#endif
     case OMX_IndexParamNalStreamFormat:
     case OMX_IndexParamNalStreamFormatSupported: {
         OMX_NALSTREAMFORMATTYPE *p =
@@ -1777,6 +1778,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetConfig(
                 MixEncDynamicParams dynamic_params;
                 oscl_memset(&dynamic_params, 0, sizeof(dynamic_params));
 
+
                 params_type = MIX_ENC_PARAMS_INIT_QP;
                 dynamic_params.init_QP = avcEncConfigIntelBitrateType.nInitialQP;
                 mret = mix_video_set_dynamic_enc_config(mix, params_type,
@@ -2012,7 +2014,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     MIX_RESULT mret;
 
     LOGV("%s(): enter\n", __func__);
-
+	/*
     LOGV("%s(): calls to g_thread_supported()", __func__);
     if(!g_thread_supported()) {
          LOGV("%s(): calls to g_thread_init()", __func__);
@@ -2023,6 +2025,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 
     g_type_init();
     LOGV("%s(): called to g_type_init()", __func__);
+	*/
 
     /*
      * common codes
@@ -2058,8 +2061,11 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     else if (coding_type == OMX_VIDEO_CodingH263) {
         vcp = MIX_VIDEOCONFIGPARAMS(mix_videoconfigparamsenc_h263_new());
     }
-
+#if MIXVIDEO_ENCODE_ENABLE
         mvp = MIX_PARAMS(mix_videoencodeparams_new());
+#else
+		mvp = NULL;
+#endif
         port_index = OUTPORT_INDEX;
     }
 
@@ -2203,7 +2209,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
     mix_video_unref(mix);
 
     //to release glib thread resource;
-    g_thread_deinit();
+    //g_thread_deinit();
 
     LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
@@ -2279,7 +2285,6 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
 
     OMX_ERRORTYPE oret = OMX_ErrorNone;
     MIX_RESULT mret;
-
     if(codec_mode == MIX_CODEC_MODE_ENCODE) {
          LOGV("%s(): enter encode\n", __func__);
     } else {
@@ -2306,6 +2311,9 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
         buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
     buffer_in.data_size = buffers[INPORT_INDEX]->nFilledLen;
     buffer_in.buffer_size = buffers[INPORT_INDEX]->nAllocLen - buffers[INPORT_INDEX]->nOffset;
+
+	LOGV("buffer_in.data=%x, data_size=%d, buffer_size=%d",
+		(unsigned)buffer_in.data, buffer_in.data_size, buffer_in.buffer_size);
 
     buffer_out.data =
         buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
@@ -2646,7 +2654,7 @@ normal_start:
                 if (avcDecGotRes == OMX_FALSE || decode_params->new_sequence) {
                     LOGV("%s(), avcDecGotRes == OMX_FALSE || decode_params->new_sequence", __func__);
 
-                 //   avcDecGotRes = OMX_TRUE;
+                    avcDecGotRes = OMX_TRUE;
                     MixVideoConfigParams *config_params = NULL;
                     mret = mix_video_get_config(mix, &config_params);
                     if (mret != MIX_RESULT_SUCCESS) {
@@ -2680,12 +2688,8 @@ normal_start:
                     LOGV("%s(), avcpd.format.video.nFrameWidth = %d avcpd.format.video.nFrameHeight = %d",
                             __func__, avcpd.format.video.nFrameWidth, avcpd.format.video.nFrameHeight);
 
-                    // avcDecGotRes == OMX_FALSE is a workaround for a video conferencing app issue
-                    // that if port setting change event is not signaled at begining, the app will
-                    // not send output buffers for decoding.
                     if (avcDecFrameWidth != avcpd.format.video.nFrameWidth ||
-                        avcDecFrameHeight != avcpd.format.video.nFrameHeight ||
-                        avcDecGotRes == OMX_FALSE) {
+                        avcDecFrameHeight != avcpd.format.video.nFrameHeight) {
 
                         LOGV("%s(), calls to ChangePortParamWithCodecData", __func__);
                         oret = ChangePortParamWithCodecData(buffer_in.data,
@@ -2700,8 +2704,6 @@ normal_start:
                         LOGV("%s(), calls to ReportPortSettingsChanged", __func__);
                         ports[OUTPORT_INDEX]->ReportPortSettingsChanged();
                     }
-
-                    avcDecGotRes = OMX_TRUE;
                     mix_videoconfigparams_unref(config_params);
                 }
             }
@@ -2800,9 +2802,13 @@ release_frame:
        if (coding_type != OMX_VIDEO_CodingAVC || (coding_type
                 == OMX_VIDEO_CodingAVC && avcEncNaluFormatType
                 != OMX_NaluFormatZeroByteInterleaveLength)) {
-
+#if MIXVIDEO_ENCODE_ENABLE
             mret = mix_video_encode(mix, mixbuffer_in, 1, mixiovec_out, 1,
                     MIX_VIDEOENCODEPARAMS(mvp));
+#else
+			mret = mix_video_encode(mix, mixbuffer_in, 1, mixiovec_out, 1,
+					mvp);
+#endif
 
             LOGV("%s(), mret = 0x%08x", __func__, mret);
 
@@ -2840,10 +2846,13 @@ release_frame:
             if (avc_enc_frame_size_left == 0) {
 
                 LOGV("begin to call mix_video_encode()");
-
+#if MIXVIDEO_ENCODE_ENABLE
                 mret = mix_video_encode(mix, mixbuffer_in, 1, mixiovec_out, 1,
                         MIX_VIDEOENCODEPARAMS(mvp));
-
+#else
+				mret = mix_video_encode(mix, mixbuffer_in, 1, mixiovec_out, 1,
+						mvp);
+#endif
                 LOGV("%s(), mret = 0x%08x", __func__, mret);
 
                 if (mret != MIX_RESULT_SUCCESS) {
@@ -3730,10 +3739,8 @@ static const char *g_name = (const char *)"OMX.Intel.Mrst.PSB";
 static const char *g_roles[] =
 {
     (const char *)"video_decoder.avc",
-    (const char *)"video_encoder.avc",
     (const char *)"video_decoder.mpeg4",
     (const char *)"video_decoder.h263",
-    (const char *)"video_encoder.h263",
 };
 
 OMX_ERRORTYPE wrs_omxil_cmodule_ops_instantiate(OMX_PTR *instance)

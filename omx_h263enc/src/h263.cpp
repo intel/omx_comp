@@ -6,17 +6,14 @@
 #include <sys/time.h>
 #include <OMX_Core.h>
 
-//#include "oscl_base.h"
-//#include "oscl_types.h"
-
 #include "h263.h"
 
-OMX_BOOL H263HeaderParser::DecodeH263Header(OMX_U8* aInputBuffer, int32 *width,
-		int32 *height, int32 *display_width, int32 *display_height) {
-    uint32 codeword;
-    int32   extended_PTYPE = 0;
-    int32 UFEP = 0;
-    int32 custom_PFMT = 0;
+OMX_BOOL H263HeaderParser::DecodeH263Header(OMX_U8* aInputBuffer, int*width,
+		int*height, int*display_width, int*display_height) {
+    unsigned int codeword;
+    int  extended_PTYPE = 0;
+    intUFEP = 0;
+    intcustom_PFMT = 0;
 
     //Reset the data bit position to the start of the stream
     iH263DataBitPos = 0;
@@ -211,7 +208,7 @@ OMX_BOOL H263HeaderParser::DecodeH263Header(OMX_U8* aInputBuffer, int32 *width,
     return OMX_TRUE;
 }
 
-static const uint32 mask[33] =
+static const unsigned int mask[33] =
 {
     0x00000000, 0x00000001, 0x00000003, 0x00000007,
     0x0000000f, 0x0000001f, 0x0000003f, 0x0000007f,
@@ -225,14 +222,14 @@ static const uint32 mask[33] =
 };
 
 void H263HeaderParser::ReadBits(OMX_U8* aStream,     /* Input Stream */
-                              uint8 aNumBits,        /* nr of bits to read */
-                              uint32* aOutData       /* output target */
+                              unsigned char aNumBits,        /* nr of bits to read */
+                              unsigned int* aOutData       /* output target */
                              )
 {
-    uint8 *bits;
-    uint32 dataBitPos = iH263DataBitPos;
-    uint32 bitPos = iH263BitPos;
-    uint32 dataBytePos;
+    unsigned char *bits;
+    unsigned int dataBitPos = iH263DataBitPos;
+    unsigned int bitPos = iH263BitPos;
+    unsigned int dataBytePos;
 
     if (aNumBits > (32 - bitPos))    /* not enough bits */
     {

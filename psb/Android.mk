@@ -6,10 +6,10 @@ LOCAL_SRC_FILES := \
 	psb.cpp \
 	h263.cpp
 
-LOCAL_MODULE := libwrs_omxil_intel_mrst_psb
 LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libwrs_omxil_intel_mrst_psb
 
-LOCAL_CPPFLAGS :=
+LOCAL_CPPFLAGS := -DMIXVIDEO_ENCODE_ENABLE=0
 
 LOCAL_LDFLAGS :=
 
@@ -17,14 +17,13 @@ LOCAL_SHARED_LIBRARIES := \
 	libwrs_omxil_common \
 	liblog \
 	libglib-2.0 \
-	libgobject-2.0 \
-        libgthread-2.0 \
 	libmixcommon \
 	libmixvideo \
 	libmixvbp \
-        libva \
+	libva \
 	libva-android \
-        libva-tpi
+	libva-tpi
+
 
 VENDORS_INTEL_MRST_MIXVBP_ROOT := $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/mix_vbp
 
