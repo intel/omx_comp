@@ -131,6 +131,9 @@ protected:
 
   //info observer
   CodecInfoObserver *observer;
+
+  int  nFrameNum;
+  bool bResetSequence;
 };
 
 

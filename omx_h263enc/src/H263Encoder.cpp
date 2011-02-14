@@ -16,6 +16,11 @@ RtCode H263Encoder::prepareSequenceParam()
 	RtCode enc_status;
 	VAEncSequenceParameterBufferH263 sequence_param_buf;
 
+   if(!bResetSequence)
+        {
+       return SUCCESS;
+        }
+
 	enc_status = manageParamBufId(idxSequenceParamBufId);
 
 	LOG_EXEC_IF(enc_status!=SUCCESS,return enc_status);
@@ -31,7 +36,7 @@ RtCode H263Encoder::prepareSequenceParam()
              sequence_param_buf.intra_period = 0;	//<=0 are treated as 0
 	}
 
-        sequence_param_buf.bits_per_second = 640000;//to be determined.
+        sequence_param_buf.bits_per_second = codecConfig.frameBitrate;
         sequence_param_buf.frame_rate = codecConfig.frameRate;
         sequence_param_buf.initial_qp = codecConfig.initialQp;
         sequence_param_buf.min_qp =  codecConfig.minimalQp;      
@@ -42,6 +47,8 @@ RtCode H263Encoder::prepareSequenceParam()
 			&sequence_param_buf,&(TO_PARAM_BUF(idxSequenceParamBufId)));
 
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
+
+   bResetSequence = false;
   
 	return SUCCESS;
 }

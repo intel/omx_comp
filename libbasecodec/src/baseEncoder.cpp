@@ -27,6 +27,8 @@ BaseEncoder::BaseEncoder()
     VALUE_RESET(nTotalSurface);
     VALUE_RESET(nCiSurface);
     ARRAY_RESET(codedBufId);
+    VALUE_RESET(nFrameNum);
+    bResetSequence = true;
 
    CODEC_SURFACE_ID_BASE = 0;
    NORMAL_SRC_SURFACE_ID_BASE = 2;
@@ -101,7 +103,7 @@ RtCode BaseEncoder::setDynamicConfig(CodecConfig config)
 
      LOG_EXEC_IF(config.frameWidth != codecConfig.frameWidth,   return INVALID_PARAMETER);
      LOG_EXEC_IF(config.frameHeight != codecConfig.frameHeight,	return INVALID_PARAMETER);
-     LOG_EXEC_IF(config.frameRate != codecConfig.frameRate,     return INVALID_PARAMETER);
+     //LOG_EXEC_IF(config.frameRate != codecConfig.frameRate,     return INVALID_PARAMETER);
      LOG_EXEC_IF(config.rateControl != codecConfig.rateControl, return INVALID_PARAMETER);
      LOG_EXEC_IF(config.naluFormat != codecConfig.naluFormat,	return INVALID_PARAMETER);
      LOG_EXEC_IF(config.levelIDC != codecConfig.levelIDC,	return INVALID_PARAMETER);
@@ -137,6 +139,9 @@ RtCode BaseEncoder::setDynamicConfig(CodecConfig config)
      codecConfig = config;
 	
      iGOPCounter = 0;
+
+     /* reset sps parameter */
+     bResetSequence = true;
 
       //fire observers
      if (observer != NULL)

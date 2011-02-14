@@ -687,6 +687,7 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentGetConfig(
     OMX_ERRORTYPE ret = OMX_ErrorUnsupportedIndex;
     OMX_CONFIG_INTRAREFRESHVOPTYPE* pVideoIFrame;
     OMX_VIDEO_CONFIG_AVCINTRAPERIOD *pVideoIDRInterval;
+    OMX_CONFIG_FRAMERATETYPE *pFrameRate;
 
     RtCode aret;
 
@@ -727,8 +728,39 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentGetConfig(
             LOGV("OMX_IndexConfigVideoAVCIntraPeriod : nIDRPeriod = %d, nPFrames = %d", pVideoIDRInterval->nIDRPeriod, pVideoIDRInterval->nPFrames);
 
             SetTypeHeader(pVideoIDRInterval, sizeof(OMX_VIDEO_CONFIG_AVCINTRAPERIOD));
+       break;
+       }
+        
+        case OMX_IndexConfigVideoFramerate:
+        {
+            pFrameRate = (OMX_CONFIG_FRAMERATETYPE*)pComponentConfigStructure;
+            if(!pFrameRate)
+            {
+                LOGE("pFrameRate NULL pointer");   
+                return OMX_ErrorBadParameter;
+            }
+          
+            OMX_U32 index = pFrameRate->nPortIndex;
+           
+            if (pFrameRate->nPortIndex != OUTPORT_INDEX)
+            {
+                LOGE("Wrong port index");
+                return OMX_ErrorBadPortIndex;
+            }
+     
+	    LOCK_CONFIG
+            RtCode aret;
+	    aret = encoder->getConfig(&config);
+	    assert(aret == SUCCESS);
+
+            pFrameRate->xEncodeFramerate = config.frameRate;
+
+	    UNLOCK_CONFIG
+
+           
+            LOGE("OMX_IndexConfigVideoFramerate !xEncodeFramerate =%d ", pFrameRate->xEncodeFramerate);    
+            break;
         }
-        break;
 
         default:
         {
@@ -748,7 +780,7 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentSetConfig(
     OMX_ERRORTYPE ret = OMX_ErrorUnsupportedIndex;
     OMX_CONFIG_INTRAREFRESHVOPTYPE* pVideoIFrame;
     OMX_VIDEO_CONFIG_AVCINTRAPERIOD *pVideoIDRInterval;
-    LOGV("%s(): enter\n", __func__);
+    OMX_CONFIG_FRAMERATETYPE *pFrameRate;
 
     LOGV("%s() : nIndex = %d\n", __func__, nParamIndex);
 
@@ -778,9 +810,43 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentSetConfig(
 	         encoder->setKeyFrame();
 	         UNLOCK_CONFIG;
             }
+       break;
         }
-        break;
+        
 
+        case OMX_IndexConfigVideoFramerate:
+        {
+            pFrameRate = (OMX_CONFIG_FRAMERATETYPE*)pComponentConfigStructure;
+            if(!pFrameRate)
+            {
+                LOGE("pFrameRate NULL pointer");   
+                return OMX_ErrorBadParameter;
+            }
+          
+            OMX_U32 index = pFrameRate->nPortIndex;
+           
+            if (pFrameRate->nPortIndex != OUTPORT_INDEX)
+            {
+                LOGE("Wrong port index");
+                return OMX_ErrorBadPortIndex;
+            }
+     
+	    LOCK_CONFIG
+            RtCode aret;
+	    aret = encoder->getConfig(&config);
+	    assert(aret == SUCCESS);
+
+            config.frameRate = pFrameRate->xEncodeFramerate;
+          
+            aret = encoder->setDynamicConfig(config);
+ 
+            assert(aret == SUCCESS);
+            
+	    UNLOCK_CONFIG
+           
+            LOGE("OMX_IndexConfigVideoFramerate ,xEncodeFramerate =%d ", pFrameRate->xEncodeFramerate);    
+            break;
+        }
         default:
         {
             return OMX_ErrorUnsupportedIndex;
@@ -1110,10 +1176,9 @@ OMX_ERRORTYPE OMXMPEG4Component::ChangeMPEG4EncoderConfigWithPortParam(
     }
 
     pconfig->nSlice = 1;	//just hard coded for init value, could be adjusted later
-    pconfig->initialQp = 0;
+    pconfig->initialQp = 15;
     pconfig->minimalQp = 1;
 
-    pconfig->rateControl = RC_VBR;	//hard code as VBR
 
     const OMX_BOOL *isbuffersharing = port->GetPortBufferSharingInfo();
     const OMX_VIDEO_CONFIG_PRI_INFOTYPE *privateinfoparam = port->GetPortPrivateInfoParam();

@@ -11,25 +11,30 @@ void   MPEG4Encoder::setEncodeProfile()
 
 RtCode MPEG4Encoder::prepareSequenceParam()
 {
-       ENTER_FUN;
+   ENTER_FUN;
 
 	VAStatus va_status;
 	RtCode enc_status;
 	VAEncSequenceParameterBufferMPEG4 sequence_param_buf;
 
-        enc_status = manageParamBufId(idxSequenceParamBufId);
+   if(!bResetSequence)
+        {
+       return SUCCESS;
+        }
+
+   enc_status = manageParamBufId(idxSequenceParamBufId);
 
 	LOG_EXEC_IF(enc_status!=SUCCESS,return enc_status);
 
 	memset((void*)&sequence_param_buf, 0x0, sizeof(VAEncSequenceParameterBufferMPEG4));
 
         sequence_param_buf.profile_and_level_indication = 0x3;//to be determined.
-        sequence_param_buf.video_object_layer_width = codecConfig.roundFrameWidth;
-        sequence_param_buf.video_object_layer_height = codecConfig.roundFrameHeight;
-        sequence_param_buf.vop_time_increment_resolution = 1000;//to be determined.
-        sequence_param_buf.fixed_vop_rate = 0;//to be determined.
-        sequence_param_buf.fixed_vop_time_increment = 0;//to be determined.
-        sequence_param_buf.bits_per_second = 640000;//to be determined.
+        sequence_param_buf.video_object_layer_width = codecConfig.frameWidth;
+        sequence_param_buf.video_object_layer_height = codecConfig.frameHeight;
+        sequence_param_buf.vop_time_increment_resolution = codecConfig.frameRate;
+        sequence_param_buf.fixed_vop_rate = 0;
+        sequence_param_buf.fixed_vop_time_increment = 3;
+        sequence_param_buf.bits_per_second = codecConfig.frameBitrate;
         sequence_param_buf.frame_rate = codecConfig.frameRate;
         sequence_param_buf.initial_qp = codecConfig.initialQp;
         sequence_param_buf.min_qp =  codecConfig.minimalQp;      
@@ -52,6 +57,7 @@ RtCode MPEG4Encoder::prepareSequenceParam()
 
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
 
+   bResetSequence = false;
   
 	return SUCCESS;
 }
@@ -74,8 +80,8 @@ RtCode MPEG4Encoder::preparePictureParam(void)
         picture_param_buf.coded_buf = TO_CODED_BUF(encodeFrameInfo.getCodedBufIdx());
         picture_param_buf.picture_width = codecConfig.frameWidth;
         picture_param_buf.picture_height = codecConfig.frameHeight;
-        picture_param_buf.modulo_time_base =  0x1;//to be determined.
-        picture_param_buf.vop_time_increment = 500;//to be determined.
+        picture_param_buf.modulo_time_base = 0;
+        picture_param_buf.vop_time_increment =  nFrameNum;
 
         /* determine the current frame type */
 	if( frameType == I_FRAME)
@@ -94,7 +100,8 @@ RtCode MPEG4Encoder::preparePictureParam(void)
 
   	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);
 
-   
+   nFrameNum++;
+
 	return SUCCESS;
 
 }
