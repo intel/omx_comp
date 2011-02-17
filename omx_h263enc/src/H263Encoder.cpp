@@ -16,10 +16,10 @@ RtCode H263Encoder::prepareSequenceParam()
 	RtCode enc_status;
 	VAEncSequenceParameterBufferH263 sequence_param_buf;
 
-   if(!bResetSequence)
+        if(frameType != IDR_FRAME)
         {
-       return SUCCESS;
-        }
+        	 return SUCCESS;
+        }		  
 
 	enc_status = manageParamBufId(idxSequenceParamBufId);
 
@@ -35,21 +35,19 @@ RtCode H263Encoder::prepareSequenceParam()
         {
              sequence_param_buf.intra_period = 0;	//<=0 are treated as 0
 	}
-
+//FIXME: review
         sequence_param_buf.bits_per_second = codecConfig.frameBitrate;
         sequence_param_buf.frame_rate = codecConfig.frameRate;
         sequence_param_buf.initial_qp = codecConfig.initialQp;
         sequence_param_buf.min_qp =  codecConfig.minimalQp;      
 
-        va_status = vaCreateBuffer(vaDisplay, contextId,
+        va_status = vaCreateBuffer(hLib->vaDisplay, contextId,
 			VAEncSequenceParameterBufferType,
                         sizeof(sequence_param_buf),1,
 			&sequence_param_buf,&(TO_PARAM_BUF(idxSequenceParamBufId)));
 
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
 
-   bResetSequence = false;
-  
 	return SUCCESS;
 }
 
@@ -73,7 +71,7 @@ RtCode H263Encoder::preparePictureParam(void)
         picture_param_buf.picture_height = codecConfig.frameHeight;
 
         /* determine the current frame type */
-	if( frameType == I_FRAME)
+	if( frameType == I_FRAME || frameType == IDR_FRAME)
         {
            picture_param_buf.picture_type = VAEncPictureTypeIntra;
         }
@@ -84,7 +82,7 @@ RtCode H263Encoder::preparePictureParam(void)
 
        //hack code here for encode I frames
               	  
-        va_status = vaCreateBuffer(vaDisplay, contextId,VAEncPictureParameterBufferType,
+        va_status = vaCreateBuffer(hLib->vaDisplay, contextId,VAEncPictureParameterBufferType,
                                    sizeof(picture_param_buf),1,&picture_param_buf,&(TO_PARAM_BUF(idxPictureParamBufId)));
 
   	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);
@@ -98,7 +96,7 @@ bool H263Encoder::manageGOPCounter(void)
 {
      if(iGOPCounter == 0)
      {
-        frameType = I_FRAME;
+        frameType = IDR_FRAME;
      }
      else if(iGOPCounter == codecConfig.intraInterval)
      {

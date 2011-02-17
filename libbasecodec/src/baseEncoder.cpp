@@ -1,7 +1,9 @@
+#define LOG_NDEBUG 0
 #define LOG_TAG "baseEncoder"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -18,7 +20,6 @@ BaseEncoder::BaseEncoder()
 {
     POINTER_RESET(surfaceId);
     POINTER_RESET(observer);
-    VALUE_RESET(vaDisplay);
     VALUE_RESET(contextId);
     VALUE_RESET(configId);
     VALUE_RESET_BOOL(bInitialized);
@@ -27,15 +28,20 @@ BaseEncoder::BaseEncoder()
     VALUE_RESET(nTotalSurface);
     VALUE_RESET(nCiSurface);
     ARRAY_RESET(codedBufId);
+    POINTER_RESET(hLib);
     VALUE_RESET(nFrameNum);
-    bResetSequence = true;
 
-   CODEC_SURFACE_ID_BASE = 0;
-   NORMAL_SRC_SURFACE_ID_BASE = 2;
-   CI_SRC_SURFACE_ID_BASE = 3 ;
+    CODEC_SURFACE_ID_BASE = 0;
+    NORMAL_SRC_SURFACE_ID_BASE = 2;
+    CI_SRC_SURFACE_ID_BASE = 3;
+
+    hLib = new VAInstance();
+    assert(hLib != NULL);
 };
 
 BaseEncoder::~BaseEncoder() {
+    POINTER_RELEASE(hLib);
+    ARRAY_RELEASE(surfaceId);
 };
 
 
@@ -103,7 +109,6 @@ RtCode BaseEncoder::setDynamicConfig(CodecConfig config)
 
      LOG_EXEC_IF(config.frameWidth != codecConfig.frameWidth,   return INVALID_PARAMETER);
      LOG_EXEC_IF(config.frameHeight != codecConfig.frameHeight,	return INVALID_PARAMETER);
-     //LOG_EXEC_IF(config.frameRate != codecConfig.frameRate,     return INVALID_PARAMETER);
      LOG_EXEC_IF(config.rateControl != codecConfig.rateControl, return INVALID_PARAMETER);
      LOG_EXEC_IF(config.naluFormat != codecConfig.naluFormat,	return INVALID_PARAMETER);
      LOG_EXEC_IF(config.levelIDC != codecConfig.levelIDC,	return INVALID_PARAMETER);
@@ -138,12 +143,9 @@ RtCode BaseEncoder::setDynamicConfig(CodecConfig config)
 
      codecConfig = config;
 	
-     iGOPCounter = 0;
+     setKeyFrame();
 
-     /* reset sps parameter */
-     bResetSequence = true;
-
-      //fire observers
+     //fire observers
      if (observer != NULL)
      {
 	observer->handleConfigChange(true);
@@ -190,46 +192,24 @@ void BaseEncoder::setEncodeProfile()
     //set the encode profile for avc or mpeg4
 }
 
-RtCode BaseEncoder::init()
+RtCode BaseEncoder::setupVAConfig(void)
 {
    VAStatus va_status;
    VAConfigAttrib attribute[2];
+
    VAEntrypoint *entry_points;
-		
    int n_entry_points;
-   int target_entry_point;		
-   int va_major_ver;	
-   int va_minor_ver;
-
-   int display_port = 0;
-
-
-   if (bInitialized == true)
-   {
-	LOGV("has already initialized. if an reconfig is expected, please invoke reconfig");
-	return INVALID_STATE;
-   };
-
-   setEncodeProfile();  
-
-   videoEncodeEntry = VAEntrypointEncSlice;
-
-   vaDisplay = vaGetDisplay(&display_port);
-
-   LOG_EXEC_IF(vaDisplay==NULL,	return NOT_FOUND);
-	
-   va_status = vaInitialize(vaDisplay, &va_major_ver, &va_minor_ver);
-
-   LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return DEVICE_ERROR );
-   LOGV("libva initialized: ver(%d.%d)", va_major_ver, va_minor_ver);
-
-   n_entry_points = vaMaxNumEntrypoints(vaDisplay);
-
-   LOG_EXEC_IF(n_entry_points==0,return NOT_FOUND);
-
-   entry_points = new VAEntrypoint [n_entry_points];	//resource assigned
-
-   vaQueryConfigEntrypoints(vaDisplay,videoEncodeProfile, entry_points, &n_entry_points);
+   
+   //check va functionality
+   n_entry_points = vaMaxNumEntrypoints(hLib->vaDisplay);
+   assert(n_entry_points >0);
+   entry_points = new VAEntrypoint [n_entry_points];
+   assert(entry_points != NULL);
+   
+   vaQueryConfigEntrypoints(hLib->vaDisplay,
+	videoEncodeProfile, 
+	entry_points, 
+	&n_entry_points);
    {
 	int idx;
         for (idx = 0; idx < n_entry_points; idx ++) 
@@ -240,20 +220,19 @@ RtCode BaseEncoder::init()
 	    }
 	}
 
-	LOG_EXEC_IF(idx == n_entry_points,delete []entry_points;return NOT_FOUND);	//resource unassigned	
-	
-    }
+	assert(idx < n_entry_points);
+   }
+   delete [] entry_points;
 
-    //LOGV("find the avc baseline slice from libva");
-
+   //setup config
    attribute[0].type = VAConfigAttribRTFormat;
    attribute[1].type = VAConfigAttribRateControl;
 
-   vaGetConfigAttributes(vaDisplay, videoEncodeProfile, videoEncodeEntry, &attribute[0], 2);	
-   LOG_EXEC_IF(attribute[0].value & VA_RT_FORMAT_YUV420 == 0,delete [] entry_points;return NOT_FOUND);	
-   LOG_EXEC_IF(attribute[1].value & VA_RC_VBR == 0,   delete [] entry_points;return NOT_FOUND);	
-   LOG_EXEC_IF(attribute[1].value & VA_RC_CBR == 0,   delete [] entry_points;return NOT_FOUND);
-   LOG_EXEC_IF(attribute[1].value & VA_RC_NONE == 0,   delete [] entry_points;return NOT_FOUND);
+   vaGetConfigAttributes(hLib->vaDisplay, videoEncodeProfile, videoEncodeEntry, &attribute[0], 2);	
+   LOG_EXEC_IF(attribute[0].value & VA_RT_FORMAT_YUV420 == 0,return NOT_FOUND);	
+   LOG_EXEC_IF(attribute[1].value & VA_RC_VBR == 0,return NOT_FOUND);	
+   LOG_EXEC_IF(attribute[1].value & VA_RC_CBR == 0,return NOT_FOUND);
+   LOG_EXEC_IF(attribute[1].value & VA_RC_NONE == 0,return NOT_FOUND);
 
    attribute[0].value = VA_RT_FORMAT_YUV420; 	// by default, only YUV420 is supported
 	
@@ -275,116 +254,171 @@ RtCode BaseEncoder::init()
 		break;
     }
 
-    va_status = vaCreateConfig(vaDisplay, videoEncodeProfile, videoEncodeEntry, &attribute[0], 2,&configId);
+    va_status = vaCreateConfig(hLib->vaDisplay, videoEncodeProfile, videoEncodeEntry, &attribute[0], 2,&configId);
     
-    LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,delete [] entry_points;return DEVICE_ERROR);
-    LOGV("create the libva configuration");
+    LOGV("%s", vaErrorStr(va_status));
+    LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return DEVICE_ERROR);
+    LOGV("setup the libva configuration");
 
-    createEncodeResource();
-    LOGV("create the libva encode resources");
+    return SUCCESS;
+};
 
-    va_status = vaCreateContext(vaDisplay, configId,
-                                codecConfig.frameWidth, codecConfig.roundFrameHeight,
-                                VA_PROGRESSIVE, &surfaceId[0],
-				nTotalSurface, &contextId);	//FIXME:width is not rounded
+
+RtCode BaseEncoder::setupVAContext(void)
+{
+    VAStatus va_status;
+
+    va_status = vaCreateContext(hLib->vaDisplay, configId,
+                                codecConfig.frameWidth, 
+				codecConfig.roundFrameHeight,
+				VA_PROGRESSIVE, 
+				&surfaceId[0],
+				nTotalSurface, 
+				&contextId);	//FIXME:width is not rounded
 
     LOGV("rounded frame size = %dx%d", codecConfig.roundFrameWidth, codecConfig.roundFrameHeight);
     LOGV("original frame size = %dx%d", codecConfig.frameWidth, codecConfig.frameHeight);
 
-
    LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
-			LOGV("%s", vaErrorStr(va_status));delete [] entry_points;delete [] surfaceId;return DEVICE_ERROR
+			LOGV("%s", vaErrorStr(va_status));return DEVICE_ERROR
 	   );
 
     LOGV("create the libva context");
 
-
-  codecBufSize = codecConfig.roundFrameWidth * codecConfig.roundFrameHeight * 2;  //enough?
-
- 	
-  va_status = vaCreateBuffer(vaDisplay, contextId, 
-			VAEncCodedBufferType,
-			codecBufSize, MAX_CODED_BUF,
-			NULL, &codedBufId[CODEC_BUFFER_ID_BASE]);
-
-   LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,delete [] entry_points; return DEVICE_ERROR);
-   LOGV("create the coded buffer");
-
-    bInitialized = true;
-    bSendEndOfSequence = false;
-
-    initGOPCounter();
-	
-    initCodecInternalSurfaceId();
-
-    initEncodeFrameInfo();
-
-    inBuf = NULL;
-    outBuf = NULL;
-
-    delete [] entry_points;
-
     return SUCCESS;
-}
+};
 
-RtCode BaseEncoder::createEncodeResource()
+void BaseEncoder::_resourceRelease(void)
 {
-   ENTER_FUN;
-   VAStatus va_status;
-   nCiSurface = 0;
-   nTotalSurface = CODEC_SURFACE_ID_COUNT;
+    ARRAY_RELEASE(surfaceId);
+};
 
-   if (codecConfig.bShareBufferMode == true)
-   {
-	LOGV("ci buffer sharing is enabled, total share buffer count = %d", nTotalSurface);
-	nCiSurface = codecConfig.nShareBufferCount;
-	nTotalSurface += nCiSurface;
-   }
-   else
-   {
-	nCiSurface = 0;
-   }
+RtCode BaseEncoder::createCodecBuffers(void)
+{
+    VAStatus va_status;
+
+    codecBufSize = codecConfig.roundFrameWidth * codecConfig.roundFrameHeight * 2;	//big enough
+
+    va_status = vaCreateBuffer(hLib->vaDisplay, contextId, 
+			VAEncCodedBufferType,
+			codecBufSize, 
+			1,		//FIXME: currently only 1 segment. optional: MAX_SLICE_PER_FRAME + 2,    //SPS+PPS+#slices, 10 segments max
+			NULL, &codedBufId[0]);
+
+   LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return DEVICE_ERROR);
+
+   LOGV("create the coded buffer");
+   return SUCCESS;
+};
+
+RtCode BaseEncoder::createCodecSurfaces(void) 
+{
+    VAStatus va_status;
+
+    nCiSurface = 0;
+    nTotalSurface = CODEC_SURFACE_ID_COUNT;
+
+    if (codecConfig.bShareBufferMode == true)
+    {
+ 	LOGV("buffer sharing enabled, total share buffer count = %d", 
+ 		nTotalSurface);
+ 	nCiSurface = codecConfig.nShareBufferCount;
+ 	nTotalSurface += nCiSurface;
+    }
+    else
+    {
+ 	nCiSurface = 0;
+    }
 
     surfaceId = new VASurfaceID [nTotalSurface];
+    assert(surfaceId != NULL);
 
     LOGV("create the internal codec surface pool: %d", CODEC_SURFACE_ID_COUNT);	
-    va_status = vaCreateSurfaces(vaDisplay,codecConfig.frameWidth, codecConfig.frameHeight,
+    va_status = vaCreateSurfaces(hLib->vaDisplay,codecConfig.frameWidth, codecConfig.frameHeight,
                                  VA_RT_FORMAT_YUV420, CODEC_SURFACE_ID_COUNT , &surfaceId[CODEC_SURFACE_ID_BASE]);
+    assert(va_status == VA_STATUS_SUCCESS);
 
     if (codecConfig.bShareBufferMode == true) 
     {
 	LOGV("append ci sharing buffer, nShareBufferCount =%d\n",codecConfig.nShareBufferCount);
 	for (int idx = 0;idx<codecConfig.nShareBufferCount; idx ++)  
         {
-		va_status = vaCreateSurfaceFromCIFrame(vaDisplay,
+		va_status = vaCreateSurfaceFromCIFrame(hLib->vaDisplay,
 				codecConfig.pShareBufferArray[idx],
 				&surfaceId[CI_SRC_SURFACE_ID_BASE + idx]
 				);
+		assert(va_status == VA_STATUS_SUCCESS);
 
 		LOGV("ci sharing surface = %x | %x", surfaceId[CI_SRC_SURFACE_ID_BASE + idx],
 				codecConfig.pShareBufferArray[idx]);
         }
      }
 
-   for(int z = 0; z < nTotalSurface; z++)
    {
-	LOGV("SURFACE %x", surfaceId[z]);
+       for(int i = 0; i < nTotalSurface; i++)
+           LOGV("SURFACE %x", surfaceId[i]);
    }
 
    return SUCCESS;
+};
+
+
+RtCode BaseEncoder::init()
+{
+   VAStatus va_status = VA_STATUS_SUCCESS;
+   RtCode enc_status = SUCCESS;
+
+   if (bInitialized == true)
+   {
+	LOGV("has already initialized");
+	LOGV("if an reconfig is expected, please invoke reconfig");
+	return INVALID_STATE;
+   };
+
+    setEncodeProfile();
+
+    enc_status = createCodecSurfaces();
+    LOG_EXEC_IF(enc_status != SUCCESS, goto error_out);
+
+    enc_status = setupVAConfig();
+    LOG_EXEC_IF(enc_status != SUCCESS, goto error_out);
+
+    enc_status = setupVAContext();
+    LOG_EXEC_IF(enc_status != SUCCESS, goto error_out);
+
+    enc_status = createCodecBuffers();
+    LOG_EXEC_IF(enc_status != SUCCESS, goto error_out);
+
+    bInitialized = true;
+    bSendEndOfSequence = false;
+    nFrameNum = 0;
+
+    initGOPCounter();
+    initCodecInternalSurfaceId();
+    initEncodeFrameInfo();
+
+    inBuf = NULL;
+    outBuf = NULL;
+
+    return SUCCESS;
+
+error_out:
+    _resourceRelease();
+    
+    return enc_status;
 }
 
-RtCode BaseEncoder::destroyEncodeResource()
+RtCode BaseEncoder::destroyCodecSurfaces(void)
 {
    VAStatus va_status;
 
-   va_status = vaDestroySurfaces(vaDisplay,&surfaceId[CODEC_SURFACE_ID_BASE],CODEC_SURFACE_ID_COUNT);
+   va_status = vaDestroySurfaces(hLib->vaDisplay,&surfaceId[CODEC_SURFACE_ID_BASE],CODEC_SURFACE_ID_COUNT);
    LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
    LOGV("delete va surfaces (internal surfaces)");
 
    if (nCiSurface > 0)
    {
-	va_status = vaDestroySurfaces(vaDisplay,&surfaceId[CI_SRC_SURFACE_ID_BASE],nCiSurface);
+	va_status = vaDestroySurfaces(hLib->vaDisplay,&surfaceId[CI_SRC_SURFACE_ID_BASE],nCiSurface);
 
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
 				return UNDEFINED
@@ -392,16 +426,47 @@ RtCode BaseEncoder::destroyEncodeResource()
 	LOGV("delete va surfaces (ci surfaces)");
    }
 
-   va_status = vaDestroyBuffer(vaDisplay, codedBufId[CODEC_BUFFER_ID_BASE]);
+   return SUCCESS;
+};
+
+RtCode BaseEncoder::destroyCodecBuffers(void)
+{
+    VAStatus va_status;
+  
+    va_status = vaDestroyBuffer(hLib->vaDisplay, codedBufId[0]);
 
     LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
 			LOGV("%s",vaErrorStr(va_status));return UNDEFINED
 		   );
     LOGV("delete va coded buffer");
 
-   return SUCCESS;
+    return SUCCESS;
+};
 
-}
+RtCode BaseEncoder::destroyVAConfig(void)
+{
+    VAStatus va_status;
+    va_status = vaDestroyConfig(hLib->vaDisplay,configId);
+    LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
+			return UNDEFINED
+		   );
+    LOGV("delete va config");
+
+    return SUCCESS;
+};
+
+RtCode BaseEncoder::destroyVAContext(void)
+{
+    VAStatus va_status;
+    
+    va_status = vaDestroyContext(hLib->vaDisplay,contextId);
+    LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
+			LOGV("%s",vaErrorStr(va_status));return UNDEFINED
+		   );
+    LOGV("delete va context");
+
+    return SUCCESS;
+};
 
 void BaseEncoder::initEncodeFrameInfo(void) 
 {
@@ -430,39 +495,29 @@ RtCode BaseEncoder::deinit(void)
 				codecConfig.bShareBufferMode);
 	}
    }
-
-   enc_status = destroyEncodeResource();
    
-   if(enc_status != SUCCESS)
-   {
-      return enc_status;
-   } 
-   
-   va_status = vaDestroyContext(vaDisplay,contextId);
-   LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
-			LOGV("%s",vaErrorStr(va_status));return UNDEFINED
-		   );
-   LOGV("delete va context");
+   enc_status = destroyCodecBuffers();
+   LOG_EXEC_IF(enc_status != SUCCESS, goto error_out);
 
-   va_status = vaDestroyConfig(vaDisplay,configId);
-   LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
-			return UNDEFINED
-		   );
-   LOGV("delete va config");
+   enc_status = destroyVAContext();
+   LOG_EXEC_IF(enc_status != SUCCESS, goto error_out);
 
-   va_status = vaTerminate(vaDisplay);
-   LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
-			return UNDEFINED
-		   );
-   LOGV("terminate va");
-
-   delete [] surfaceId;
+   enc_status = destroyVAConfig();
+   LOG_EXEC_IF(enc_status != SUCCESS, goto error_out);
+  
+   enc_status = destroyCodecSurfaces();
+   LOG_EXEC_IF(enc_status != SUCCESS, goto error_out);
 
    bInitialized = false;
 
-   LOGV("reclaim heap memory");
+   _resourceRelease();
 
    return SUCCESS;
+
+error_out:
+   _resourceRelease();
+ 
+   return enc_status;
 }
 
 
@@ -499,14 +554,14 @@ RtCode BaseEncoder::loadSourceSurface(bool force_not_share)
 	
 	encodeFrameInfo.usePrivateSurface();
 
-	va_status = vaDeriveImage(vaDisplay, TO_SURFACE(encodeFrameInfo.getSurfaceIdx()), &source_image);
+	va_status = vaDeriveImage(hLib->vaDisplay, TO_SURFACE(encodeFrameInfo.getSurfaceIdx()), &source_image);
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
 				return DEVICE_ERROR
 			);
 
-	va_status = vaMapBuffer(vaDisplay, source_image.buf, &surface_buf);
+	va_status = vaMapBuffer(hLib->vaDisplay, source_image.buf, &surface_buf);
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
-			vaDestroyImage(vaDisplay, source_image.image_id);return DEVICE_ERROR
+			vaDestroyImage(hLib->vaDisplay, source_image.image_id);return DEVICE_ERROR
 		   );
 
 	y_stride = source_image.pitches[0];	//only YUV420 is considered
@@ -543,12 +598,12 @@ RtCode BaseEncoder::loadSourceSurface(bool force_not_share)
 	   }
 	}
 
-	va_status = vaUnmapBuffer(vaDisplay, source_image.buf);
+	va_status = vaUnmapBuffer(hLib->vaDisplay, source_image.buf);
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
-	vaDestroyImage(vaDisplay, source_image.image_id);return UNDEFINED
+	vaDestroyImage(hLib->vaDisplay, source_image.image_id);return UNDEFINED
 			   );
 		
-	va_status = vaDestroyImage(vaDisplay, source_image.image_id);
+	va_status = vaDestroyImage(hLib->vaDisplay, source_image.image_id);
 	
         LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
    }
@@ -613,11 +668,11 @@ RtCode BaseEncoder::checkGeneratedFrame(void)
 
      bFrameGenerated = false;
 
-     va_status = vaSyncSurface(vaDisplay, TO_SURFACE(idx_src_surface_id));
+     va_status = vaSyncSurface(hLib->vaDisplay, TO_SURFACE(idx_src_surface_id));
      LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
 
      surfaceStatus = (VASurfaceStatus)0x0;
-     va_status = vaQuerySurfaceStatus(vaDisplay, TO_SURFACE(idx_src_surface_id), &surfaceStatus);
+     va_status = vaQuerySurfaceStatus(hLib->vaDisplay, TO_SURFACE(idx_src_surface_id), &surfaceStatus);
      LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
 
      bFrameGenerated = (surfaceStatus & VASurfaceSkipped) == 0;
@@ -744,36 +799,29 @@ RtCode BaseEncoder::encode(MediaBuffer* in,MediaBuffer* out)
 
     LOG_EXEC_IF(enc_status!=SUCCESS,LOGV("begin picture failure");return UNDEFINED);
 
-  /*
-   if (frameType == IDR_FRAME)
-   {	
-	//generate SPS & PPS
-	enc_status = prepareSequenceParam();
-	LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
-   }
- */
+    enc_status = prepareSequenceParam();
+    LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
 
-   enc_status = prepareSequenceParam();
-   LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
+    enc_status = preparePictureParam();
+    LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
 
-   enc_status = preparePictureParam();
-   LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
-
-   enc_status = prepareSlice();
-   LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
+    enc_status = prepareSlice();
+    LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
 	
-   enc_status = launchParamArray();
-   LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
+    enc_status = launchParamArray();
+    LOG_EXEC_IF(enc_status != SUCCESS,return UNDEFINED);
 
-   enc_status = endPicture();
-   LOG_EXEC_IF(va_status!=SUCCESS,LOGE("end picture failure");return UNDEFINED);
+    enc_status = endPicture();
+    LOG_EXEC_IF(va_status!=SUCCESS,LOGE("end picture failure");return UNDEFINED);
 
-   LOG_TIMER_STOP(Encode);
+    LOG_TIMER_STOP(Encode);
 
-   encodeFrameInfo.bEncoded = true;
-   EXIT_FUN;
+    encodeFrameInfo.bEncoded = true;
+    nFrameNum ++;
 
-   return SUCCESS;
+    EXIT_FUN;
+
+    return SUCCESS;
 }
 
 RtCode BaseEncoder::prepareSlice(void)
@@ -816,23 +864,23 @@ RtCode BaseEncoder::prepareSlice(void)
     LOG_EXEC_IF(enc_status!=SUCCESS,return enc_status);
 	
     //prepare slice parameter buffer
-    va_status = vaCreateBuffer(vaDisplay, contextId, 
+    va_status = vaCreateBuffer(hLib->vaDisplay, contextId, 
 			VAEncSliceParameterBufferType,
 			sizeof(VAEncSliceParameterBuffer),
-			codecConfig.nSlice,
+			1,
 			NULL,
 			&(TO_PARAM_BUF(idxSliceArrayParamBufId))
 			);
     LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
 
-    va_status = vaMapBuffer(vaDisplay, TO_PARAM_BUF(idxSliceArrayParamBufId),
+    va_status = vaMapBuffer(hLib->vaDisplay, TO_PARAM_BUF(idxSliceArrayParamBufId),
 			(void**)&slice_array_buffer
 			);
      LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
      memcpy(slice_array_buffer, &(sliceInfo[0]), 
 		sizeof(VAEncSliceParameterBuffer)*codecConfig.nSlice);
 
-     va_status = vaUnmapBuffer(vaDisplay, TO_PARAM_BUF(idxSliceArrayParamBufId));
+     va_status = vaUnmapBuffer(hLib->vaDisplay, TO_PARAM_BUF(idxSliceArrayParamBufId));
      LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
 
      return SUCCESS;
@@ -845,7 +893,7 @@ RtCode BaseEncoder::launchSlice(void)
 
     LOG_EXEC_IF(idxSliceArrayParamBufId==INVALID_BUFFER_IDX,return INVALID_STATE);
 
-    va_status = vaRenderPicture(vaDisplay, contextId,&(TO_PARAM_BUF(idxSliceArrayParamBufId)), 1);
+    va_status = vaRenderPicture(hLib->vaDisplay, contextId,&(TO_PARAM_BUF(idxSliceArrayParamBufId)), 1);
 
     LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);
 	
@@ -868,7 +916,7 @@ RtCode BaseEncoder::launchSequenceParam(void)
 			return INVALID_STATE
 		   );
 
-    va_status = vaRenderPicture(vaDisplay,contextId, &(TO_PARAM_BUF(idxSequenceParamBufId)), 1);
+    va_status = vaRenderPicture(hLib->vaDisplay,contextId, &(TO_PARAM_BUF(idxSequenceParamBufId)), 1);
 		
     LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);
     
@@ -889,7 +937,7 @@ RtCode BaseEncoder::launchPictureParam(void)
 			return INVALID_STATE
 		   );
 
-    va_status = vaRenderPicture(vaDisplay, contextId, &(TO_PARAM_BUF(idxPictureParamBufId)), 1);	
+    va_status = vaRenderPicture(hLib->vaDisplay, contextId, &(TO_PARAM_BUF(idxPictureParamBufId)), 1);	
 
     LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,
 				LOGV("%s", vaErrorStr(va_status));return UNDEFINED
@@ -904,7 +952,7 @@ RtCode BaseEncoder::launchParamArray(void)
 
     LOG_EXEC_IF(n_param_array_len>MAX_PARAM_BUF, return INVALID_STATE);
 
-    va_status = vaRenderPicture(vaDisplay, contextId,
+    va_status = vaRenderPicture(hLib->vaDisplay, contextId,
 			&(paramBufId[0]), n_param_array_len);
     LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);
 	
@@ -917,7 +965,7 @@ RtCode BaseEncoder::beginPicture(void)
     VAStatus va_status;
     int idx_src_surface_id = encodeFrameInfo.getSurfaceIdx();
 
-    va_status = vaBeginPicture(vaDisplay, contextId, TO_SURFACE(idx_src_surface_id));
+    va_status = vaBeginPicture(hLib->vaDisplay, contextId, TO_SURFACE(idx_src_surface_id));
 
     LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);
 
@@ -928,7 +976,7 @@ RtCode BaseEncoder::endPicture(void)
 {
     VAStatus va_status;
 
-    va_status = vaEndPicture(vaDisplay,contextId);
+    va_status = vaEndPicture(hLib->vaDisplay,contextId);
     LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);
 
     return SUCCESS;
@@ -952,7 +1000,7 @@ RtCode BaseEncoder::generateOutput(void)
 	VACodedBufferSegment *_list = NULL;
 	int ofst;
 
-	va_status = vaMapBuffer(vaDisplay, TO_CODED_BUF(idx_coded_buf_id),
+	va_status = vaMapBuffer(hLib->vaDisplay, TO_CODED_BUF(idx_coded_buf_id),
                               (void**)&output_list);
 
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS,return UNDEFINED);
@@ -978,7 +1026,7 @@ RtCode BaseEncoder::generateOutput(void)
 	    _list = (VACodedBufferSegment*)_list->next;
 	}
 		
-	va_status = vaUnmapBuffer(vaDisplay, TO_CODED_BUF(idx_coded_buf_id));
+	va_status = vaUnmapBuffer(hLib->vaDisplay, TO_CODED_BUF(idx_coded_buf_id));
 	LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);
 
 	outBuf->len = ofst; 
@@ -1100,4 +1148,63 @@ void BaseEncoder::_generateInvalidOutput(void)
     outBuf->timestamp = INVALID_TS;
     EXIT_FUN;
 }
+
+int BaseEncoder::VAInstance::refcnt = 0;
+pthread_mutex_t BaseEncoder::VAInstance::lock = PTHREAD_MUTEX_INITIALIZER;
+int BaseEncoder::VAInstance::nativeDisplay = 0;
+int BaseEncoder::VAInstance::vaVerMajor = 0;
+int BaseEncoder::VAInstance::vaVerMinor = 0;
+VADisplay BaseEncoder::VAInstance::vaDisplay = NULL;
+
+#define LOCK(mtx) {\
+    int status = pthread_mutex_lock(&mtx);\
+    assert(status == 0);\
+}
+#define UNLOCK(mtx) {\
+    int status = pthread_mutex_unlock(&mtx);\
+    assert(status == 0);\
+}
+
+BaseEncoder::VAInstance::VAInstance(void) 
+{
+   VAStatus va_status;
+   
+   LOCK(lock);
+
+   assert(refcnt >=0);
+   if (refcnt == 0)
+   {
+       nativeDisplay = 0;
+       vaDisplay = vaGetDisplay(&nativeDisplay);
+       assert(vaDisplay != NULL);
+
+       va_status = vaInitialize(vaDisplay, &vaVerMajor, &vaVerMinor);
+       assert(va_status == VA_STATUS_SUCCESS);
+   };
+
+   refcnt ++;
+
+   UNLOCK(lock);
+};
+
+BaseEncoder::VAInstance::~VAInstance(void)
+{
+    VAStatus va_status;
+
+    LOCK(lock);
+    
+    assert(refcnt >= 1);
+    if (refcnt == 1)
+    {
+        va_status = vaTerminate(vaDisplay);
+        assert(va_status == VA_STATUS_SUCCESS);	       
+    }
+
+    refcnt --;
+
+    UNLOCK(lock);
+};
+
+#undef LOCK
+#undef UNLOCK
 

@@ -57,7 +57,7 @@ RtCode AVCEncoder::prepareSequenceParam()
 	sequence_param_buf.intra_period = codecConfig.intraInterval;
 #endif
 
-        va_status = vaCreateBuffer(vaDisplay, contextId,
+        va_status = vaCreateBuffer(hLib->vaDisplay, contextId,
 			VAEncSequenceParameterBufferType,
                         sizeof(sequence_param_buf),1,
 			&sequence_param_buf,&(TO_PARAM_BUF(idxSequenceParamBufId)));
@@ -96,7 +96,7 @@ RtCode AVCEncoder::preparePictureParam(void)
 	    picture_param_buf.last_picture = 0;
 	}
         
-        va_status = vaCreateBuffer(vaDisplay, contextId,VAEncPictureParameterBufferType,
+        va_status = vaCreateBuffer(hLib->vaDisplay, contextId,VAEncPictureParameterBufferType,
                                    sizeof(picture_param_buf),1,&picture_param_buf,&(TO_PARAM_BUF(idxPictureParamBufId)));
 	
         LOG_EXEC_IF(va_status!=VA_STATUS_SUCCESS, return UNDEFINED);

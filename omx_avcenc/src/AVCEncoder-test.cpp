@@ -24,6 +24,8 @@ class AVCCodecInfoObserver : public CodecInfoObserver {
 		};
 };
 
+static unsigned char static_buffer1[1280*720*3/2];
+static unsigned char static_buffer2[1280*720*3/2];
 
 int main(int argc, char** argv)
 {
@@ -112,8 +114,12 @@ int main(int argc, char** argv)
 		int chunk = width * height * 3 / 2;
 		int framecount = 0;
 
-		unsigned char* bufferin = (unsigned char*) malloc(chunk);
-		unsigned char* bufferout = (unsigned char*) malloc(chunk);
+//		unsigned char* bufferin = (unsigned char*) malloc(chunk);
+//		unsigned char* bufferout = (unsigned char*) malloc(chunk);
+
+		unsigned char* bufferin = static_buffer1;
+		unsigned char* bufferout = static_buffer2;
+
 		MediaBuffer in;
 		MediaBuffer out;
 		
@@ -123,7 +129,13 @@ int main(int argc, char** argv)
                
                 printf("chunk is %d \n", chunk);
 
-		while( (fread(bufferin, 1, chunk, filein) != 0) && (framecount < nframe)) {
+//		while( (fread(bufferin, 1, chunk, filein) != 0) && (framecount < nframe)) {
+		while( framecount < nframe ) {
+                        if (fread(bufferin, 1, chunk, filein) == 0) {
+				rewind(filein);
+				assert(read(bufferin, 1, chunk, filein)>0);
+			};
+
 			in.len = chunk;
 			out.len = chunk;
 			in.timestamp = 0;
@@ -164,8 +176,8 @@ int main(int argc, char** argv)
 				1000/(statistics.averEncode - statistics.averSurfaceLoad));
 		//----------------------------------------------
 
-		free(bufferin);
-		free(bufferout);
+//		free(bufferin);
+//		free(bufferout);
 
 		status = encoder->deinit();
 		assert(status==SUCCESS);

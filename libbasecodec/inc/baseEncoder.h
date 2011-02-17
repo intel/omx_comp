@@ -1,13 +1,18 @@
 #ifndef __BaseEncoder_H__
 #define __BaseEncoder_H__
 
-#include "stdio.h"
+#include <stdio.h>
+#include <pthread.h>
+#include <va/va.h>
+#include <va/va_tpi.h>
+#include <va/va_android.h>
 #include "codecHelper.h"
 
 #define MAX_SLICE_PER_FRAME 8
 #define MIN_SLICE_PER_FRAME 1
 #define MAX_PARAM_BUF 10
-#define MAX_CODED_BUF 8
+#define MAX_CODED_BUF 1		//only one coded buffer
+
 
 class BaseEncoder
 {
@@ -19,14 +24,6 @@ class BaseEncoder
   RtCode setDynamicConfig(CodecConfig config);
   RtCode reconfig(CodecConfig config);
   RtCode getConfig(CodecConfig *config);
-
-  virtual void setEncodeProfile(void);
-  virtual RtCode prepareSequenceParam(void);
-  virtual RtCode preparePictureParam(void);
-  virtual RtCode prepareSlice(void);
-
-  virtual void initGOPCounter(void);
-  virtual bool manageGOPCounter(void);
 
   RtCode init(void);
   RtCode encode(MediaBuffer* in, MediaBuffer* out);
@@ -40,10 +37,34 @@ class BaseEncoder
   void disableTimingStatistics(void);
 
   void setKeyFrame(void);			
-protected:
-  RtCode createEncodeResource(void);
-  RtCode destroyEncodeResource(void);
 
+protected:
+  //codec specific virtual interfaces
+  virtual void setEncodeProfile(void);
+
+  virtual RtCode prepareSequenceParam(void);
+  virtual RtCode preparePictureParam(void);
+  virtual RtCode prepareSlice(void);
+
+  virtual void initGOPCounter(void);
+  virtual bool manageGOPCounter(void);
+
+  //libva resource handling
+  RtCode setupVAConfig(void);
+  RtCode destroyVAConfig(void);
+
+  RtCode setupVAContext(void);
+  RtCode destroyVAContext(void);
+
+  RtCode createCodecBuffers(void);
+  RtCode destroyCodecBuffers(void);
+
+  RtCode createCodecSurfaces(void);
+  RtCode destroyCodecSurfaces(void);
+
+  void _resourceRelease(void);
+
+  //encoding management
   void initCodecInternalSurfaceId(void);
   void manageCodecInternalSurfaceId(void);
 
@@ -73,14 +94,34 @@ protected:
 
   void _generateInvalidOutput(void);
 
-  protected:  
-  //va general handling
+  protected:
+  class VAInstance
+  {
+      public:
+      VAInstance(void);
+      virtual ~VAInstance();
+
+      private:
+          static pthread_mutex_t lock;
+          static int refcnt;
+          
+          static int nativeDisplay;
+      
+      public:
+          static int vaVerMajor;
+          static int vaVerMinor;
+	  static VADisplay vaDisplay;
+  };
+
+  protected:
+  //va library instance handling
   VAProfile videoEncodeProfile;
   VAEntrypoint videoEncodeEntry;
+  VAInstance *hLib;
 
-  VADisplay vaDisplay;
   VAContextID contextId;
   VAConfigID configId;
+
   VASurfaceID *surfaceId;
   VABufferID codedBufId[MAX_CODED_BUF];
   VABufferID paramBufId[MAX_PARAM_BUF];
@@ -121,6 +162,7 @@ protected:
   //internal state
   bool	bInitialized;
   int	iGOPCounter;
+  int   nFrameNum;	//internal frame number
   FrameType frameType;
   bool	bFrameGenerated;
   bool	bSendEndOfSequence;
@@ -131,9 +173,7 @@ protected:
 
   //info observer
   CodecInfoObserver *observer;
-
-  int  nFrameNum;
-  bool bResetSequence;
+  
 };
 
 

@@ -292,4 +292,3 @@ RtCode CodecFrameInfo::forceSyncBackToPrivateSurface(const AvcEncoder& enc)
 }*/
 
 
-

@@ -32,7 +32,21 @@ static inline int MAX(int a, int b) { return (a>b)?a:b; };
 static inline int MIN(int a, int b) { return (a<b)?a:b; };
 
 #define POINTER_RESET(p) (p)=NULL
+#define POINTER_RELEASE(p) {\
+	if (p!=NULL) {\
+		delete p;\
+		p = NULL;\
+	}\
+}
+
 #define ARRAY_RESET(p) memset((p), sizeof((p)) * sizeof(p[0]), 0)
+#define ARRAY_RELEASE(p) {\
+	if (p!=NULL) {\
+		delete [] p;\
+		p = NULL;\
+	}\
+}
+
 #define VALUE_RESET(p) p=0x0
 #define VALUE_RESET_NEG(p) p=-1
 #define VALUE_RESET_BOOL(p) p=false
@@ -330,5 +344,6 @@ public:
 private:
    void* context;
 };
+
 
 #endif
