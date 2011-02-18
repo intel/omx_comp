@@ -38,7 +38,10 @@
 #include <portvideo.h>
 #include <componentbase.h>
 
-//#include <pv_omxcore.h>
+#ifdef COMPONENT_SUPPORT_OPENCORE
+#include <pv_omxcore.h>
+#include <pv_omxdefs.h>
+#endif
 
 #include <gthread.h>
 #include <glib.h>
@@ -876,7 +879,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         memcpy(p, port->GetPortPrivateInfoParam(), sizeof(*p));
         break;
     }
-#if 0
+#ifdef COMPONENT_SUPPORT_OPENCORE
     /* PVOpenCore */
     case (OMX_INDEXTYPE) PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX: {
         PV_OMXComponentCapabilityFlagsType *p =

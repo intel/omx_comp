@@ -17,8 +17,10 @@
 #include <portvideo.h>
 #include <componentbase.h>
 
-//#include <pv_omxcore.h>
-//#include <pv_omxdefs.h>
+#ifdef COMPONENT_SUPPORT_OPENCORE
+#include <pv_omxcore.h>
+#include <pv_omxdefs.h>
+#endif
 
 #include <va/va.h>
 #include <va/va_android.h>
@@ -419,6 +421,7 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentGetParameter(
         break;
     }
 #ifdef COMPONENT_SUPPORT_BUFFER_SHARING
+#ifdef COMPONENT_SUPPORT_OPENCORE
     case OMX_IndexIntelPrivateInfo: {
         OMX_VIDEO_CONFIG_PRI_INFOTYPE *p =
             (OMX_VIDEO_CONFIG_PRI_INFOTYPE *)pComponentParameterStructure;
@@ -446,7 +449,8 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentGetParameter(
         break;
     }
 #endif
-#if 0
+#endif
+#ifdef COMPONENT_SUPPORT_OPENCORE
     /* PVOpenCore */
     case (OMX_INDEXTYPE) PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX: {
         PV_OMXComponentCapabilityFlagsType *p =
