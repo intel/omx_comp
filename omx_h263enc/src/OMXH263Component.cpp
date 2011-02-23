@@ -28,10 +28,7 @@
 #include "libinfodump.h"
 
 
-#include "h263.h"
 #include "OMXH263Component.h"
-
-
 
 //#define INFODUMP
 #ifdef INFODUMP
