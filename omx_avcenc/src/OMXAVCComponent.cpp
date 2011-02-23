@@ -215,8 +215,9 @@ OMX_ERRORTYPE OMXAVCComponent::__AllocateAVCPort(OMX_U32 port_index,
     memset(&avcportparam, 0, sizeof(avcportparam));
     SetTypeHeader(&avcportparam, sizeof(avcportparam));
     avcportparam.nPortIndex = port_index;
+
     avcportparam.eProfile = OMX_VIDEO_AVCProfileBaseline;
-    avcportparam.eLevel = OMX_VIDEO_AVCLevel1;
+    avcportparam.eLevel = OMX_VIDEO_AVCLevel31;
 
     avcport->SetPortAvcParam(&avcportparam, true);
     /* end of OMX_VIDEO_PARAM_AVCTYPE */
@@ -250,8 +251,14 @@ OMX_ERRORTYPE OMXAVCComponent::__AllocateAVCPort(OMX_U32 port_index,
         /* end of OMX_VIDEO_PARAM_BITRATETYPE */
     }
 
-    avcEncNaluFormatType = OMX_NaluFormatZeroByteInterleaveLength;	//opencore by default will accept this NALu format (via no extra param negotiation)
-
+#ifdef COMPONENT_SUPPORT_OPENCORE
+    avcEncNaluFormatType = OMX_NaluFormatZeroByteInterleaveLength;  //opencore by default will accept this NALu format (via no extra param negotiation)
+   
+#else
+    avcEncNaluFormatType = OMX_NaluFormatStartCodes;                //nal format only used for stagefright
+#endif
+    LOGE(" avcEncNaluFormatType = %d ", avcEncNaluFormatType);
+    
     LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
 
@@ -594,8 +601,43 @@ OMX_ERRORTYPE OMXAVCComponent::ComponentGetParameter(
 #endif
 	}
 
-		break;
+	break;
      }
+     case OMX_IndexParamVideoProfileLevelQuerySupported:
+     {
+         OMX_VIDEO_PARAM_PROFILELEVELTYPE *p =
+             (OMX_VIDEO_PARAM_PROFILELEVELTYPE *)pComponentParameterStructure;
+        PortAvc *port = NULL;
+
+        OMX_U32 index = p->nPortIndex;
+    
+
+       LOGV("%s(): port index : %lu\n", __func__, index);
+
+        ret = CheckTypeHeader(p, sizeof(*p));
+        if (ret != OMX_ErrorNone) 
+        {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            return ret;
+        }
+
+        if (index < nr_ports)
+        {
+            port = static_cast<PortAvc *>(ports[index]);
+        }
+        else
+        {
+            return OMX_ErrorBadParameter;
+        }
+
+        const OMX_VIDEO_PARAM_AVCTYPE *avcParam = port->GetPortAvcParam();
+
+        p->eProfile = avcParam->eProfile;
+        p->eLevel  = avcParam->eLevel;
+
+        break;
+     }
+
      default:
         ret = OMX_ErrorUnsupportedIndex;
     } /* switch */
@@ -1121,7 +1163,7 @@ OMX_ERRORTYPE OMXAVCComponent::ComponentSetConfig(
 /*
  * implement ComponentBase::Processor[*]
  */
-#define DUMP_VALUE(v) LOGV("%s = %d (0x%x)", #v, (unsigned int)(v),(unsigned int)(v))
+#define DUMP_VALUE(v) LOGE("%s = %d (0x%x)", #v, (unsigned int)(v),(unsigned int)(v))
 OMX_ERRORTYPE OMXAVCComponent::ProcessorInit(void)
 {
     RtCode aret = SUCCESS;
@@ -1139,7 +1181,7 @@ OMX_ERRORTYPE OMXAVCComponent::ProcessorInit(void)
     assert(aret==SUCCESS);
 
     port_index = OUTPORT_INDEX;
-	
+
     oret = ChangeAVCEncoderConfigWithPortParam(&config,
 		    static_cast<PortVideo*>(ports[port_index])
 		    );
@@ -1312,6 +1354,10 @@ OMX_ERRORTYPE OMXAVCComponent::ProcessorProcess(
     int buffer_out_datasz;
     int buffer_out_buffersz;
 
+    AvcNaluType nalu_type;  
+    OMX_U8 *nal,*nal_pps;
+    OMX_U32 nal_len,nal_len_pps;
+
     LOGV("%s(): enter\n", __func__);
 
     LOGV("Dump Buffer Param (ProcessorInit) ***************************");
@@ -1337,6 +1383,7 @@ OMX_ERRORTYPE OMXAVCComponent::ProcessorProcess(
 
     buffer_in =
         buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
+
     buffer_in_datasz = buffers[INPORT_INDEX]->nFilledLen;
     buffer_in_buffersz = buffers[INPORT_INDEX]->nAllocLen - buffers[INPORT_INDEX]->nOffset;
 
@@ -1353,33 +1400,118 @@ encode:
     assert(p->iOMXComponentUsesFullAVCFrames == OMX_FALSE);
 
     switch (avcEncNaluFormatType) {
-	    case OMX_NaluFormatStartCodes:
-		    in.len = static_cast<int>(buffer_in_datasz);	//caution here
-		    out.len = static_cast<int>(buffer_out_buffersz);	//caution here
-		    in.buf = (unsigned char*)(buffer_in);
-		    out.buf = (unsigned char*)(buffer_out);
-		    
-		    in.timestamp = buffers[INPORT_INDEX]->nTimeStamp;
-		    in.bCompressed = false;
+         case OMX_NaluFormatStartCodes:
+ 
+             if (avc_enc_frame_size_left == 0)
+             {
+		  in.len = static_cast<int>(buffer_in_datasz);	//caution here
+		  out.len = static_cast<int>(temp_coded_data_buffer_size);	//caution here
+		  in.buf = (unsigned char*)(buffer_in);
+		  out.buf = (unsigned char*)(temp_coded_data_buffer);
+			    
+		  in.timestamp = buffers[INPORT_INDEX]->nTimeStamp;
+		  in.bCompressed = false;
 
-		    LOCK_CONFIG
+                  LOCK_CONFIG
+                  aret = encoder->encode(&in, &out);
+                  assert(aret==SUCCESS);
+                  UNLOCK_CONFIG
 
-		    aret = encoder->encode(&in, &out);
-		    assert(aret==SUCCESS);
+                  last_out_timestamp = static_cast<OMX_S64>(out.timestamp);
+                  last_out_frametype = out.frameType;
 
-		    UNLOCK_CONFIG
+                  if (out.len == 0)
+                  {
+			retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+			retain[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
+			goto out;
+                  }
 
-		    outfilledlen = out.len;
-		    outtimestamp = static_cast<OMX_S64>(out.timestamp);
-		    if (outfilledlen >0) {
-			    outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
-			    retain[OUTPORT_INDEX] = BUFFER_RETAIN_NOT_RETAIN;
-		    } else {
-			    retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+    		 avc_enc_frame_size_left = out.len;
+		 avc_enc_buffer = temp_coded_data_buffer;
+		 avc_enc_buffer_offset = 0;
+		 avc_enc_buffer_length = out.len;			 
+
+		 startcode_type = DetectStartCodeType(avc_enc_buffer, avc_enc_buffer_length);
+		 if (startcode_type != NAL_STARTCODE_4_BYTE)
+                 {
+			LOGE("invalid start code type");
+			assert(0);
+		 }
+
+	     }
+
+	    SplitNalByStartCode(avc_enc_buffer, avc_enc_buffer_length,  &nal, &nal_len, startcode_type);
+
+            if(nal == NULL)	
+            {
+		  LOGE("nal is NULL");
+	          assert(0);
+            }
+
+            avc_enc_frame_size_left -= nal_len;
+            avc_enc_buffer += nal_len;
+            avc_enc_buffer_length -= nal_len;
+            avc_enc_buffer_offset += nal_len;
+			    
+            nalu_type = GetNaluType(&nal[0], startcode_type);
+
+            if(nalu_type == SPS) //get pps 
+            {
+                SplitNalByStartCode(avc_enc_buffer, avc_enc_buffer_length,
+				&nal_pps, &nal_len_pps, startcode_type);
+				
+            	nalu_type = GetNaluType(&nal_pps[0], startcode_type);
+
+            	if(nalu_type != PPS)
+            	{
+                    LOGE("SPS and PPS not located togeter!");
+		    assert(0);
+            	}
+				
+            	avc_enc_frame_size_left -= nal_len_pps;
+            	avc_enc_buffer += nal_len_pps;
+            	avc_enc_buffer_length -= nal_len_pps;
+            	avc_enc_buffer_offset += nal_len_pps;
+				
+            	outflags |= OMX_BUFFERFLAG_CODECCONFIG;
+            	outfilledlen = nal_len + nal_len_pps;	
+
+            }else
+            {
+                 outfilledlen = nal_len;
+            }
+    
+               
+	    memcpy(buffer_out, &nal[0], outfilledlen);	//start codes are not sent
+			   		
+            outtimestamp = last_out_timestamp;
+
+            if (outfilledlen > 0)
+            {
+		    outflags |= OMX_BUFFERFLAG_ENDOFFRAME;				   
+			  
+		    if (last_out_frametype == I_FRAME || last_out_frametype == IDR_FRAME)
+		    {
+			outflags |= OMX_BUFFERFLAG_SYNCFRAME;
 		    }
-		    retain[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
 
-		    break;
+		     retain[OUTPORT_INDEX] = BUFFER_RETAIN_NOT_RETAIN;
+	     } else 
+	     {
+		     retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+	     }
+
+	     if (avc_enc_frame_size_left == 0)
+	     {
+			    //FIXME: CAUTION: libavce call back will 'return all retained buffer one time', pay attention to this
+		     retain[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
+	      }else
+	      {
+		     retain[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+	      }
+	   
+	      break;
 	    case OMX_NaluFormatFourByteInterleaveLength:
 		    LOGV("FourByteInterleaveLength is not supported currently");
 		    assert(0);
@@ -1421,18 +1553,16 @@ encode:
 				    LOGV("invalid start code type");
 				    assert(0);
 			    };
-
+/*
 #ifdef INFODUMP
 			    libinfodump_recordbuffer(counter++, 
 					    avc_enc_buffer,
 					    avc_enc_buffer_length
 					    );
 #endif
-
+*/
 		    };
 
-		    OMX_U8 *nal;
-		    OMX_U32 nal_len;
 
 		    SplitNalByStartCode(avc_enc_buffer, avc_enc_buffer_length,
 				    &nal, &nal_len, startcode_type);
@@ -1469,7 +1599,7 @@ encode:
 			    if (outfilledlen > 0) {
 				    outflags |= OMX_BUFFERFLAG_ENDOFFRAME;	
 
-				    AvcNaluType nalu_type = GetNaluType(&nal[0], startcode_type);
+				     nalu_type = GetNaluType(&nal[0], startcode_type);
 				    
 				    if (nalu_type == SPS || nalu_type == PPS) {
 					    outflags |= OMX_BUFFERFLAG_CODECCONFIG;
@@ -1556,6 +1686,7 @@ OMX_ERRORTYPE OMXAVCComponent::ChangeAVCEncoderConfigWithPortParam(
 		CodecConfig* pconfig,
 		PortVideo *port) 
 {
+    
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     OMX_VIDEO_CONTROLRATETYPE controlrate;
 
@@ -1563,9 +1694,17 @@ OMX_ERRORTYPE OMXAVCComponent::ChangeAVCEncoderConfigWithPortParam(
     const OMX_VIDEO_PARAM_BITRATETYPE *bitrate =
             port->GetPortBitrateParam();
 
+#ifdef COMPONENT_SUPPORT_OPENCORE
+    pconfig->frameRate = static_cast<int>((pd->format.video.xFramerate >> 16));
+#else   // stagefright set framerate in inputPort.hack code here
+
+    PortVideo *input_port = static_cast<PortVideo*>(ports[INPORT_INDEX]);   
+    const OMX_PARAM_PORTDEFINITIONTYPE *input_pd = input_port->GetPortDefinition();
+    pconfig->frameRate = static_cast<int>((input_pd->format.video.xFramerate >> 16)); 
+#endif
+
     pconfig->frameWidth = static_cast<int>(pd->format.video.nFrameWidth);
     pconfig->frameHeight = static_cast<int>(pd->format.video.nFrameHeight);
-    pconfig->frameRate = static_cast<int>((pd->format.video.xFramerate >> 16));
         
     pconfig->intraInterval = static_cast<int>(pconfig->frameRate / 2);	//just a init value
     pconfig->iDRInterval = -1;						//for opencore, will only accept -1 as iDRInterval

@@ -213,8 +213,8 @@ OMX_ERRORTYPE OMXMPEG4Component::__AllocateMPEG4Port(OMX_U32 port_index,
     memset(&mpeg4portparam, 0, sizeof(mpeg4portparam));
     SetTypeHeader(&mpeg4portparam, sizeof(mpeg4portparam));
     mpeg4portparam.nPortIndex = port_index;
-    mpeg4portparam.eProfile = OMX_VIDEO_MPEG4ProfileVendorStartUnused;
-    mpeg4portparam.eLevel = OMX_VIDEO_MPEG4LevelVendorStartUnused;
+    mpeg4portparam.eProfile = OMX_VIDEO_MPEG4ProfileSimple;
+    mpeg4portparam.eLevel = OMX_VIDEO_MPEG4Level5;
 
     mpeg4port->SetPortMpeg4Param(&mpeg4portparam, true);
     /* end of OMX_VIDEO_PARAM_MPEG4TYPE */
@@ -420,6 +420,40 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentGetParameter(
         memcpy(p, port->GetPortBitrateParam(), sizeof(*p));
         break;
     }
+     case OMX_IndexParamVideoProfileLevelQuerySupported:
+     {
+         OMX_VIDEO_PARAM_PROFILELEVELTYPE *p =
+             (OMX_VIDEO_PARAM_PROFILELEVELTYPE *)pComponentParameterStructure;
+        PortMpeg4 *port = NULL;
+
+        OMX_U32 index = p->nPortIndex;
+    
+        LOGV("%s(): port index : %lu\n", __func__, index);
+
+        ret = CheckTypeHeader(p, sizeof(*p));
+        if (ret != OMX_ErrorNone) 
+        {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            return ret;
+        }
+
+        if (index < nr_ports)
+        {
+            port = static_cast<PortMpeg4 *>(ports[index]);
+        }
+        else
+        {
+            return OMX_ErrorBadParameter;
+        }
+
+        const OMX_VIDEO_PARAM_MPEG4TYPE *mpeg4Param = port->GetPortMpeg4Param();
+
+        p->eProfile = mpeg4Param->eProfile;
+        p->eLevel  = mpeg4Param->eLevel;
+
+        break;
+     }
+
 #ifdef COMPONENT_SUPPORT_BUFFER_SHARING
 #ifdef COMPONENT_SUPPORT_OPENCORE
     case OMX_IndexIntelPrivateInfo: {

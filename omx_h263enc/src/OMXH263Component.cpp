@@ -217,8 +217,8 @@ OMX_ERRORTYPE OMXH263Component::__AllocateH263Port(OMX_U32 port_index,
     memset(&h263portparam, 0, sizeof(h263portparam));
     SetTypeHeader(&h263portparam, sizeof(h263portparam));
     h263portparam.nPortIndex = port_index;
-    h263portparam.eProfile = OMX_VIDEO_H263ProfileVendorStartUnused;
-    h263portparam.eLevel = OMX_VIDEO_H263LevelVendorStartUnused;
+    h263portparam.eProfile = OMX_VIDEO_H263ProfileBaseline;
+    h263portparam.eLevel = OMX_VIDEO_H263Level70;
 
     h263port->SetPortH263Param(&h263portparam, true);
 
@@ -424,6 +424,40 @@ OMX_ERRORTYPE OMXH263Component::ComponentGetParameter(
         memcpy(p, port->GetPortBitrateParam(), sizeof(*p));
         break;
     }
+     case OMX_IndexParamVideoProfileLevelQuerySupported:
+     {
+         OMX_VIDEO_PARAM_PROFILELEVELTYPE *p =
+             (OMX_VIDEO_PARAM_PROFILELEVELTYPE *)pComponentParameterStructure;
+        PortH263 *port = NULL;
+
+        OMX_U32 index = p->nPortIndex;
+    
+
+       LOGV("%s(): port index : %lu\n", __func__, index);
+
+        ret = CheckTypeHeader(p, sizeof(*p));
+        if (ret != OMX_ErrorNone) 
+        {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            return ret;
+        }
+
+        if (index < nr_ports)
+        {
+            port = static_cast<PortH263 *>(ports[index]);
+        }
+        else
+        {
+            return OMX_ErrorBadParameter;
+        }
+
+        const OMX_VIDEO_PARAM_H263TYPE *h263Param = port->GetPortH263Param();
+
+        p->eProfile = h263Param->eProfile;
+        p->eLevel  = h263Param->eLevel;
+
+        break;
+     }
 #ifdef COMPONENT_SUPPORT_BUFFER_SHARING
 #ifdef COMPONENT_SUPPORT_OPENCORE
     case OMX_IndexIntelPrivateInfo: {
