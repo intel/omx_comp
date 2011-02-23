@@ -789,6 +789,8 @@ OMX_ERRORTYPE OMXAVCComponent::ComponentSetParameter(
 
         break;
     }
+#ifdef COMPONENT_SUPPORT_BUFFER_SHARING
+#ifdef COMPONENT_SUPPORT_OPENCORE
     case OMX_IndexIntelPrivateInfo: 
     {
         LOGV("OMX_IndexIntelPrivateInfo");
@@ -835,6 +837,8 @@ OMX_ERRORTYPE OMXAVCComponent::ComponentSetParameter(
         ret = port->SetPortPrivateInfoParam(p, false);
         break;
     }
+#endif
+#endif
     case OMX_IndexParamVideoBytestream: 
     {
 	OMX_VIDEO_PARAM_BYTESTREAMTYPE *p =

@@ -634,6 +634,8 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentSetParameter(
 
         break;
     }
+#ifdef COMPONENT_SUPPORT_BUFFER_SHARING
+#ifdef COMPONENT_SUPPORT_OPENCORE
     case OMX_IndexIntelPrivateInfo: {
         LOGV("OMX_IndexIntelPrivateInfo");
         OMX_VIDEO_CONFIG_PRI_INFOTYPE *p =
@@ -673,6 +675,8 @@ OMX_ERRORTYPE OMXMPEG4Component::ComponentSetParameter(
         ret = port->SetPortPrivateInfoParam(p, false);
         break;
     }
+#endif
+#endif
     case OMX_IndexParamVideoBytestream: {
 		OMX_VIDEO_PARAM_BYTESTREAMTYPE *p =
 				(OMX_VIDEO_PARAM_BYTESTREAMTYPE *) pComponentParameterStructure;
