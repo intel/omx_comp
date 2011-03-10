@@ -955,6 +955,11 @@ OMX_ERRORTYPE OMXMPEG4Component::ProcessorInit(void)
     last_ts = 0;
     last_fps = 0.0;
 
+#ifndef COMPONENT_SUPPORT_OPENCORE
+    bfirstframe = true;
+    temp_coded_data_buffer_filled_length = 0;
+#endif
+
 #ifdef INFODUMP
     libinfodump_init();
     counter = 0;
@@ -1063,6 +1068,40 @@ OMX_ERRORTYPE OMXMPEG4Component::ProcessorResume(void)
     LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
+#ifndef COMPONENT_SUPPORT_OPENCORE
+bool OMXMPEG4Component::CheckM4vVopStartCode(OMX_U8* data, OMX_U32* len)
+{
+    OMX_U32 count = 0;
+    OMX_U32 i = *len;
+
+    if (i < 4)  // at least the size of frame header
+    {
+        return false;
+    }
+    while (--i)
+    {
+        if ((count > 1) && (data[0] == 0x01) && (data[1] == 0xB6))
+        {
+            i += 2;
+            break;
+        }
+
+        if (*data++)
+            count = 0;
+        else
+            count++;
+    }
+
+    // i is number of bytes left (including 00 00 01 B6)
+    if (i > 0)
+    {
+        *len = (*len - i - 1); // len before finding VOP start code
+        return true;
+    }
+
+    return false;
+}
+#endif
 
 /* implement ComponentBase::ProcessorProcess */
 OMX_ERRORTYPE OMXMPEG4Component::ProcessorProcess(
@@ -1123,11 +1162,108 @@ encode:
     assert(p->iOMXComponentUsesNALStartCodes == OMX_FALSE);
     assert(p->iOMXComponentUsesFullAVCFrames == OMX_FALSE);
 
+#ifndef COMPONENT_SUPPORT_OPENCORE
+    if(bfirstframe)
+    {
+	in.len = static_cast<int>(buffer_in_datasz);
+	out.len = static_cast<int>(temp_coded_data_buffer_size);
+        in.buf = (unsigned char*)(buffer_in);
+        out.buf = (unsigned char*)(temp_coded_data_buffer);
+    }
+    else if(temp_coded_data_buffer_filled_length == 0)
+    {
+        in.len = static_cast<int>(buffer_in_datasz);
+        out.len = static_cast<int>(buffer_out_buffersz);
+        in.buf = (unsigned char*)(buffer_in);
+        out.buf = (unsigned char*)(buffer_out);
+    }
 
+    if(temp_coded_data_buffer_filled_length == 0 || bfirstframe)
+    {
+        in.timestamp = buffers[INPORT_INDEX]->nTimeStamp;
+        in.bCompressed = false;
+        LOCK_CONFIG
+        aret = encoder->encode(&in, &out);
+        assert(aret==SUCCESS);
+        UNLOCK_CONFIG
+
+        if(bfirstframe)
+        {
+            temp_coded_data_buffer_filled_length = out.len;
+	}
+
+         last_out_timestamp = static_cast<OMX_S64>(out.timestamp);
+	 last_out_frametype = out.frameType;
+
+	 if (out.len == 0)
+         {
+	     retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+	     retain[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
+	     goto out;
+         }
+     }
+
+    if(bfirstframe)
+    {
+        //three conditions 1->firstframe. 2-> tempbuff exists. 3-> no tempbuff
+        OMX_U32 tempLen = temp_coded_data_buffer_filled_length;
+         bool res =CheckM4vVopStartCode(temp_coded_data_buffer,&tempLen);
+         if(!res)
+         {
+             LOGE("check mpeg4 vop start code error");
+             goto out;
+         }
+
+	 memcpy(buffer_out,temp_coded_data_buffer,tempLen);
+	 outflags |= OMX_BUFFERFLAG_CODECCONFIG;
+	 outfilledlen = tempLen;
+	 bfirstframe = false;
+
+    }
+    else if( temp_coded_data_buffer_filled_length !=0 )
+    {
+	memcpy(buffer_out,temp_coded_data_buffer,temp_coded_data_buffer_filled_length);
+	outfilledlen = temp_coded_data_buffer_filled_length;
+	temp_coded_data_buffer_filled_length = 0;
+	//CAUTION: here release the temp buffer
+	if (temp_coded_data_buffer != NULL)
+        {
+            delete [] temp_coded_data_buffer;
+	    temp_coded_data_buffer = NULL;
+	}
+     }
+     else
+     {
+         outfilledlen = out.len;
+     }
+      outtimestamp = last_out_timestamp;
+     if(outfilledlen > 0)
+     {
+         outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
+	 if (last_out_frametype == I_FRAME || last_out_frametype == IDR_FRAME)
+	{
+	    outflags |= OMX_BUFFERFLAG_SYNCFRAME;
+	}
+	retain[OUTPORT_INDEX] = BUFFER_RETAIN_NOT_RETAIN;
+     }
+     else
+     {
+        retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+     }
+
+    if (temp_coded_data_buffer_filled_length == 0)
+    {
+        retain[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
+    }
+    else
+    {
+       retain[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+    }
+#else
     in.len = static_cast<int>(buffer_in_datasz);	
     out.len = static_cast<int>(buffer_out_buffersz);	
     in.buf = (unsigned char*)(buffer_in);
-   out.buf = (unsigned char*)(buffer_out);
+    out.buf = (unsigned char*)(buffer_out);
 		    
     in.timestamp = buffers[INPORT_INDEX]->nTimeStamp;
     in.bCompressed = false;
@@ -1152,8 +1288,7 @@ encode:
     }
    
     retain[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
-
-
+#endif
 
 out:
     if(retain[OUTPORT_INDEX] != BUFFER_RETAIN_GETAGAIN) {
@@ -1196,7 +1331,14 @@ OMX_ERRORTYPE OMXMPEG4Component::ChangeMPEG4EncoderConfigWithPortParam(
 
     pconfig->frameWidth = static_cast<int>(pd->format.video.nFrameWidth);
     pconfig->frameHeight = static_cast<int>(pd->format.video.nFrameHeight);
+#ifdef COMPONENT_SUPPORT_OPENCORE
     pconfig->frameRate = static_cast<int>((pd->format.video.xFramerate >> 16));
+#else   // stagefright set framerate in inputPort.hack code here
+
+    PortVideo *input_port = static_cast<PortVideo*>(ports[INPORT_INDEX]);
+    const OMX_PARAM_PORTDEFINITIONTYPE *input_pd = input_port->GetPortDefinition();
+    pconfig->frameRate = static_cast<int>((input_pd->format.video.xFramerate >> 16));
+#endif
         
     pconfig->intraInterval = static_cast<int>(pconfig->frameRate / 2);	//just a init value
     pconfig->iDRInterval = -1;						//for opencore, will only accept -1 as iDRInterval

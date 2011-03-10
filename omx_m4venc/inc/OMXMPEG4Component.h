@@ -23,6 +23,11 @@ public:
    ~OMXMPEG4Component();
 
 private:
+
+#ifndef COMPONENT_SUPPORT_OPENCORE
+    bool bfirstframe;
+    bool CheckM4vVopStartCode(OMX_U8* data, OMX_U32* len);
+#endif
     /*
      * component methods & helpers
      */
@@ -100,11 +105,7 @@ private:
     /* for  format translation */
     OMX_U8 *temp_coded_data_buffer;
     OMX_U32 temp_coded_data_buffer_size;
-
-    OMX_U8 *avc_enc_buffer;   
-    OMX_U32 avc_enc_buffer_offset;
-    OMX_U32 avc_enc_buffer_length;
-    OMX_U32 avc_enc_frame_size_left;
+    OMX_U32 temp_coded_data_buffer_filled_length;
 
     OMX_S64 last_out_timestamp;
     FrameType last_out_frametype;
