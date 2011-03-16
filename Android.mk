@@ -7,6 +7,8 @@ VENDORS_INTEL_MRST_COMPONENTS_ROOT := $(LOCAL_PATH)
 
 COMPONENT_SUPPORT_BUFFER_SHARING := false
 COMPONENT_SUPPORT_OPENCORE := false
+COMPONENT_SUPPORT_USRPTR_SHARING := false
+FAKE_USRPTR_SHARING := false
 
 PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/wrs_omxil_components.list:system/etc/wrs_omxil_components.list
@@ -17,7 +19,6 @@ WRS_OMXIL_CORE_ROOT := hardware/intel/wrs_omxil_core
 GLIB_TOP := hardware/intel/glib
 LIBVA_TOP := hardware/intel/libva
 LIBINFODUMP_TOP := hardware/intel/omx-components/libinfodump
-LIBBASECODEC_TOP:= hardware/intel/omx-components/libbasecodec
 
 ifeq ($(strip $(COMPONENT_SUPPORT_OPENCORE)), true)
 PV_TOP := external/opencore
@@ -41,16 +42,13 @@ endif
 # mrst sst audio
 #-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/sst/Android.mk
 
-
-#intel video decoders
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/psb/Android.mk
-
-#intel video encoders
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/libinfodump/Android.mk
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/libbasecodec/Android.mk
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/omx_m4venc/Android.mk
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/omx_avcenc/Android.mk
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/omx_h263enc/Android.mk
+#dump test
+#include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/libinfodump/Android.mk
+#intel video codecs
+include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/psb-dec/Android.mk
+include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/avc-enc/Android.mk
+include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/h263-enc/Android.mk
+include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/m4v-enc/Android.mk
 
 #intel audio codecs
 #-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/sst-stub-base/Android.mk

@@ -88,7 +88,7 @@ get_mix_audio_command_string(MixAudioStreamCtrl::mix_audio_command_t command)
 {
     if (command > MixAudioStreamCtrl::MIX_STREAM_RESUME)
         command = (MixAudioStreamCtrl::mix_audio_command_t)
-            (MixAudioStreamCtrl::MIX_STREAM_RESUME+1);
+                  (MixAudioStreamCtrl::MIX_STREAM_RESUME+1);
 
     return mix_audio_command_string[command];
 }
@@ -309,7 +309,7 @@ free_ports:
 }
 
 OMX_ERRORTYPE MrstSstComponent::__AllocateMp3Port(OMX_U32 port_index,
-                                                  OMX_DIRTYPE dir)
+        OMX_DIRTYPE dir)
 {
     PortMp3 *mp3port;
 
@@ -376,7 +376,7 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateMp3Port(OMX_U32 port_index,
 }
 
 OMX_ERRORTYPE MrstSstComponent::__AllocateAacPort(OMX_U32 port_index,
-                                                  OMX_DIRTYPE dir)
+        OMX_DIRTYPE dir)
 {
     PortAac *aacport;
 
@@ -446,7 +446,7 @@ OMX_ERRORTYPE MrstSstComponent::__AllocateAacPort(OMX_U32 port_index,
 }
 
 OMX_ERRORTYPE MrstSstComponent::__AllocatePcmPort(OMX_U32 port_index,
-                                                  OMX_DIRTYPE dir)
+        OMX_DIRTYPE dir)
 {
     PortPcm *pcmport;
 
@@ -683,7 +683,7 @@ OMX_ERRORTYPE MrstSstComponent::ComponentSetParameter(
 
             CBaseGetState((void *)GetComponentHandle(), &state);
             if (state != OMX_StateLoaded &&
-                state != OMX_StateWaitForResources) {
+                    state != OMX_StateWaitForResources) {
                 LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                      OMX_ErrorIncorrectStateOperation);
                 return OMX_ErrorIncorrectStateOperation;
@@ -719,7 +719,7 @@ OMX_ERRORTYPE MrstSstComponent::ComponentSetParameter(
 
             CBaseGetState((void *)GetComponentHandle(), &state);
             if (state != OMX_StateLoaded &&
-                state != OMX_StateWaitForResources) {
+                    state != OMX_StateWaitForResources) {
                 LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                      OMX_ErrorIncorrectStateOperation);
                 return OMX_ErrorIncorrectStateOperation;
@@ -755,7 +755,7 @@ OMX_ERRORTYPE MrstSstComponent::ComponentSetParameter(
 
             CBaseGetState((void *)GetComponentHandle(), &state);
             if (state != OMX_StateLoaded &&
-                state != OMX_StateWaitForResources) {
+                    state != OMX_StateWaitForResources) {
                 LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                      OMX_ErrorIncorrectStateOperation);
                 return OMX_ErrorIncorrectStateOperation;
@@ -791,7 +791,7 @@ OMX_ERRORTYPE MrstSstComponent::ComponentSetParameter(
 
             CBaseGetState((void *)GetComponentHandle(), &state);
             if (state != OMX_StateLoaded &&
-                state != OMX_StateWaitForResources) {
+                    state != OMX_StateWaitForResources) {
                 LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                      OMX_ErrorIncorrectStateOperation);
                 return OMX_ErrorIncorrectStateOperation;
@@ -949,7 +949,7 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorInit(void)
 
 #if SST_USE_STREAM_CTRL_WORKQUEUE
     if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
-        (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL)) {
+            (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL)) {
         mix_stream_ctrl = new MixAudioStreamCtrl(mix);
         if (!mix_stream_ctrl) {
             LOGE("%s(),%d: exit, failed to new MixAudioStreamCtrl",
@@ -1005,12 +1005,12 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorDeinit(void)
 
 #if SST_USE_STREAM_CTRL_WORKQUEUE
     if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
-        (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
+            (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
         delete mix_stream_ctrl;
 #endif
 
     if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
-        (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
+            (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
         mix_audio_stop_drop(mix);
 
     mix_audio_deinitialize(mix);
@@ -1041,7 +1041,7 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorStop(void)
     LOGV("%s(): enter\n", __func__);
 
     if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
-        (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
+            (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
         mix_audio_stop_drop(mix);
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
@@ -1108,21 +1108,21 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorProcess(
     }
 
     mixio_in->data = buffers[INPORT_INDEX]->pBuffer +
-        buffers[INPORT_INDEX]->nOffset;
+                     buffers[INPORT_INDEX]->nOffset;
     mixio_in->data_size = buffers[INPORT_INDEX]->nFilledLen;
     mixio_in->buffer_size = buffers[INPORT_INDEX]->nAllocLen;
 
     mixio_out->data = buffers[OUTPORT_INDEX]->pBuffer +
-        buffers[OUTPORT_INDEX]->nOffset;
+                      buffers[OUTPORT_INDEX]->nOffset;
     mixio_out->data_size = 0;
     mixio_out->buffer_size = buffers[OUTPORT_INDEX]->nAllocLen;
 
     if (codec_mode == MIX_CODING_DECODE) {
         if (((coding_type == OMX_AUDIO_CodingMP3) &&
-             (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_SYNCFRAME))
-            ||
-            ((coding_type == OMX_AUDIO_CodingAAC) &&
-             (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG))) {
+                (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_SYNCFRAME))
+                ||
+                ((coding_type == OMX_AUDIO_CodingAAC) &&
+                 (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_CODECCONFIG))) {
 
             oret = ChangeAcpWithConfigHeader(mixio_in->data,
                                              &acp_changed);
@@ -1143,7 +1143,7 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorProcess(
             mix_audio_get_state(mix, &mstate);
             if (mstate == MIX_STATE_CONFIGURED) {
                 if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
-                    (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL)) {
+                        (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL)) {
                     mix_audio_get_stream_state(mix, &mstream_state);
                     if (mstream_state == MIX_STREAM_PLAYING)
                         mix_audio_stop_drop(mix);
@@ -1189,12 +1189,12 @@ OMX_ERRORTYPE MrstSstComponent::ProcessorProcess(
     }
 
     if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
-        (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL)) {
+            (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL)) {
         mix_audio_get_stream_state(mix, &mstream_state);
         if (mstream_state != MIX_STREAM_PLAYING) {
 #if SST_USE_STREAM_CTRL_WORKQUEUE
             if ((MIX_ACP_DECODEMODE(acp) == MIX_DECODE_DIRECTRENDER) ||
-                (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
+                    (MIX_ACP_DECODEMODE(acp) == MIX_DECODE_NULL))
                 mix_stream_ctrl->SendCommand(
                     MixAudioStreamCtrl::MIX_STREAM_START);
 #else
@@ -1307,21 +1307,21 @@ out:
  */
 
 static inline OMX_ERRORTYPE __Mp3ChangeAcp(MixAudioConfigParams *acp,
-                                           bool *acp_changed,
-                                           int channel, int samplingrate,
-                                           int bitrate,
-                                           int version, int layer, int crc)
+        bool *acp_changed,
+        int channel, int samplingrate,
+        int bitrate,
+        int version, int layer, int crc)
 {
     if (!acp_changed)
         return OMX_ErrorBadParameter;
 
     if ((MIX_ACP_NUM_CHANNELS(acp) != channel) ||
-        /* mix_audio doesn't care bitrate change */
-        //(MIX_ACP_BITRATE(acp) != bitrate) ||
-        (MIX_ACP_SAMPLE_FREQ(acp) != samplingrate) ||
-        (MIX_ACP_MP3_CRC(acp) != crc) ||
-        (MIX_ACP_MP3_MPEG_FORMAT(acp) != version) ||
-        (MIX_ACP_MP3_MPEG_LAYER(acp) != layer)) {
+            /* mix_audio doesn't care bitrate change */
+            //(MIX_ACP_BITRATE(acp) != bitrate) ||
+            (MIX_ACP_SAMPLE_FREQ(acp) != samplingrate) ||
+            (MIX_ACP_MP3_CRC(acp) != crc) ||
+            (MIX_ACP_MP3_MPEG_FORMAT(acp) != version) ||
+            (MIX_ACP_MP3_MPEG_LAYER(acp) != layer)) {
 
         *acp_changed = true;
 
@@ -1367,19 +1367,19 @@ static inline OMX_ERRORTYPE __Mp3ChangeAcp(MixAudioConfigParams *acp,
 }
 
 static inline OMX_ERRORTYPE __AacChangeAcp(MixAudioConfigParams *acp,
-                                           bool *acp_changed,
-                                           int channel, int frequency,
-                                           int bitrate, int aot)
+        bool *acp_changed,
+        int channel, int frequency,
+        int bitrate, int aot)
 {
     if (!acp_changed)
         return OMX_ErrorBadParameter;
 
     if ((MIX_ACP_NUM_CHANNELS(acp) != channel) ||
-        (MIX_ACP_SAMPLE_FREQ(acp) != frequency) ||
-        (mix_acp_aac_get_aot(MIX_AUDIOCONFIGPARAMSAAC(acp)) !=
-         (unsigned)aot) ||
-        (mix_acp_aac_get_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp)) !=
-         (aot - 1))) {
+            (MIX_ACP_SAMPLE_FREQ(acp) != frequency) ||
+            (mix_acp_aac_get_aot(MIX_AUDIOCONFIGPARAMSAAC(acp)) !=
+             (unsigned)aot) ||
+            (mix_acp_aac_get_aac_profile(MIX_AUDIOCONFIGPARAMSAAC(acp)) !=
+             (aot - 1))) {
 
         *acp_changed = true;
 
@@ -1477,8 +1477,8 @@ OMX_ERRORTYPE MrstSstComponent::__Mp3ChangeAcpWithConfigHeader(
         return OMX_ErrorUndefined;
 
     if ((channel == MP3_HEADER_STEREO) ||
-        (channel == MP3_HEADER_JOINT_STEREO) ||
-        (channel == MP3_HEADER_DUAL_CHANNEL))
+            (channel == MP3_HEADER_JOINT_STEREO) ||
+            (channel == MP3_HEADER_DUAL_CHANNEL))
         channel = 2;
     else if (channel == MP3_HEADER_SINGLE_CHANNEL)
         channel = 1;
@@ -1554,7 +1554,7 @@ OMX_ERRORTYPE MrstSstComponent::__Mp3ChangeAcpWithPortParam(
     if (p.eFormat == OMX_AUDIO_MP3StreamFormatMP1Layer3)
         format = 1;
     else if ((p.eFormat == OMX_AUDIO_MP3StreamFormatMP2Layer3) ||
-          (p.eFormat == OMX_AUDIO_MP3StreamFormatMP2_5Layer3))
+             (p.eFormat == OMX_AUDIO_MP3StreamFormatMP2_5Layer3))
         format = 2;
     else
         return OMX_ErrorBadParameter;
@@ -1592,7 +1592,7 @@ OMX_ERRORTYPE MrstSstComponent::__AacChangeAcpWithPortParam(
         return OMX_ErrorBadParameter;
 
 #if TEST_USE_AAC_ENCODING_RAW
- #if TEST_USE_AAC_ENCODING_VARIABLE_PARAMETER
+#if TEST_USE_AAC_ENCODING_VARIABLE_PARAMETER
     if (codec_mode == MIX_CODING_ENCODE) {
         /* freed at ProcessorProcess */
         codecdata = (unsigned char *)calloc(2, sizeof(unsigned char));
@@ -1603,7 +1603,7 @@ OMX_ERRORTYPE MrstSstComponent::__AacChangeAcpWithPortParam(
 
     return __AacChangeAcp(acp, acp_changed, p.nChannels, p.nSampleRate,
                           p.nBitRate, aot);
- #else /* 44100,12800,2 */
+#else /* 44100,12800,2 */
     if (codec_mode == MIX_CODING_ENCODE) {
         /* freed at ProcessorProcess */
         codecdata = (unsigned char *)calloc(2, sizeof(unsigned char));
@@ -1614,18 +1614,18 @@ OMX_ERRORTYPE MrstSstComponent::__AacChangeAcpWithPortParam(
 
     return __AacChangeAcp(acp, acp_changed, 2, 44100,
                           128000, aot);
- #endif
+#endif
 #else /* ADTS */
     if (codec_mode == MIX_CODING_ENCODE)
         codecdata = NULL;
 
- #if TEST_USE_AAC_ENCODING_VARIABLE_PARAMETER
+#if TEST_USE_AAC_ENCODING_VARIABLE_PARAMETER
     return __AacChangeAcp(acp, acp_changed, p.nChannels, p.nSampleRate,
                           p.nBitRate, aot);
- #else /* 44100,12800,2 */
+#else /* 44100,12800,2 */
     return __AacChangeAcp(acp, acp_changed, 2, 44100,
                           128000, aot);
- #endif
+#endif
 #endif
 }
 
@@ -1638,10 +1638,10 @@ OMX_ERRORTYPE MrstSstComponent::ChangeAcpWithPortParam(
 
     if (coding_type == OMX_AUDIO_CodingMP3)
         ret = __Mp3ChangeAcpWithPortParam(
-            acp, static_cast<PortMp3 *>(port), acp_changed);
+                  acp, static_cast<PortMp3 *>(port), acp_changed);
     else if (coding_type == OMX_AUDIO_CodingAAC)
         ret = __AacChangeAcpWithPortParam(
-            acp, static_cast<PortAac *>(port), acp_changed);
+                  acp, static_cast<PortAac *>(port), acp_changed);
     else
         return OMX_ErrorBadParameter;
 
@@ -1660,7 +1660,7 @@ OMX_ERRORTYPE MrstSstComponent::__PcmChangePortParamWithAcp(
     memcpy(&p, port->GetPortPcmParam(), sizeof(OMX_AUDIO_PARAM_PCMMODETYPE));
 
     if ((MIX_ACP_NUM_CHANNELS(acp) != (int)p.nChannels) ||
-        (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSamplingRate)) {
+            (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSamplingRate)) {
 
         p.nChannels = MIX_ACP_NUM_CHANNELS(acp);
         p.nSamplingRate = MIX_ACP_SAMPLE_FREQ(acp);
@@ -1679,8 +1679,8 @@ OMX_ERRORTYPE MrstSstComponent::__Mp3ChangePortParamWithAcp(
     memcpy(&p, port->GetPortMp3Param(), sizeof(OMX_AUDIO_PARAM_MP3TYPE));
 
     if ((MIX_ACP_NUM_CHANNELS(acp) != (int)p.nChannels) ||
-        (MIX_ACP_BITRATE(acp) != (int)p.nBitRate) ||
-        (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSampleRate)) {
+            (MIX_ACP_BITRATE(acp) != (int)p.nBitRate) ||
+            (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSampleRate)) {
 
         p.nChannels = MIX_ACP_NUM_CHANNELS(acp);
         p.nBitRate = MIX_ACP_BITRATE(acp);
@@ -1700,7 +1700,7 @@ OMX_ERRORTYPE MrstSstComponent::__AacChangePortParamWithAcp(
     memcpy(&p, port->GetPortAacParam(), sizeof(p));
 
     if ((MIX_ACP_NUM_CHANNELS(acp) != (int)p.nChannels) ||
-        (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSampleRate)) {
+            (MIX_ACP_SAMPLE_FREQ(acp) != (int)p.nSampleRate)) {
 
         p.nChannels = MIX_ACP_NUM_CHANNELS(acp);
         p.nSampleRate = MIX_ACP_SAMPLE_FREQ(acp);
@@ -1717,10 +1717,10 @@ OMX_ERRORTYPE MrstSstComponent::ChangePortParamWithAcp(void)
 
     if (coding_type == OMX_AUDIO_CodingMP3)
         ret = __Mp3ChangePortParamWithAcp(
-            acp, static_cast<PortMp3 *>(ports[INPORT_INDEX]));
+                  acp, static_cast<PortMp3 *>(ports[INPORT_INDEX]));
     else if (coding_type == OMX_AUDIO_CodingAAC)
         ret = __AacChangePortParamWithAcp(
-            acp, static_cast<PortAac *>(ports[INPORT_INDEX]));
+                  acp, static_cast<PortAac *>(ports[INPORT_INDEX]));
     else
         return OMX_ErrorBadParameter;
 
@@ -1728,7 +1728,7 @@ OMX_ERRORTYPE MrstSstComponent::ChangePortParamWithAcp(void)
         return ret;
 
     ret = __PcmChangePortParamWithAcp(
-        acp, static_cast<PortPcm *>(ports[OUTPORT_INDEX]));
+              acp, static_cast<PortPcm *>(ports[OUTPORT_INDEX]));
     if (ret != OMX_ErrorNone)
         return ret;
 
@@ -1736,7 +1736,7 @@ OMX_ERRORTYPE MrstSstComponent::ChangePortParamWithAcp(void)
          __func__, OUTPORT_INDEX);
 
     ret = static_cast<PortPcm *>(ports[OUTPORT_INDEX])->
-        ReportPortSettingsChanged();
+          ReportPortSettingsChanged();
 
     LOGV("%s(): returned from event handler (ret : 0x%08x)\n", __func__, ret);
 
@@ -1774,12 +1774,17 @@ OMX_ERRORTYPE wrs_omxil_cmodule_ops_instantiate(OMX_PTR *instance)
 }
 
 struct wrs_omxil_cmodule_ops_s cmodule_ops = {
-    instantiate: wrs_omxil_cmodule_ops_instantiate,
+instantiate:
+    wrs_omxil_cmodule_ops_instantiate,
 };
 
 struct wrs_omxil_cmodule_s WRS_OMXIL_CMODULE_SYMBOL = {
-    name: g_name,
-    roles: &g_roles[0],
-    nr_roles: ARRAY_SIZE(g_roles),
-    ops: &cmodule_ops,
+name:
+    g_name,
+roles:
+    &g_roles[0],
+nr_roles:
+    ARRAY_SIZE(g_roles),
+ops:
+    &cmodule_ops,
 };

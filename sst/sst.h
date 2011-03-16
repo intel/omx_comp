@@ -71,19 +71,19 @@ private:
 
     /* implement ComponentBase::ComponentGet/SetPatameter */
     virtual OMX_ERRORTYPE
-        ComponentGetParameter(OMX_INDEXTYPE nParamIndex,
-                              OMX_PTR pComponentParameterStructure);
+    ComponentGetParameter(OMX_INDEXTYPE nParamIndex,
+                          OMX_PTR pComponentParameterStructure);
     virtual OMX_ERRORTYPE
-        ComponentSetParameter(OMX_INDEXTYPE nIndex,
-                              OMX_PTR pComponentParameterStructure);
+    ComponentSetParameter(OMX_INDEXTYPE nIndex,
+                          OMX_PTR pComponentParameterStructure);
 
     /* implement ComponentBase::ComponentGet/SetConfig */
     virtual OMX_ERRORTYPE
-        ComponentGetConfig(OMX_INDEXTYPE nIndex,
-                           OMX_PTR pComponentConfigStructure);
+    ComponentGetConfig(OMX_INDEXTYPE nIndex,
+                       OMX_PTR pComponentConfigStructure);
     virtual OMX_ERRORTYPE
-        ComponentSetConfig(OMX_INDEXTYPE nIndex,
-                           OMX_PTR pComponentConfigStructure);
+    ComponentSetConfig(OMX_INDEXTYPE nIndex,
+                       OMX_PTR pComponentConfigStructure);
 
     /* implement ComponentBase::Processor[*] */
     virtual OMX_ERRORTYPE ProcessorInit(void);  /* Loaded to Idle */
@@ -106,28 +106,28 @@ private:
      * acp setting helpers
      */
     OMX_ERRORTYPE __Mp3ChangeAcpWithConfigHeader(const unsigned char *buffer,
-                                                 bool *acp_changed);
+            bool *acp_changed);
     OMX_ERRORTYPE __AacChangeAcpWithConfigHeader(const unsigned char *buffer,
-                                                 bool *acp_changed);
+            bool *acp_changed);
     OMX_ERRORTYPE ChangeAcpWithConfigHeader(const unsigned char *buffer,
                                             bool *acp_changed);
 
     OMX_ERRORTYPE __Mp3ChangeAcpWithPortParam(MixAudioConfigParams *acp,
-                                              PortMp3 *port,
-                                              bool *acp_changed);
+            PortMp3 *port,
+            bool *acp_changed);
     OMX_ERRORTYPE __AacChangeAcpWithPortParam(MixAudioConfigParams *acp,
-                                              PortAac *port,
-                                              bool *acp_changed);
+            PortAac *port,
+            bool *acp_changed);
     OMX_ERRORTYPE ChangeAcpWithPortParam(MixAudioConfigParams *acp,
                                          PortBase *port,
                                          bool *acp_changed);
 
     OMX_ERRORTYPE __PcmChangePortParamWithAcp(MixAudioConfigParams *acp,
-                                              PortPcm *port);
+            PortPcm *port);
     OMX_ERRORTYPE __Mp3ChangePortParamWithAcp(MixAudioConfigParams *acp,
-                                              PortMp3 *port);
+            PortMp3 *port);
     OMX_ERRORTYPE __AacChangePortParamWithAcp(MixAudioConfigParams *acp,
-                                              PortAac *port);
+            PortAac *port);
     OMX_ERRORTYPE ChangePortParamWithAcp(void);
 
     /* end of acp setting helpers */
