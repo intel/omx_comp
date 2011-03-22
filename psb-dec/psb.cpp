@@ -3140,8 +3140,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorFlush(OMX_U32 port_index) {
 
     LOGV("port_index = %d Flushed!\n", port_index);
 
-    if ( coding_type == OMX_VIDEO_CodingAVC && (port_index == INPORT_INDEX ||
-            port_index == OMX_ALL)) {
+    if (port_index == INPORT_INDEX || port_index == OMX_ALL) {
         mix_video_flush( mix);
     }
 
