@@ -36,11 +36,6 @@
 #include <portvideo.h>
 #include <componentbase.h>
 
-#ifdef COMPONENT_SUPPORT_OPENCORE
-#include <pv_omxcore.h>
-#include <pv_omxdefs.h>
-#endif
-
 #include <mixdisplayandroid.h>
 #include <mixvideo.h>
 #include <mixvideoconfigparamsenc_h263.h>
@@ -58,11 +53,13 @@ extern "C" {
 #include <va/va_android.h>
 
 #include "h263.h"
-#include "psb.h"
+#include "psb_h263.h"
 
 #define Display unsigned int
 #define SHOW_FPS 0
 #include "vabuffer.h"
+
+#include <IntelBufferSharing.h>
 
 /*
  * constructor & destructor
@@ -71,12 +68,30 @@ MrstPsbComponent::MrstPsbComponent()
 {
     LOGV("%s(): enter\n", __func__);
 
+    buffer_sharing_state = BUFFER_SHARING_INVALID;
+
+#ifdef ENABLE_BUFFER_SHARE_MODE
+    OMX_ERRORTYPE oret = EnableBufferSharingMode();
+#else
+    OMX_ERRORTYPE oret = DisableBufferSharingMode();
+#endif
+
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(),%d:  set buffer sharing mode failed", __func__, __LINE__);
+        DisableBufferSharingMode();
+    }
+
     LOGV("%s(),%d: exit\n", __func__, __LINE__);
 }
 
 MrstPsbComponent::~MrstPsbComponent()
 {
     LOGV("%s(): enter\n", __func__);
+
+    OMX_ERRORTYPE oret = DisableBufferSharingMode();
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(),%d:  DisableBufferSharingMode failed", __func__, __LINE__);
+    }
 
     LOGV("%s(),%d: exit\n", __func__, __LINE__);
 }
@@ -177,17 +192,11 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateH263Port(OMX_U32 port_index, OMX_DIRTY
     SetTypeHeader(&h263portdefinition, sizeof(h263portdefinition));
     h263portdefinition.nPortIndex = port_index;
     h263portdefinition.eDir = dir;
-    if (dir == OMX_DirInput) {
-        h263portdefinition.nBufferCountActual =
-            INPORT_H263_ACTUAL_BUFFER_COUNT;
-        h263portdefinition.nBufferCountMin = INPORT_H263_MIN_BUFFER_COUNT;
-        h263portdefinition.nBufferSize = INPORT_H263_BUFFER_SIZE;
-    } else {
-        h263portdefinition.nBufferCountActual =
-            OUTPORT_H263_ACTUAL_BUFFER_COUNT;
-        h263portdefinition.nBufferCountMin = OUTPORT_H263_MIN_BUFFER_COUNT;
-        h263portdefinition.nBufferSize = OUTPORT_H263_BUFFER_SIZE;
-    }
+
+    h263portdefinition.nBufferCountActual =OUTPORT_H263_ACTUAL_BUFFER_COUNT;
+    h263portdefinition.nBufferCountMin = OUTPORT_H263_MIN_BUFFER_COUNT;
+    h263portdefinition.nBufferSize = OUTPORT_H263_BUFFER_SIZE;
+
     h263portdefinition.bEnabled = OMX_TRUE;
     h263portdefinition.bPopulated = OMX_FALSE;
     h263portdefinition.eDomain = OMX_PortDomainVideo;
@@ -218,45 +227,43 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateH263Port(OMX_U32 port_index, OMX_DIRTY
     /* end of OMX_VIDEO_PARAM_H263TYPE */
 
     /* encoder */
-    if (dir == OMX_DirOutput) {
-        /* OMX_VIDEO_PARAM_BITRATETYPE */
-        OMX_VIDEO_PARAM_BITRATETYPE bitrateparam;
 
-        memset(&bitrateparam, 0, sizeof(bitrateparam));
-        SetTypeHeader(&bitrateparam, sizeof(bitrateparam));
+    /* OMX_VIDEO_PARAM_BITRATETYPE */
+    OMX_VIDEO_PARAM_BITRATETYPE bitrateparam;
 
-        bitrateparam.nPortIndex = port_index;
-        bitrateparam.eControlRate = OMX_Video_ControlRateConstant;
-        bitrateparam.nTargetBitrate = 64000;
+    memset(&bitrateparam, 0, sizeof(bitrateparam));
+    SetTypeHeader(&bitrateparam, sizeof(bitrateparam));
 
-        h263port->SetPortBitrateParam(&bitrateparam, true);
-        /* end of OMX_VIDEO_PARAM_BITRATETYPE */
+    bitrateparam.nPortIndex = port_index;
+    bitrateparam.eControlRate = OMX_Video_ControlRateConstant;
+    bitrateparam.nTargetBitrate = 64000;
 
-        /* OMX_VIDEO_CONFIG_PRI_INFOTYPE */
-        OMX_VIDEO_CONFIG_PRI_INFOTYPE privateinfoparam;
-        memset(&privateinfoparam, 0, sizeof(privateinfoparam));
-        SetTypeHeader(&privateinfoparam, sizeof(privateinfoparam));
-        privateinfoparam.nPortIndex = port_index;
-        privateinfoparam.nCapacity = 0;
-        privateinfoparam.nHolder = NULL;
-        h263port->SetPortPrivateInfoParam(&privateinfoparam, true);
-        /* end of OMX_VIDEO_CONFIG_PRI_INFOTYPE */
+    h263port->SetPortBitrateParam(&bitrateparam, true);
+    /* end of OMX_VIDEO_PARAM_BITRATETYPE */
 
-        h263EncPFrames = 0;
-        h263EncParamIntelBitrateType.nPortIndex = port_index;
-        h263EncParamIntelBitrateType.eControlRate = OMX_Video_Intel_ControlRateMax;
-        h263EncParamIntelBitrateType.nTargetBitrate = 0;
-        SetTypeHeader(&h263EncParamIntelBitrateType, sizeof(h263EncParamIntelBitrateType));
+    /* OMX_VIDEO_CONFIG_PRI_INFOTYPE */
+    OMX_VIDEO_CONFIG_PRI_INFOTYPE privateinfoparam;
+    memset(&privateinfoparam, 0, sizeof(privateinfoparam));
+    SetTypeHeader(&privateinfoparam, sizeof(privateinfoparam));
+    privateinfoparam.nPortIndex = port_index;
+    privateinfoparam.nCapacity = 0;
+    privateinfoparam.nHolder = NULL;
+    h263port->SetPortPrivateInfoParam(&privateinfoparam, true);
+    /* end of OMX_VIDEO_CONFIG_PRI_INFOTYPE */
 
-        h263EncConfigIntelBitrateType.nPortIndex = port_index;
-        h263EncConfigIntelBitrateType.nMaxEncodeBitrate = 4000 * 1024;    // Maximum bitrate
-        h263EncConfigIntelBitrateType.nTargetPercentage = 95;             // Target bitrate as percentage of maximum bitrate; e.g. 95 is 95%
-        h263EncConfigIntelBitrateType.nWindowSize = 1000;                 // Window size in milliseconds allowed for bitrate to reach target
-        h263EncConfigIntelBitrateType.nInitialQP  = 36;                   // Initial QP for I frames
-        h263EncConfigIntelBitrateType.nMinQP      = 18;
-        SetTypeHeader(&h263EncConfigIntelBitrateType, sizeof(h263EncConfigIntelBitrateType));
+    h263EncPFrames = 0;
+    h263EncParamIntelBitrateType.nPortIndex = port_index;
+    h263EncParamIntelBitrateType.eControlRate = OMX_Video_Intel_ControlRateMax;
+    h263EncParamIntelBitrateType.nTargetBitrate = 0;
+    SetTypeHeader(&h263EncParamIntelBitrateType, sizeof(h263EncParamIntelBitrateType));
 
-    }
+    h263EncConfigIntelBitrateType.nPortIndex = port_index;
+    h263EncConfigIntelBitrateType.nMaxEncodeBitrate = 4000 * 1024;    // Maximum bitrate
+    h263EncConfigIntelBitrateType.nTargetPercentage = 95;             // Target bitrate as percentage of maximum bitrate; e.g. 95 is 95%
+    h263EncConfigIntelBitrateType.nWindowSize = 1000;                 // Window size in milliseconds allowed for bitrate to reach target
+    h263EncConfigIntelBitrateType.nInitialQP  = 36;                   // Initial QP for I frames
+    h263EncConfigIntelBitrateType.nMinQP      = 18;
+    SetTypeHeader(&h263EncConfigIntelBitrateType, sizeof(h263EncConfigIntelBitrateType));
 
     LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, OMX_ErrorNone);
     return OMX_ErrorNone;
@@ -284,16 +291,11 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateRawPort(OMX_U32 port_index,
     SetTypeHeader(&rawportdefinition, sizeof(rawportdefinition));
     rawportdefinition.nPortIndex = port_index;
     rawportdefinition.eDir = dir;
-    if (dir == OMX_DirInput) {
-        rawportdefinition.nBufferCountActual = INPORT_RAW_ACTUAL_BUFFER_COUNT;
-        rawportdefinition.nBufferCountMin = INPORT_RAW_MIN_BUFFER_COUNT;
-        rawportdefinition.nBufferSize = INPORT_RAW_BUFFER_SIZE;
-    }
-    else {
-        rawportdefinition.nBufferCountActual = OUTPORT_RAW_ACTUAL_BUFFER_COUNT;
-        rawportdefinition.nBufferCountMin = OUTPORT_RAW_MIN_BUFFER_COUNT;
-        rawportdefinition.nBufferSize = OUTPORT_RAW_BUFFER_SIZE;
-    }
+
+    rawportdefinition.nBufferCountActual = INPORT_RAW_ACTUAL_BUFFER_COUNT;
+    rawportdefinition.nBufferCountMin = INPORT_RAW_MIN_BUFFER_COUNT;
+    rawportdefinition.nBufferSize = INPORT_RAW_BUFFER_SIZE;
+
     rawportdefinition.bEnabled = OMX_TRUE;
     rawportdefinition.bPopulated = OMX_FALSE;
     rawportdefinition.eDomain = OMX_PortDomainVideo;
@@ -377,7 +379,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
+            LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -385,7 +387,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
             port = static_cast<PortVideo *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
+            LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -405,7 +407,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -413,7 +415,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
             port = static_cast<PortH263 *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -432,7 +434,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -440,7 +442,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
             port = static_cast<PortVideo *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -448,48 +450,6 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         memcpy(p, port->GetPortBitrateParam(), sizeof(*p));
         break;
     }
-    case OMX_IndexIntelPrivateInfo: {
-        OMX_VIDEO_CONFIG_PRI_INFOTYPE *p =
-            (OMX_VIDEO_CONFIG_PRI_INFOTYPE *)pComponentParameterStructure;
-        OMX_U32 index = p->nPortIndex;
-        PortVideo *port = NULL;
-
-        LOGV("%s(): port index : %lu\n", __func__, index);
-
-        ret = CheckTypeHeader(p, sizeof(*p));
-        if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
-            return ret;
-        }
-
-        if (index < nr_ports)
-            port = static_cast<PortVideo *>(ports[index]);
-
-        if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
-                 OMX_ErrorBadPortIndex);
-            return OMX_ErrorBadPortIndex;
-        }
-
-        memcpy(p, port->GetPortPrivateInfoParam(), sizeof(*p));
-        break;
-    }
-#ifdef COMPONENT_SUPPORT_OPENCORE
-    /* PVOpenCore */
-    case (OMX_INDEXTYPE) PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX: {
-        PV_OMXComponentCapabilityFlagsType *p =
-            (PV_OMXComponentCapabilityFlagsType *)pComponentParameterStructure;
-
-        p->iIsOMXComponentMultiThreaded = OMX_TRUE;
-        p->iOMXComponentSupportsExternalInputBufferAlloc = OMX_TRUE;
-        p->iOMXComponentSupportsExternalOutputBufferAlloc = OMX_TRUE;
-        p->iOMXComponentSupportsMovableInputBuffers = OMX_FALSE;
-        p->iOMXComponentSupportsPartialFrames = OMX_TRUE;
-        p->iOMXComponentCanHandleIncompleteFrames = OMX_TRUE;
-
-        break;
-    }
-#endif
     case OMX_IndexParamVideoProfileLevelQuerySupported:
     {
         OMX_VIDEO_PARAM_PROFILELEVELTYPE *p =
@@ -503,7 +463,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone)
         {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -550,7 +510,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
+            LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -558,7 +518,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             port = static_cast<PortVideo *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
+            LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -587,7 +547,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -595,7 +555,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             port = static_cast<PortH263 *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -606,7 +566,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             CBaseGetState((void *)GetComponentHandle(), &state);
             if (state != OMX_StateLoaded &&
                     state != OMX_StateWaitForResources) {
-                LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                      OMX_ErrorIncorrectStateOperation);
                 return OMX_ErrorIncorrectStateOperation;
             }
@@ -630,7 +590,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
 
         ret = CheckTypeHeader(p, sizeof(*p));
         if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
             return ret;
         }
 
@@ -638,7 +598,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             port = static_cast<PortVideo *>(ports[index]);
 
         if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                  OMX_ErrorBadPortIndex);
             return OMX_ErrorBadPortIndex;
         }
@@ -648,7 +608,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
             CBaseGetState((void *)GetComponentHandle(), &state);
             if (state != OMX_StateLoaded &&
                     state != OMX_StateWaitForResources) {
-                LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
                      OMX_ErrorIncorrectStateOperation);
                 return OMX_ErrorIncorrectStateOperation;
             }
@@ -657,46 +617,6 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
         ret = port->SetPortBitrateParam(p, false);
         break;
     }
-    case OMX_IndexIntelPrivateInfo: {
-
-        LOGV("%s(), OMX_IndexIntelPrivateInfo", __func__);
-        OMX_VIDEO_CONFIG_PRI_INFOTYPE *p =
-            (OMX_VIDEO_CONFIG_PRI_INFOTYPE *)pComponentParameterStructure;
-        OMX_U32 index = p->nPortIndex;
-        PortVideo *port = NULL;
-
-        LOGV("%s(): port index : %lu\n", __func__, index);
-
-        ret = CheckTypeHeader(p, sizeof(*p));
-        if (ret != OMX_ErrorNone) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
-            return ret;
-        }
-
-        if (index < nr_ports)
-            port = static_cast<PortVideo *>(ports[index]);
-
-        if (!port) {
-            LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
-                 OMX_ErrorBadPortIndex);
-            return OMX_ErrorBadPortIndex;
-        }
-
-        if (port->IsEnabled()) {
-            OMX_STATETYPE state;
-
-            CBaseGetState((void *)GetComponentHandle(), &state);
-            if (state != OMX_StateLoaded &&
-                    state != OMX_StateWaitForResources) {
-                LOGV("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
-                     OMX_ErrorIncorrectStateOperation);
-                return OMX_ErrorIncorrectStateOperation;
-            }
-        }
-        ret = port->SetPortPrivateInfoParam(p, false);
-        break;
-    }
-
     case OMX_IndexParamVideoBytestream: {
 
         LOGV("%s(), OMX_IndexParamVideoBytestream", __func__);
@@ -776,7 +696,33 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetConfig(
         *pxFramerate = h263EncFramerate;
         break;
     }
+    case OMX_IndexIntelPrivateInfo: {
 
+        OMX_VIDEO_CONFIG_PRI_INFOTYPE *p =
+            (OMX_VIDEO_CONFIG_PRI_INFOTYPE *)pComponentConfigStructure;
+        OMX_U32 index = p->nPortIndex;
+        PortVideo *port = NULL;
+
+        LOGV("%s(): port index : %lu\n", __func__, index);
+
+        ret = CheckTypeHeader(p, sizeof(*p));
+        if (ret != OMX_ErrorNone) {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__, ret);
+            return ret;
+        }
+
+        if (index < nr_ports)
+            port = static_cast<PortVideo *>(ports[index]);
+
+        if (!port) {
+            LOGE("%s(),%d: exit (ret = 0x%08x)\n", __func__, __LINE__,
+                 OMX_ErrorBadPortIndex);
+            return OMX_ErrorBadPortIndex;
+        }
+
+        memcpy(p, port->GetPortPrivateInfoParam(), sizeof(*p));
+        break;
+    }
     default:
     {
         return OMX_ErrorUnsupportedIndex;
@@ -814,7 +760,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetConfig(
             LOGV("%s(), pVideoIFrame->IntraRefreshVOP == OMX_TRUE", __func__);
 
             MixEncDynamicParams encdynareq;
-            oscl_memset(&encdynareq, 0, sizeof(encdynareq));
+            memset(&encdynareq, 0, sizeof(encdynareq));
             encdynareq.force_idr = TRUE;
             if(mix) {
                 mret = mix_video_set_dynamic_enc_config (mix,
@@ -864,7 +810,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetConfig(
 
             MixEncParamsType params_type;
             MixEncDynamicParams dynamic_params;
-            oscl_memset(&dynamic_params, 0, sizeof(dynamic_params));
+            memset(&dynamic_params, 0, sizeof(dynamic_params));
 
             params_type = MIX_ENC_PARAMS_INIT_QP;
             dynamic_params.init_QP = h263EncConfigIntelBitrateType.nInitialQP;
@@ -931,7 +877,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetConfig(
 
             MixEncParamsType params_type;
             MixEncDynamicParams dynamic_params;
-            oscl_memset(&dynamic_params, 0, sizeof(dynamic_params));
+            memset(&dynamic_params, 0, sizeof(dynamic_params));
 
             params_type = MIX_ENC_PARAMS_FRAME_RATE;
             dynamic_params.frame_rate_denom = 1;
@@ -975,7 +921,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     LOGV("%s(): called to mix_video_new()", __func__);
 
     if (!mix) {
-        LOGV("%s(),%d: exit, mix_video_new failed", __func__, __LINE__);
+        LOGE("%s(),%d: exit, mix_video_new failed", __func__, __LINE__);
         goto error_out;
     }
 
@@ -987,7 +933,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     mvp = MIX_PARAMS(mix_videoencodeparams_new());
 
     if (!vcp || !mvp ) {
-        LOGV("%s(),%d: exit, failed to allocate vcp, mvp\n",
+        LOGE("%s(),%d: exit, failed to allocate vcp, mvp\n",
              __func__, __LINE__);
         goto error_out;
     }
@@ -997,20 +943,20 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
                                   static_cast<PortVideo *>(ports[OUTPORT_INDEX]),
                                   NULL);
     if (oret != OMX_ErrorNone) {
-        LOGV("%s(),%d: exit, ChangeVcpWithPortParam failed (ret == 0x%08x)\n",
+        LOGE("%s(),%d: exit, ChangeVcpWithPortParam failed (ret == 0x%08x)\n",
              __func__, __LINE__, oret);
         goto error_out;
     }
 
     display = mix_displayandroid_new();
     if (!display) {
-        LOGV("%s(),%d: exit, mix_displayandroid_new failed", __func__, __LINE__);
+        LOGE("%s(),%d: exit, mix_displayandroid_new failed", __func__, __LINE__);
         goto error_out;
     }
 
     vip = mix_videoinitparams_new();
     if (!vip) {
-        LOGV("%s(),%d: exit, mix_videoinitparams_new failed", __func__,
+        LOGE("%s(),%d: exit, mix_videoinitparams_new failed", __func__,
              __LINE__);
         goto error_out;
     }
@@ -1023,7 +969,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 
         mret = mix_displayandroid_set_display(display, android_display);
         if (mret != MIX_RESULT_SUCCESS) {
-            LOGV("%s(),%d: exit, mix_displayandroid_set_display failed "
+            LOGE("%s(),%d: exit, mix_displayandroid_set_display failed "
                  "(ret == 0x%08x)", __func__, __LINE__, mret);
             goto error_out;
         }
@@ -1031,22 +977,32 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 
     mret = mix_videoinitparams_set_display(vip, MIX_DISPLAY(display));
     if (mret != MIX_RESULT_SUCCESS) {
-        LOGV("%s(),%d: exit, mix_videoinitparams_set_display failed "
+        LOGE("%s(),%d: exit, mix_videoinitparams_set_display failed "
              "(ret == 0x%08x)", __func__, __LINE__, mret);
         goto error_out;
     }
 
     mret = mix_video_initialize(mix, MIX_CODEC_MODE_ENCODE, vip, NULL);
     if (mret != MIX_RESULT_SUCCESS) {
-        LOGV("%s(),%d: exit, mix_video_initialize failed (ret == 0x%08x)",
+        LOGE("%s(),%d: exit, mix_video_initialize failed (ret == 0x%08x)",
              __func__, __LINE__, mret);
         goto error_out;
     }
 
+    oret = RequestShareBuffers(mix,
+                               MIX_VIDEOCONFIGPARAMSENC(vcp)->picture_width,
+                               MIX_VIDEOCONFIGPARAMSENC(vcp)->picture_height);
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(), %d:  InitShareBufferSettings() failed ", __func__, __LINE__);
+        goto error_out;
+    }
+
+    mix_videoconfigparamsenc_set_share_buf_mode(MIX_VIDEOCONFIGPARAMSENC(vcp), FALSE);
+
     LOGV("mix_video_configure");
     mret = mix_video_configure(mix, vcp, NULL);
     if (mret != MIX_RESULT_SUCCESS) {
-        LOGV("%s(), %d: exit, mix_video_configure failed "
+        LOGE("%s(), %d: exit, mix_video_configure failed "
              "(ret:0x%08x)", __func__, __LINE__, mret);
         oret = OMX_ErrorUndefined;
         if(mret == MIX_RESULT_NO_MEMORY) {
@@ -1073,10 +1029,32 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     last_ts = 0;
     last_fps = 0.0;
 
+    oret = RegisterShareBufferToPort();
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(), %d RegisterShareBufferToPort() failed", __func__, __LINE__);
+        oret = OMX_ErrorUndefined;
+        goto error_out;
+    }
+
+    oret = RegisterShareBufferToLib();
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(), %d register Share Buffering Mode  failed", __func__, __LINE__);
+        goto error_out;
+    }
+
+    oret = EnterShareBufferingMode();
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(), %d EnterShareBufferingMode() failed", __func__, __LINE__);
+        goto error_out;
+    }
+
     LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, oret);
     return oret;
 
 error_out:
+    if (buffer_sharing_state == BUFFER_SHARING_EXECUTING) {
+        ExitShareBufferingMode();
+    }
     mix_params_unref(mvp);
     mix_videoconfigparams_unref(vcp);
     mix_displayandroid_unref(display);
@@ -1088,10 +1066,16 @@ error_out:
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
 {
-    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    OMX_ERRORTYPE oret = OMX_ErrorNone;
     MIX_RESULT mret;
 
     LOGV("%s(): enter\n", __func__);
+    if (buffer_sharing_state == BUFFER_SHARING_EXECUTING) {
+        oret = ExitShareBufferingMode();
+        if (oret != OMX_ErrorNone) {
+            LOGE("%s(),%d:    ExitShareBufferingMode failed", __func__, __LINE__);
+        }
+    }
 
     mix_video_eos(mix);
     mix_video_flush(mix);
@@ -1109,8 +1093,8 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
     mix_video_deinitialize(mix);
     mix_video_unref(mix);
 
-    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
-    return ret;
+    LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, oret);
+    return oret;
 }
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorStart(void)
@@ -1176,15 +1160,22 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
             "%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
 
     if (!buffers[INPORT_INDEX]->nFilledLen) {
-        LOGV("%s(),%d: input buffer's nFilledLen is zero\n",
+        LOGE("%s(),%d: input buffer's nFilledLen is zero\n",
              __func__, __LINE__);
         goto out;
     }
 
-    buffer_in.data =
-        buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
-    buffer_in.data_size = buffers[INPORT_INDEX]->nFilledLen;
-    buffer_in.buffer_size = buffers[INPORT_INDEX]->nFilledLen;
+    if (buffer_sharing_state != BUFFER_SHARING_INVALID) {
+        buffer_in.data_size = buffer_sharing_info[0].dataSize;
+        buffer_in.buffer_size = buffer_sharing_info[0].allocatedSize;
+        buffer_in.data =
+            *(reinterpret_cast<uchar**>(buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset));
+    } else {
+        buffer_in.data =
+            buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
+        buffer_in.data_size = buffers[INPORT_INDEX]->nFilledLen;
+        buffer_in.buffer_size = buffers[INPORT_INDEX]->nFilledLen;
+    }
 
     LOGV("buffer_in.data=%x, data_size=%d, buffer_size=%d",
          (unsigned)buffer_in.data, buffer_in.data_size, buffer_in.buffer_size);
@@ -1199,7 +1190,7 @@ normal_start:
     /* get MixBuffer */
     mret = mix_video_get_mixbuffer(mix, &mixbuffer_in[0]);
     if (mret != MIX_RESULT_SUCCESS) {
-        LOGV("%s(), %d: exit, mix_video_get_mixbuffer failed (ret:0x%08x)",
+        LOGE("%s(), %d: exit, mix_video_get_mixbuffer failed (ret:0x%08x)",
              __func__, __LINE__, mret);
         oret = OMX_ErrorUndefined;
         goto out;
@@ -1211,7 +1202,7 @@ normal_start:
                                (ulong)this, H263EncMixBufferCallback);
 
     if (mret != MIX_RESULT_SUCCESS) {
-        LOGV("%s(), %d: exit, mix_buffer_set_data failed (ret:0x%08x)",
+        LOGE("%s(), %d: exit, mix_buffer_set_data failed (ret:0x%08x)",
              __func__, __LINE__, mret);
         oret = OMX_ErrorUndefined;
         goto out;
@@ -1225,7 +1216,7 @@ normal_start:
 
     if (mret != MIX_RESULT_SUCCESS &&
             mret != MIX_RESULT_VIDEO_ENC_SLICESIZE_OVERFLOW) {
-        LOGV("%s(), %d: exit, mix_video_encode failed (ret == 0x%08x)\n",
+        LOGE("%s(), %d: exit, mix_video_encode failed (ret == 0x%08x)\n",
              __func__, __LINE__, mret);
         oret = OMX_ErrorUndefined;
         goto out;
@@ -1442,33 +1433,231 @@ OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
 
     }
 
-    LOGV("@@@@@ about to set buffer sharing @@@@@");
-#if 0	//FiXME: We should get the correct buffer share mode
-    const OMX_BOOL *isbuffersharing = port->GetPortBufferSharingInfo();
-    const OMX_VIDEO_CONFIG_PRI_INFOTYPE *privateinfoparam = port->GetPortPrivateInfoParam();
-    if(*isbuffersharing == OMX_TRUE) {
-        LOGV("@@@@@ we are in buffer sharing mode @@@@@");
-        if(privateinfoparam->nHolder != NULL) {
-            guint size = (guint)privateinfoparam->nCapacity;
-            gulong * p = (gulong *)privateinfoparam->nHolder;
-            int i = 0;
-            for(i = 0; i < size; i++)
-                LOGV("@@@@@ nCapacity = %d, camera frame id array[%d] = 0x%08x @@@@@", size, i, p[i]);
-            mix_videoconfigparamsenc_set_ci_frame_info(config, (gulong *)privateinfoparam->nHolder, (guint)privateinfoparam->nCapacity);
-            mix_videoconfigparamsenc_set_share_buf_mode(config, TRUE);
-            free(privateinfoparam->nHolder);
-        }
-    } else {
-        LOGV("@@@@@ we are NOT in buffer sharing mode @@@@@");
-        mix_videoconfigparamsenc_set_share_buf_mode(config, FALSE);
-    }
-#else
-    LOGV("@@@@@ we are NOT in buffer sharing mode @@@@@");
-    mix_videoconfigparamsenc_set_share_buf_mode(config, FALSE);
-#endif
     return ret;
 }
 /* end of vcp setting helpers */
+
+/* share buffer setting */
+OMX_ERRORTYPE MrstPsbComponent::EnableBufferSharingMode()
+{
+    BufferShareStatus bsret;
+
+    if (buffer_sharing_state != BUFFER_SHARING_INVALID) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state).", __func__, __LINE__, __func__);
+        return OMX_ErrorUndefined;
+    }
+
+    buffer_sharing_count = 4;
+    buffer_sharing_info = NULL;
+    buffer_sharing_lib = BufferShareRegistry::getInstance();
+    bsret = buffer_sharing_lib->encoderEnableSharingMode();
+    if (bsret != BS_SUCCESS) {
+        LOGE("%s(),%d:   encoder enable buffer sharing mode failed:%d", __func__, __LINE__, bsret);
+        return OMX_ErrorUndefined;
+    }
+
+    buffer_sharing_state = BUFFER_SHARING_LOADED;
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::DisableBufferSharingMode()
+{
+    BufferShareStatus bsret;
+
+    if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
+            (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state).", __func__, __LINE__, __func__);
+        return OMX_ErrorUndefined;
+    }
+
+    if (buffer_sharing_state == BUFFER_SHARING_INVALID) {
+        LOGW("%s(),%d: buffer sharing already in invalid state.", __func__, __LINE__);
+        return OMX_ErrorNone;
+    }
+
+    if (buffer_sharing_info) {
+        delete [] buffer_sharing_info;
+    }
+    buffer_sharing_info = NULL;
+
+    bsret = buffer_sharing_lib->encoderDisableSharingMode();
+    if (bsret != BS_SUCCESS) {
+        LOGE("%s(),%d:   disable sharing mode failed.", __func__, __LINE__);
+        return OMX_ErrorUndefined;
+    }
+
+    buffer_sharing_state = BUFFER_SHARING_INVALID;
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::RequestShareBuffers(MixVideo* mix, int width, int height)
+{
+    int i;
+    int buf_width, buf_height, buf_size;
+    MIX_RESULT mret;
+    bool is_request_ok = true;
+
+    if (width <= 0 || height <= 0) {
+        LOGE("%s(),%d:   width and height incorrect", __func__, __LINE__);
+        return OMX_ErrorUndefined;
+    }
+
+    if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
+            (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state:%d).", __func__, __LINE__, __func__, buffer_sharing_state);
+        return OMX_ErrorUndefined;
+    }
+
+    if (buffer_sharing_state == BUFFER_SHARING_INVALID) {
+        LOGW("%s(),%d: buffer sharing not enabled, do nothing.", __func__, __LINE__);
+        return OMX_ErrorNone;
+    }
+
+    if (buffer_sharing_info != NULL) {
+        delete [] buffer_sharing_info;
+        buffer_sharing_info = NULL;
+    }
+
+    buffer_sharing_info = new SharedBufferType[buffer_sharing_count];
+    //query mix for share buffer info.
+    for (i = 0; i < buffer_sharing_count; i++) {
+        buf_width = width;
+        buf_height = height;
+        buf_size = SHARE_PTR_ALIGN(buf_width) * buf_height * 3 / 2;
+        mret = mix_video_get_new_userptr_for_surface_buffer(mix,
+                (uint)buf_width,
+                (uint)buf_height,
+                MIX_STRING_TO_FOURCC("NV12"),
+                (uint)buf_size,
+                (uint*)&buffer_sharing_info[i].allocatedSize,
+                (uint*)&buffer_sharing_info[i].stride,
+                (uint8**)&buffer_sharing_info[i].pointer);
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(),%d:  mix_video_get_new_userptr_for_surface_buffer failed", __func__, __LINE__);
+            is_request_ok = false;
+            break;
+        }
+        buffer_sharing_info[i].width = buf_width;
+        buffer_sharing_info[i].height = buf_height;
+        buffer_sharing_info[i].dataSize = buffer_sharing_info[i].stride * buf_height * 3 / 2;
+
+        LOGD("width:%d, Height:%d, stride:%d, pointer:%p", buffer_sharing_info[i].width,
+             buffer_sharing_info[i].height, buffer_sharing_info[i].stride,
+             buffer_sharing_info[i].pointer);
+    }
+
+    if (!is_request_ok) {
+        delete []buffer_sharing_info;
+        buffer_sharing_info = NULL;
+        LOGE("%s(),%d: %s  failed", __func__, __LINE__,"get usr ptr for surface buffer");
+        return OMX_ErrorUndefined;
+    }
+
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToLib()
+{
+    if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
+            (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state).", __func__, __LINE__, __func__);
+        return OMX_ErrorUndefined;
+    }
+
+    if (buffer_sharing_state == BUFFER_SHARING_INVALID) {
+        LOGW("%s(),%d: buffer sharing not enabled, do nothing.", __func__, __LINE__);
+        return OMX_ErrorNone;
+    }
+
+    BufferShareStatus bsret = buffer_sharing_lib->encoderSetSharedBuffer(buffer_sharing_info, buffer_sharing_count);
+    if (bsret != BS_SUCCESS) {
+        LOGE("%s(),%d:    encoder set shared buffer failed", __func__, __LINE__);
+        return OMX_ErrorUndefined;
+    }
+
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToPort()
+{
+    if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
+            (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state).", __func__, __LINE__, __func__);
+        return OMX_ErrorUndefined;
+    }
+
+    OMX_VIDEO_CONFIG_PRI_INFOTYPE privateinfoparam;
+    memset(&privateinfoparam, 0, sizeof(privateinfoparam));
+    SetTypeHeader(&privateinfoparam, sizeof(privateinfoparam));
+
+    //caution: buffer-sharing info stored in INPORT (raw port)
+    privateinfoparam.nPortIndex = INPORT_INDEX;
+    if (buffer_sharing_state == BUFFER_SHARING_INVALID) {
+        privateinfoparam.nCapacity = 0;
+        privateinfoparam.nHolder = NULL;
+    } else {
+        privateinfoparam.nCapacity = buffer_sharing_count;
+        privateinfoparam.nHolder = buffer_sharing_info;
+    }
+    OMX_ERRORTYPE ret = static_cast<PortVideo*>(ports[privateinfoparam.nPortIndex])->SetPortPrivateInfoParam(&privateinfoparam, false);
+
+    return ret;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::EnterShareBufferingMode()
+{
+    if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
+            (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state).", __func__, __LINE__, __func__);
+        return OMX_ErrorUndefined;
+    }
+
+    if (buffer_sharing_state == BUFFER_SHARING_INVALID) {
+        LOGW("%s(),%d: buffer sharing not enabled, do nothing.", __func__, __LINE__);
+        return OMX_ErrorNone;
+    }
+
+    BufferShareStatus bsret = buffer_sharing_lib->encoderEnterSharingMode();
+    if (bsret != BS_SUCCESS) {
+        LOGE("%s(),%d: encoderEnterSharingMode failed", __func__, __LINE__);
+        if (bsret == BS_PEER_DOWN) {
+            LOGE("%s(), %d: camera down during buffer sharing state transition.",__func__, __LINE__);
+        }
+        return OMX_ErrorUndefined;
+    }
+
+    buffer_sharing_state = BUFFER_SHARING_EXECUTING;
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::ExitShareBufferingMode()
+{
+    if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
+            (buffer_sharing_state != BUFFER_SHARING_EXECUTING)) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state).", __func__, __LINE__, __func__);
+        return OMX_ErrorUndefined;
+    }
+
+    if (buffer_sharing_state == BUFFER_SHARING_INVALID) {
+        LOGW("%s(),%d: buffer sharing not enabled, do nothing.", __func__, __LINE__);
+        return OMX_ErrorNone;
+    }
+
+    BufferShareStatus bsret = buffer_sharing_lib->encoderExitSharingMode();
+    if (bsret != BS_SUCCESS) {
+        LOGE("%s(),%d: encoderEnterSharingMode failed", __func__, __LINE__);
+        if (bsret == BS_PEER_DOWN) {
+            LOGE("%s(), %d: camera down during buffer sharing state transition.",__func__, __LINE__);
+        }
+        return OMX_ErrorUndefined;
+    }
+
+    buffer_sharing_state = BUFFER_SHARING_LOADED;
+    return OMX_ErrorNone;
+}
+/* end of share buffer setting */
+
+
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorFlush(OMX_U32 port_index) {
 

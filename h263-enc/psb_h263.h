@@ -26,7 +26,17 @@
 #include <portbase.h>
 #include <componentbase.h>
 
-#define oscl_memset	memset
+#include <IntelBufferSharing.h>
+
+using android::sp;
+using android::BufferShareRegistry;
+
+typedef enum
+{
+    BUFFER_SHARING_INVALID,
+    BUFFER_SHARING_LOADED,
+    BUFFER_SHARING_EXECUTING
+} BufferSharingState;
 
 class MrstPsbComponent : public ComponentBase
 {
@@ -95,6 +105,18 @@ private:
 
     /* end of vcp setting helpers */
 
+    /* share buffer setting */
+    OMX_ERRORTYPE InitShareBufferingSettings();
+    OMX_ERRORTYPE EnterShareBufferingMode();
+    OMX_ERRORTYPE ExitShareBufferingMode();
+    OMX_ERRORTYPE EnableBufferSharingMode();
+    OMX_ERRORTYPE DisableBufferSharingMode();
+    OMX_ERRORTYPE RequestShareBuffers(MixVideo* mix, int width, int height);
+    OMX_ERRORTYPE RegisterShareBufferToPort();
+    OMX_ERRORTYPE RegisterShareBufferToLib();
+    /* end of share buffer setting */
+
+
     /* mix video */
     MixVideo *mix;
     MixVideoInitParams *vip;
@@ -108,6 +130,12 @@ private:
 
     OMX_U32 inframe_counter;
     OMX_U32 outframe_counter;
+
+    /* for buffer sharing */
+    sp<BufferShareRegistry> buffer_sharing_lib;
+    int buffer_sharing_count;
+    SharedBufferType* buffer_sharing_info;
+    BufferSharingState buffer_sharing_state;
 
     /* for fps */
     OMX_TICKS last_ts;
@@ -128,7 +156,7 @@ private:
     const static OMX_U32 OUTPORT_INDEX = 1;
 
     /* default buffer */
-    const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 5; //2;
+    const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 2; //FIXME, must be set to 2
     const static OMX_U32 INPORT_RAW_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 614400;
     const static OMX_U32 OUTPORT_RAW_ACTUAL_BUFFER_COUNT = 2;

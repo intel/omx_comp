@@ -37,11 +37,6 @@
 #include <portvideo.h>
 #include <componentbase.h>
 
-#ifdef COMPONENT_SUPPORT_OPENCORE
-#include <pv_omxcore.h>
-#include <pv_omxdefs.h>
-#endif
-
 #include <mixdisplayandroid.h>
 #include <mixvideo.h>
 #include <mixvideoconfigparamsdec_h264.h>
@@ -875,27 +870,6 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         memcpy(p, port->GetPortPrivateInfoParam(), sizeof(*p));
         break;
     }
-#ifdef COMPONENT_SUPPORT_OPENCORE
-    /* PVOpenCore */
-    case (OMX_INDEXTYPE) PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX: {
-        PV_OMXComponentCapabilityFlagsType *p =
-            (PV_OMXComponentCapabilityFlagsType *)pComponentParameterStructure;
-
-        p->iIsOMXComponentMultiThreaded = OMX_TRUE;
-        p->iOMXComponentSupportsExternalInputBufferAlloc = OMX_TRUE;
-        p->iOMXComponentSupportsExternalOutputBufferAlloc = OMX_TRUE;
-        p->iOMXComponentSupportsMovableInputBuffers = OMX_FALSE;
-        p->iOMXComponentSupportsPartialFrames = OMX_TRUE;
-        p->iOMXComponentCanHandleIncompleteFrames = OMX_TRUE;
-
-        if (coding_type == OMX_VIDEO_CodingAVC) {
-            p->iOMXComponentUsesNALStartCodes = OMX_FALSE;
-            p->iOMXComponentUsesFullAVCFrames = OMX_FALSE;
-        }
-
-        break;
-    }
-#endif
     case OMX_IndexParamNalStreamFormat:
     case OMX_IndexParamNalStreamFormatSupported: {
         OMX_NALSTREAMFORMATTYPE *p =
@@ -3140,7 +3114,8 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorFlush(OMX_U32 port_index) {
 
     LOGV("port_index = %d Flushed!\n", port_index);
 
-    if (port_index == INPORT_INDEX || port_index == OMX_ALL) {
+    if (port_index == INPORT_INDEX ||
+            port_index == OMX_ALL) {
         mix_video_flush( mix);
     }
 

@@ -26,34 +26,44 @@
 #include <portbase.h>
 #include <componentbase.h>
 
-#define oscl_memset	memset
+#include <IntelBufferSharing.h>
 
-typedef enum _M4vStartCodeType {
-    /* video_object_start_code goes from 0x00 to 0x1F */
-    MIN_VIDEO_OBJECT_START_CODE = 0x00,
-    MAX_VIDEO_OBJECT_START_CODE = 0x1F,
-    /* video_object_layer_start_code from 0x20 to 0x2F */
-    MIN_VIDEO_OBJECT_LAYER_START_CODE = 0x20,
-    MAX_VIDEO_OBJECT_LAYER_START_CODE = 0x2F,
-    VISUAL_OBJECT_SEQUENCE_START_CODE = 0xB0,
-    VISUAL_OBJECT_SEQUENCE_END_CODE	= 0xB1,
-    USER_DATA_START_CODE = 0xB2,
-    GROUP_OF_VOP_START_CODE	= 0xB3,
-    VISUAL_OBJECT_START_CODE = 0xB5,
-    VOP_START_CODE = 0xB6,
-    STUFFING_START_CODE = 0xC3,
-    UNKNOWN_CODE_TYPE = 0xFF,
-} M4vStartCodeType;
+using android::sp;
+using android::BufferShareRegistry;
 
-#define M4V_VOP_TYPE_MASK 0xC0
+typedef enum
+{
+    UNSPECIFIED = 0,
+    CODED_SLICE_NON_IDR,
+    CODED_SLICE_PARTITION_A,
+    CODED_SLICE_PARTITION_B,
+    CODED_SLICE_PARTITION_C,
+    CODED_SLICE_IDR,
+    SEI,
+    SPS,
+    PPS,
+    AU_DELIMITER,
+    END_OF_SEQ,
+    END_OF_STREAM,
+    FILLER_DATA,
+    SPS_EXT,
+    CODED_SLICE_AUX_PIC_NO_PARTITION = 19,
+    INVALID_NAL_TYPE = 64
+} AvcNaluType;
 
-typedef enum _M4vVopType {
-    I_FRAME = 0x00,
-    P_FRAME = 0x40,
-    B_FRAME = 0x80,
-    S_FRAME = 0xC0,
-    UNKNOWN_FRAME = 0xFF,
-} M4vVopType;
+typedef enum
+{
+    NAL_STARTCODE_3_BYTE,
+    NAL_STARTCODE_4_BYTE,
+    NAL_STARTCODE_INVALID
+} NalStartCodeType;
+
+typedef enum
+{
+    BUFFER_SHARING_INVALID,
+    BUFFER_SHARING_LOADED,
+    BUFFER_SHARING_EXECUTING
+} BufferSharingState;
 
 class MrstPsbComponent : public ComponentBase
 {
@@ -71,8 +81,7 @@ private:
     /* implement ComponentBase::ComponentAllocatePorts */
     virtual OMX_ERRORTYPE ComponentAllocatePorts(void);
 
-    OMX_ERRORTYPE __AllocateMpeg4Port(OMX_U32 port_index, OMX_DIRTYPE dir);
-
+    OMX_ERRORTYPE __AllocateAvcPort(OMX_U32 port_index, OMX_DIRTYPE dir);
     OMX_ERRORTYPE __AllocateRawPort(OMX_U32 port_index, OMX_DIRTYPE dir);
 
     /* implement ComponentBase::ComponentGet/SetPatameter */
@@ -105,33 +114,34 @@ private:
 
     /* end of component methods & helpers */
 
-    /*
-     * vcp setting helpers
-     */
-    OMX_ERRORTYPE __RawChangePortParamWithVcp(MixVideoConfigParams *vcp,
-            PortVideo *port);
-
-    OMX_ERRORTYPE __Mpeg4ChangePortParamWithVcp(MixVideoConfigParams *vcp,
-            PortMpeg4 *port);
-    OMX_ERRORTYPE ChangePortParamWithVcp(void);
-
-    OMX_ERRORTYPE __Mpeg4ChangeVcpWithPortParam(MixVideoConfigParams *vcp,
-            PortMpeg4 *port, bool *vcp_changed);
-
+    /* encoders */
+    OMX_ERRORTYPE __AvcChangeVcpWithPortParam(MixVideoConfigParams *vcp,
+            PortAvc *port, bool *vcp_changed);
     OMX_ERRORTYPE ChangeVcpWithPortParam(MixVideoConfigParams *vcp,
-                                         PortVideo *port, bool *vcp_changed);
+                                         PortVideo *port_in,
+                                         PortVideo *port_out,
+                                         bool *vcp_changed);
 
-    static void M4vEncMixBufferCallback(ulong token, uchar *data);
+    AvcNaluType GetNaluType(OMX_U8* nal,NalStartCodeType startcode_type);
 
-    bool SplitM4vFrameByStartCode(OMX_U8* buf, OMX_U32 len,
-                                  OMX_U8** scbuf, OMX_U32* sclen);
+    OMX_ERRORTYPE SplitNalByStartCode(OMX_U8* buf, OMX_U32 len,OMX_U8** nalbuf, OMX_U32* nallen,
+                                      NalStartCodeType startcode_type);
 
-    inline M4vStartCodeType GetM4vStartCodeType(OMX_U8* sc);
-
-    inline M4vVopType GetM4vVopType(OMX_U8* vop);
-
+    static void AvcEncMixBufferCallback(ulong token, uchar *data);
+    OMX_ERRORTYPE ExtractConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,OMX_U8** config_buf, OMX_U32* config_len,OMX_U8** video_buf, OMX_U32* video_len);
+    bool DetectSyncFrame(OMX_U8* coded_buf, OMX_U32 coded_len);
     /* end of vcp setting helpers */
 
+    /* share buffer setting */
+    OMX_ERRORTYPE InitShareBufferingSettings();
+    OMX_ERRORTYPE EnterShareBufferingMode();
+    OMX_ERRORTYPE ExitShareBufferingMode();
+    OMX_ERRORTYPE EnableBufferSharingMode();
+    OMX_ERRORTYPE DisableBufferSharingMode();
+    OMX_ERRORTYPE RequestShareBuffers(MixVideo* mix, int width, int height);
+    OMX_ERRORTYPE RegisterShareBufferToPort();
+    OMX_ERRORTYPE RegisterShareBufferToLib();
+    /* end of share buffer setting */
     /* mix video */
     MixVideo *mix;
     MixVideoInitParams *vip;
@@ -142,6 +152,7 @@ private:
     MixIOVec *mixiovec_out[1];
 
     OMX_BOOL is_mixvideodec_configured;
+
     OMX_U32 inframe_counter;
     OMX_U32 outframe_counter;
 
@@ -150,26 +161,29 @@ private:
     float last_fps;
 
     /* for buffer sharing */
-    uint8** share_ptr_array;
-    int share_ptr_count;
-    int share_ptr_size;
-    int share_ptr_stride;
-    int share_data_size;
+    sp<BufferShareRegistry> buffer_sharing_lib;
+    int buffer_sharing_count;
+    SharedBufferType* buffer_sharing_info;
+    BufferSharingState buffer_sharing_state;
 
+    /* for Nalu format encapsulation and config data setting*/
     bool b_config_sent;
-    OMX_U8 *mpeg4_enc_buffer;
-    OMX_U32 mpeg4_enc_buffer_length;
-    OMX_U32 mpeg4_enc_frame_size_left;
+    OMX_U8* video_data;
+    OMX_U32 video_len;
+
     OMX_U8 *temp_coded_data_buffer;
     OMX_U32 temp_coded_data_buffer_size;
 
-    OMX_U32 mpeg4EncPFrames;
+    OMX_NALUFORMATSTYPE avcEncNaluFormatType;
+    OMX_U32 avcEncIDRPeriod;
+    OMX_U32 avcEncPFrames;
 
-    OMX_VIDEO_PARAM_INTEL_BITRATETYPE mpeg4EncParamIntelBitrateType;
-    OMX_VIDEO_CONFIG_INTEL_BITRATETYPE mpeg4EncConfigIntelBitrateType;
-
-    OMX_VIDEO_CONFIG_INTEL_AIR mpeg4EncConfigAir;
-    OMX_CONFIG_FRAMERATETYPE mpeg4EncFramerate;
+    OMX_VIDEO_PARAM_INTEL_BITRATETYPE avcEncParamIntelBitrateType;
+    OMX_VIDEO_CONFIG_INTEL_BITRATETYPE avcEncConfigIntelBitrateType;
+    OMX_VIDEO_CONFIG_NALSIZE avcEncConfigNalSize;
+    OMX_VIDEO_CONFIG_INTEL_SLICE_NUMBERS avcEncConfigSliceNumbers;
+    OMX_VIDEO_CONFIG_INTEL_AIR avcEncConfigAir;
+    OMX_CONFIG_FRAMERATETYPE avcEncFramerate;
 
     /* constant */
     /* ports */
@@ -178,20 +192,19 @@ private:
     const static OMX_U32 OUTPORT_INDEX = 1;
 
     /* default buffer */
-    const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 5;
+    const static OMX_U32 INPORT_RAW_ACTUAL_BUFFER_COUNT = 2; //FIXME: must be set as 2
     const static OMX_U32 INPORT_RAW_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_RAW_BUFFER_SIZE = 614400;
     const static OMX_U32 OUTPORT_RAW_ACTUAL_BUFFER_COUNT = 2;
     const static OMX_U32 OUTPORT_RAW_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 OUTPORT_RAW_BUFFER_SIZE = 38016;
 
-    const static OMX_U32 INPORT_MPEG4_ACTUAL_BUFFER_COUNT = 10;
-    const static OMX_U32 INPORT_MPEG4_MIN_BUFFER_COUNT = 1;
-
-    const static OMX_U32 INPORT_MPEG4_BUFFER_SIZE = 614400;
-    const static OMX_U32 OUTPORT_MPEG4_ACTUAL_BUFFER_COUNT = 2;
-    const static OMX_U32 OUTPORT_MPEG4_MIN_BUFFER_COUNT = 1;
-    const static OMX_U32 OUTPORT_MPEG4_BUFFER_SIZE = 307200;
+    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 256;
+    const static OMX_U32 INPORT_AVC_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 614400;
+    const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
+    const static OMX_U32 OUTPORT_AVC_MIN_BUFFER_COUNT = 1;
+    const static OMX_U32 OUTPORT_AVC_BUFFER_SIZE = 614400;
 
 
 };
