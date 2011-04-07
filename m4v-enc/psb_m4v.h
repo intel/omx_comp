@@ -31,23 +31,6 @@
 using android::sp;
 using android::BufferShareRegistry;
 
-typedef enum _M4vStartCodeType {
-    /* video_object_start_code goes from 0x00 to 0x1F */
-    M4V_MIN_VIDEO_OBJECT_START_CODE = 0x00,
-    M4V_MAX_VIDEO_OBJECT_START_CODE = 0x1F,
-    /* video_object_layer_start_code from 0x20 to 0x2F */
-    M4V_MIN_VIDEO_OBJECT_LAYER_START_CODE = 0x20,
-    M4V_MAX_VIDEO_OBJECT_LAYER_START_CODE = 0x2F,
-    M4V_VISUAL_OBJECT_SEQUENCE_START_CODE = 0xB0,
-    M4V_VISUAL_OBJECT_SEQUENCE_END_CODE	= 0xB1,
-    M4V_USER_DATA_START_CODE = 0xB2,
-    M4V_GROUP_OF_VOP_START_CODE	= 0xB3,
-    M4V_VISUAL_OBJECT_START_CODE = 0xB5,
-    M4V_VOP_START_CODE = 0xB6,
-    M4V_STUFFING_START_CODE = 0xC3,
-    M4V_UNKNOWN_CODE_TYPE = 0xFF,
-} M4vStartCodeType;
-
 #define M4V_VOP_TYPE_MASK 0xC0
 
 typedef enum _M4vVopType {
@@ -133,25 +116,20 @@ private:
 
     static void M4vEncMixBufferCallback(ulong token, uchar *data);
 
-    bool SplitM4vFrameByStartCode(OMX_U8* buf, OMX_U32 len,
-                                  OMX_U8** scbuf, OMX_U32* sclen);
-
-    inline M4vStartCodeType GetM4vStartCodeType(OMX_U8* sc);
-
     inline bool DetectSyncFrame(OMX_U8* vop);
 
     OMX_ERRORTYPE ExtractConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,OMX_U8** config_buf, OMX_U32* config_len,OMX_U8** video_buf, OMX_U32* video_len);
 
     /* end of vcp setting helpers */
     /* share buffer setting */
-    OMX_ERRORTYPE InitShareBufferingSettings();
-    OMX_ERRORTYPE EnterShareBufferingMode();
-    OMX_ERRORTYPE ExitShareBufferingMode();
-    OMX_ERRORTYPE EnableBufferSharingMode();
-    OMX_ERRORTYPE DisableBufferSharingMode();
+    OMX_ERRORTYPE EnterBufferSharingMode(void);
+    OMX_ERRORTYPE ExitBufferSharingMode(void);
+    OMX_ERRORTYPE RequestToEnableBufferSharingMode(void);
+    OMX_ERRORTYPE RequestToDisableBufferSharingMode(void);
+    OMX_ERRORTYPE CheckAndEnableBufferSharingMode(void);
     OMX_ERRORTYPE RequestShareBuffers(MixVideo* mix, int width, int height);
-    OMX_ERRORTYPE RegisterShareBufferToPort();
-    OMX_ERRORTYPE RegisterShareBufferToLib();
+    OMX_ERRORTYPE RegisterShareBuffersToPort(void);
+    OMX_ERRORTYPE RegisterShareBuffersToLib(void);
     /* end of share buffer setting */
 
     /* mix video */

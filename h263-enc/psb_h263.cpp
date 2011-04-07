@@ -70,15 +70,11 @@ MrstPsbComponent::MrstPsbComponent()
 
     buffer_sharing_state = BUFFER_SHARING_INVALID;
 
-#ifdef ENABLE_BUFFER_SHARE_MODE
-    OMX_ERRORTYPE oret = EnableBufferSharingMode();
-#else
-    OMX_ERRORTYPE oret = DisableBufferSharingMode();
-#endif
+    OMX_ERRORTYPE oret = RequestToEnableBufferSharingMode();
 
     if (oret != OMX_ErrorNone) {
         LOGE("%s(),%d:  set buffer sharing mode failed", __func__, __LINE__);
-        DisableBufferSharingMode();
+        RequestToDisableBufferSharingMode();
     }
 
     LOGV("%s(),%d: exit\n", __func__, __LINE__);
@@ -88,7 +84,7 @@ MrstPsbComponent::~MrstPsbComponent()
 {
     LOGV("%s(): enter\n", __func__);
 
-    OMX_ERRORTYPE oret = DisableBufferSharingMode();
+    OMX_ERRORTYPE oret = RequestToDisableBufferSharingMode();
     if (oret != OMX_ErrorNone) {
         LOGE("%s(),%d:  DisableBufferSharingMode failed", __func__, __LINE__);
     }
@@ -392,7 +388,30 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
             return OMX_ErrorBadPortIndex;
         }
 
-        memcpy(p, port->GetPortVideoParam(), sizeof(*p));
+        if(index == INPORT_INDEX ) {
+            if(p->nIndex < 1) {
+                p->eColorFormat = port->GetPortVideoParam()->eColorFormat;
+                p->eCompressionFormat = OMX_VIDEO_CodingUnused;
+            }
+            else {
+                LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,OMX_ErrorNoMore);
+                return OMX_ErrorNoMore;
+            }
+        }
+        else if(index == OUTPORT_INDEX) {
+            if(p->nIndex < 1) {
+                p->eCompressionFormat= port->GetPortVideoParam()->eCompressionFormat;
+                p->eColorFormat = OMX_COLOR_FormatUnused;
+            }
+            else {
+                LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,OMX_ErrorNoMore);
+                return OMX_ErrorNoMore;
+            }
+        }
+        else {
+            LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,OMX_ErrorBadPortIndex);
+            return OMX_ErrorBadPortIndex;
+        }
 
         LOGV("%s(), p->eColorFormat = %x\n", __func__, p->eColorFormat);
         break;
@@ -989,11 +1008,17 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
         goto error_out;
     }
 
+    oret = CheckAndEnableBufferSharingMode();
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(), %d: CheckAndEnableBufferSharingMode() failed ", __func__, __LINE__);
+        goto error_out;
+    }
+
     oret = RequestShareBuffers(mix,
                                MIX_VIDEOCONFIGPARAMSENC(vcp)->picture_width,
                                MIX_VIDEOCONFIGPARAMSENC(vcp)->picture_height);
     if (oret != OMX_ErrorNone) {
-        LOGE("%s(), %d:  InitShareBufferSettings() failed ", __func__, __LINE__);
+        LOGE("%s(), %d: RequestShareBuffers() failed ", __func__, __LINE__);
         goto error_out;
     }
 
@@ -1029,20 +1054,20 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     last_ts = 0;
     last_fps = 0.0;
 
-    oret = RegisterShareBufferToPort();
+    oret = RegisterShareBuffersToPort();
     if (oret != OMX_ErrorNone) {
         LOGE("%s(), %d RegisterShareBufferToPort() failed", __func__, __LINE__);
         oret = OMX_ErrorUndefined;
         goto error_out;
     }
 
-    oret = RegisterShareBufferToLib();
+    oret = RegisterShareBuffersToLib();
     if (oret != OMX_ErrorNone) {
         LOGE("%s(), %d register Share Buffering Mode  failed", __func__, __LINE__);
         goto error_out;
     }
 
-    oret = EnterShareBufferingMode();
+    oret = EnterBufferSharingMode();
     if (oret != OMX_ErrorNone) {
         LOGE("%s(), %d EnterShareBufferingMode() failed", __func__, __LINE__);
         goto error_out;
@@ -1053,7 +1078,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 
 error_out:
     if (buffer_sharing_state == BUFFER_SHARING_EXECUTING) {
-        ExitShareBufferingMode();
+        ExitBufferSharingMode();
     }
     mix_params_unref(mvp);
     mix_videoconfigparams_unref(vcp);
@@ -1071,7 +1096,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
 
     LOGV("%s(): enter\n", __func__);
     if (buffer_sharing_state == BUFFER_SHARING_EXECUTING) {
-        oret = ExitShareBufferingMode();
+        oret = ExitBufferSharingMode();
         if (oret != OMX_ErrorNone) {
             LOGE("%s(),%d:    ExitShareBufferingMode failed", __func__, __LINE__);
         }
@@ -1438,7 +1463,7 @@ OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
 /* end of vcp setting helpers */
 
 /* share buffer setting */
-OMX_ERRORTYPE MrstPsbComponent::EnableBufferSharingMode()
+OMX_ERRORTYPE MrstPsbComponent::RequestToEnableBufferSharingMode()
 {
     BufferShareStatus bsret;
 
@@ -1450,17 +1475,36 @@ OMX_ERRORTYPE MrstPsbComponent::EnableBufferSharingMode()
     buffer_sharing_count = 4;
     buffer_sharing_info = NULL;
     buffer_sharing_lib = BufferShareRegistry::getInstance();
-    bsret = buffer_sharing_lib->encoderEnableSharingMode();
+
+    bsret = buffer_sharing_lib->encoderRequestToEnableSharingMode();
     if (bsret != BS_SUCCESS) {
-        LOGE("%s(),%d:   encoder enable buffer sharing mode failed:%d", __func__, __LINE__, bsret);
+        LOGE("%s(),%d: encoder request to enable buffer sharing mode failed:%d", __func__, __LINE__, bsret);
         return OMX_ErrorUndefined;
     }
 
-    buffer_sharing_state = BUFFER_SHARING_LOADED;
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::DisableBufferSharingMode()
+OMX_ERRORTYPE MrstPsbComponent::CheckAndEnableBufferSharingMode()
+{
+    BufferShareStatus bsret;
+
+    if (buffer_sharing_state != BUFFER_SHARING_INVALID) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state).", __func__, __LINE__, __func__);
+        return OMX_ErrorUndefined;
+    }
+
+    if (buffer_sharing_lib->isBufferSharingModeEnabled()) {
+        LOGW("Buffer sharing is enabled (video source does support)");
+        buffer_sharing_state = BUFFER_SHARING_LOADED;
+    } else {
+        LOGW("Buffer sharing is disabled (video source doesn't support)");
+    }
+
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::RequestToDisableBufferSharingMode()
 {
     BufferShareStatus bsret;
 
@@ -1480,9 +1524,9 @@ OMX_ERRORTYPE MrstPsbComponent::DisableBufferSharingMode()
     }
     buffer_sharing_info = NULL;
 
-    bsret = buffer_sharing_lib->encoderDisableSharingMode();
+    bsret = buffer_sharing_lib->encoderRequestToDisableSharingMode();
     if (bsret != BS_SUCCESS) {
-        LOGE("%s(),%d:   disable sharing mode failed.", __func__, __LINE__);
+        LOGE("%s(),%d: request to disable sharing mode failed.", __func__, __LINE__);
         return OMX_ErrorUndefined;
     }
 
@@ -1556,7 +1600,7 @@ OMX_ERRORTYPE MrstPsbComponent::RequestShareBuffers(MixVideo* mix, int width, in
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToLib()
+OMX_ERRORTYPE MrstPsbComponent::RegisterShareBuffersToLib()
 {
     if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
             (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
@@ -1578,7 +1622,7 @@ OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToLib()
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToPort()
+OMX_ERRORTYPE MrstPsbComponent::RegisterShareBuffersToPort()
 {
     if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
             (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
@@ -1604,7 +1648,7 @@ OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToPort()
     return ret;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::EnterShareBufferingMode()
+OMX_ERRORTYPE MrstPsbComponent::EnterBufferSharingMode()
 {
     if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
             (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
@@ -1630,7 +1674,7 @@ OMX_ERRORTYPE MrstPsbComponent::EnterShareBufferingMode()
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::ExitShareBufferingMode()
+OMX_ERRORTYPE MrstPsbComponent::ExitBufferSharingMode()
 {
     if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
             (buffer_sharing_state != BUFFER_SHARING_EXECUTING)) {

@@ -133,14 +133,14 @@ private:
     /* end of vcp setting helpers */
 
     /* share buffer setting */
-    OMX_ERRORTYPE InitShareBufferingSettings();
-    OMX_ERRORTYPE EnterShareBufferingMode();
-    OMX_ERRORTYPE ExitShareBufferingMode();
-    OMX_ERRORTYPE EnableBufferSharingMode();
-    OMX_ERRORTYPE DisableBufferSharingMode();
+    OMX_ERRORTYPE EnterBufferSharingMode(void);
+    OMX_ERRORTYPE ExitBufferSharingMode(void);
+    OMX_ERRORTYPE RequestToEnableBufferSharingMode(void);
+    OMX_ERRORTYPE RequestToDisableBufferSharingMode(void);
+    OMX_ERRORTYPE CheckAndEnableBufferSharingMode(void);
     OMX_ERRORTYPE RequestShareBuffers(MixVideo* mix, int width, int height);
-    OMX_ERRORTYPE RegisterShareBufferToPort();
-    OMX_ERRORTYPE RegisterShareBufferToLib();
+    OMX_ERRORTYPE RegisterShareBuffersToPort(void);
+    OMX_ERRORTYPE RegisterShareBuffersToLib(void);
     /* end of share buffer setting */
     /* mix video */
     MixVideo *mix;

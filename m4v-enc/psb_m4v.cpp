@@ -95,15 +95,11 @@ MrstPsbComponent::MrstPsbComponent()
 
     buffer_sharing_state = BUFFER_SHARING_INVALID;
 
-#ifdef ENABLE_BUFFER_SHARE_MODE
-    OMX_ERRORTYPE oret = EnableBufferSharingMode();
-#else
-    OMX_ERRORTYPE oret = DisableBufferSharingMode();
-#endif
+    OMX_ERRORTYPE oret = RequestToEnableBufferSharingMode();
 
     if (oret != OMX_ErrorNone) {
         LOGE("%s(),%d:  set buffer sharing mode failed", __func__, __LINE__);
-        DisableBufferSharingMode();
+        RequestToDisableBufferSharingMode();
     }
 
     LOGV("%s(),%d: exit\n", __func__, __LINE__);
@@ -113,7 +109,7 @@ MrstPsbComponent::~MrstPsbComponent()
 {
     LOGV("%s(): enter\n", __func__);
 
-    OMX_ERRORTYPE oret = DisableBufferSharingMode();
+    OMX_ERRORTYPE oret = RequestToDisableBufferSharingMode();
     if (oret != OMX_ErrorNone) {
         LOGE("%s(),%d:  DisableBufferSharingMode failed", __func__, __LINE__);
     }
@@ -412,7 +408,31 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
             return OMX_ErrorBadPortIndex;
         }
 
-        memcpy(p, port->GetPortVideoParam(), sizeof(*p));
+        if(index == INPORT_INDEX ) {
+            if(p->nIndex < 1) {
+                p->eColorFormat = port->GetPortVideoParam()->eColorFormat;
+                p->eCompressionFormat = OMX_VIDEO_CodingUnused;
+            }
+            else {
+                LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,OMX_ErrorNoMore);
+                return OMX_ErrorNoMore;
+            }
+        }
+        else if(index == OUTPORT_INDEX) {
+            if(p->nIndex < 1) {
+                p->eCompressionFormat= port->GetPortVideoParam()->eCompressionFormat;
+                p->eColorFormat = OMX_COLOR_FormatUnused;
+            }
+            else {
+                LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,OMX_ErrorNoMore);
+                return OMX_ErrorNoMore;
+            }
+        }
+        else {
+            LOGE("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__,OMX_ErrorBadPortIndex);
+            return OMX_ErrorBadPortIndex;
+        }
+
 
         LOGV("p->eColorFormat = %x\n", p->eColorFormat);
 
@@ -1095,11 +1115,17 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
         goto error_out;
     }
 
+    oret = CheckAndEnableBufferSharingMode();
+    if (oret != OMX_ErrorNone) {
+        LOGE("%s(), %d: CheckAndEnableBufferSharingMode() failed ", __func__, __LINE__);
+        goto error_out;
+    }
+
     oret = RequestShareBuffers(mix,
                                MIX_VIDEOCONFIGPARAMSENC(vcp)->picture_width,
                                MIX_VIDEOCONFIGPARAMSENC(vcp)->picture_height);
     if (oret != OMX_ErrorNone) {
-        LOGE("%s(), %d:  InitShareBufferSettings() failed ", __func__, __LINE__);
+        LOGE("%s(), %d: RequestShareBuffers() failed ", __func__, __LINE__);
         goto error_out;
     }
 
@@ -1145,20 +1171,20 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 
     b_config_sent = false;
 
-    oret = RegisterShareBufferToPort();
+    oret = RegisterShareBuffersToPort();
     if (oret != OMX_ErrorNone) {
         LOGE("%s(), %d RegisterShareBufferToPort() failed", __func__, __LINE__);
         oret = OMX_ErrorUndefined;
         goto error_out;
     }
 
-    oret = RegisterShareBufferToLib();
+    oret = RegisterShareBuffersToLib();
     if (oret != OMX_ErrorNone) {
         LOGE("%s(), %d register Share Buffering Mode  failed", __func__, __LINE__);
         goto error_out;
     }
 
-    oret = EnterShareBufferingMode();
+    oret = EnterBufferSharingMode();
     if (oret != OMX_ErrorNone) {
         LOGE("%s(), %d EnterShareBufferingMode() failed", __func__, __LINE__);
         goto error_out;
@@ -1169,7 +1195,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
 
 error_out:
     if (buffer_sharing_state == BUFFER_SHARING_EXECUTING) {
-        ExitShareBufferingMode();
+        ExitBufferSharingMode();
     }
     mix_params_unref(mvp);
     mix_videoconfigparams_unref(vcp);
@@ -1193,7 +1219,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorDeinit(void)
 
     LOGV("%s(): enter\n", __func__);
     if (buffer_sharing_state == BUFFER_SHARING_EXECUTING) {
-        oret = ExitShareBufferingMode();
+        oret = ExitBufferSharingMode();
         if (oret != OMX_ErrorNone) {
             LOGE("%s(),%d:    ExitShareBufferingMode failed", __func__, __LINE__);
         }
@@ -1265,82 +1291,6 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorResume(void)
     LOGV("%s(),%d: exit (ret:0x%08x)\n", __func__, __LINE__, ret);
     return ret;
 }
-
-bool MrstPsbComponent::SplitM4vFrameByStartCode(OMX_U8* buf, OMX_U32 len,
-        OMX_U8** scbuf, OMX_U32* sclen)
-{
-    if (buf == NULL || len == 0 ||
-            scbuf == NULL || sclen == NULL) {
-        return OMX_ErrorBadParameter;
-    };
-
-    *scbuf = NULL;
-    *sclen = 0;
-
-    OMX_U32 ofst = 0;
-    OMX_U8 *data = buf;
-    OMX_U8 *next_scbuf;
-
-    while(ofst < len - 2) {
-        if ( data[0] ==0x00 &&
-                data[1] == 0x00 &&
-                data[2] == 0x01 ) {
-            *scbuf = data;
-            break;
-        }
-        data ++;
-        ofst ++;
-    };
-
-    if (*scbuf == NULL) {
-        return OMX_ErrorNone;
-    };
-
-    data += 3;
-    ofst += 3;
-
-    next_scbuf = NULL;
-
-    while(ofst < len - 2) {
-        if (data[0] == 0x00 &&
-                data[1] == 0x00 &&
-                data[2] == 0x01 ) {
-            next_scbuf = data;
-            break;
-        }
-        data ++;
-        ofst ++;
-    }
-
-    if (next_scbuf != NULL) {
-        *sclen = next_scbuf - *scbuf;
-    } else {
-        *sclen = &buf[len - 1] - *scbuf + 1;
-    };
-
-    return OMX_ErrorNone;
-};
-
-M4vStartCodeType MrstPsbComponent::GetM4vStartCodeType(OMX_U8* sc)
-{
-    M4vStartCodeType codeType =  static_cast<M4vStartCodeType>(sc[3]);
-    if(codeType != M4V_MIN_VIDEO_OBJECT_START_CODE
-            && codeType != M4V_MAX_VIDEO_OBJECT_START_CODE
-            && codeType != M4V_MIN_VIDEO_OBJECT_LAYER_START_CODE
-            && codeType != M4V_MAX_VIDEO_OBJECT_LAYER_START_CODE
-            && codeType != M4V_VISUAL_OBJECT_SEQUENCE_START_CODE
-            && codeType != M4V_VISUAL_OBJECT_SEQUENCE_END_CODE
-            && codeType != M4V_USER_DATA_START_CODE
-            && codeType != M4V_GROUP_OF_VOP_START_CODE
-            && codeType != M4V_VISUAL_OBJECT_START_CODE
-            && codeType != M4V_VOP_START_CODE
-            && codeType != M4V_STUFFING_START_CODE)
-    {
-        codeType = M4V_UNKNOWN_CODE_TYPE;
-    }
-    return codeType;
-}
-
 bool MrstPsbComponent::DetectSyncFrame(OMX_U8* vop)
 {
     M4vVopType voptype=  static_cast<M4vVopType>(vop[4] & M4V_VOP_TYPE_MASK);
@@ -1351,59 +1301,55 @@ OMX_ERRORTYPE MrstPsbComponent::ExtractConfigData(OMX_U8* coded_buf, OMX_U32 cod
         OMX_U8** video_buf, OMX_U32* video_len)
 {
 
-    M4vStartCodeType sc_type = M4V_UNKNOWN_CODE_TYPE;
-    OMX_U8 *sc = NULL;
-    OMX_U32 sc_len = 0;
-
+    if(coded_buf == NULL || coded_len < 4) {
+        LOGE("%s,failed Wrong data ",__func__);
+        return OMX_ErrorUndefined; // we won't proceed this not vop
+    }
+    OMX_U32 count = 0;
+    OMX_U32 i = 0;
+    OMX_U8* buf_in = coded_buf;
     *config_buf = NULL;
     *config_len = 0;
     *video_buf = NULL;
     *video_len = 0;
 
-    while(true)
+    while (i < coded_len)
     {
-        SplitM4vFrameByStartCode(coded_buf + *config_len,coded_len - *config_len,&sc, &sc_len);
-
-        if(sc == NULL) {
-            LOGE("start code is NULL");
-            return OMX_ErrorUndefined;
-        }
-        sc_type = GetM4vStartCodeType(sc);
-        LOGV("sc_type = %02x",sc_type);
-
-        if(sc_type == M4V_GROUP_OF_VOP_START_CODE || sc_type == M4V_VOP_START_CODE)
+        if ((count > 1) && (buf_in[0] == 0x01) && (buf_in[1] == 0xB6)) //vop start code
         {
-            //frame data found
+            i += 2;
             break;
         }
-        else if(sc_type == M4V_UNKNOWN_CODE_TYPE)
-        {
-            //invalidate data
-            return OMX_ErrorUndefined;;
-        }
-        else  //vop header as codec data . often appears in the header of stream
-        {
-            *config_len += sc_len;
-        }
 
+        if (*buf_in++)
+            count = 0;
+        else
+            count++;
+        i++;
     }
-    if(*config_len == 0)
-    {
-        *video_buf = coded_buf;
-        *video_len = coded_len;
-        return OMX_ErrorNone;
+    if( i == coded_len) {
+        LOGE("%s failed didn't find vop start code",__func__);
+        return OMX_ErrorUndefined; //didn't find vop start code
     }
+    //we need VOL header as codec config data not including 00 00 01 B6
     *config_buf = coded_buf;
-    //restore video buf
-    *video_len = coded_len - *config_len;
-    if(*video_len > temp_coded_data_buffer_size)
-    {
-        return OMX_ErrorNone;
-    }
-    memcpy(temp_coded_data_buffer,coded_buf+*config_len,*video_len);
-    *video_buf = temp_coded_data_buffer;
-    return OMX_ErrorNone;
+    *config_len = i - 4;
 
+    if(*config_len == 0) {
+        *video_len = coded_len;
+        *video_buf = coded_buf;
+    }
+    else {
+        //retain the video buf
+        *video_len = coded_len - *config_len;
+        if(*video_len > temp_coded_data_buffer_size) {
+            LOGE("temp_coded_data_buffer_size is too small %d",__LINE__);
+            return OMX_ErrorUndefined;
+        }
+        memcpy(temp_coded_data_buffer,coded_buf+*config_len,*video_len);
+        *video_buf =  temp_coded_data_buffer;
+    }
+    return OMX_ErrorNone;
 }
 
 /* implement ComponentBase::ProcessorProcess */
@@ -1479,7 +1425,7 @@ nomal_start:
 
     if (video_len == 0) {
 
-        LOGE("begin to call mix_video_encode()");
+        LOGV("begin to call mix_video_encode()");
         mret = mix_video_encode(mix, mixbuffer_in, 1, mixiovec_out, 1,
                                 MIX_VIDEOENCODEPARAMS(mvp));
 
@@ -1724,7 +1670,7 @@ OMX_ERRORTYPE MrstPsbComponent::ChangeVcpWithPortParam(
 /* end of vcp setting helpers */
 
 /* share buffer setting */
-OMX_ERRORTYPE MrstPsbComponent::EnableBufferSharingMode()
+OMX_ERRORTYPE MrstPsbComponent::RequestToEnableBufferSharingMode()
 {
     BufferShareStatus bsret;
 
@@ -1736,17 +1682,36 @@ OMX_ERRORTYPE MrstPsbComponent::EnableBufferSharingMode()
     buffer_sharing_count = 4;
     buffer_sharing_info = NULL;
     buffer_sharing_lib = BufferShareRegistry::getInstance();
-    bsret = buffer_sharing_lib->encoderEnableSharingMode();
+
+    bsret = buffer_sharing_lib->encoderRequestToEnableSharingMode();
     if (bsret != BS_SUCCESS) {
-        LOGE("%s(),%d:   encoder enable buffer sharing mode failed:%d", __func__, __LINE__, bsret);
+        LOGE("%s(),%d: encoder request to enable buffer sharing mode failed:%d", __func__, __LINE__, bsret);
         return OMX_ErrorUndefined;
     }
 
-    buffer_sharing_state = BUFFER_SHARING_LOADED;
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::DisableBufferSharingMode()
+OMX_ERRORTYPE MrstPsbComponent::CheckAndEnableBufferSharingMode()
+{
+    BufferShareStatus bsret;
+
+    if (buffer_sharing_state != BUFFER_SHARING_INVALID) {
+        LOGE("%s(),%d: invoke %s failed (incorrect state).", __func__, __LINE__, __func__);
+        return OMX_ErrorUndefined;
+    }
+
+    if (buffer_sharing_lib->isBufferSharingModeEnabled()) {
+        LOGW("Buffer sharing is enabled (video source does support)");
+        buffer_sharing_state = BUFFER_SHARING_LOADED;
+    } else {
+        LOGW("Buffer sharing is disabled (video source doesn't support)");
+    }
+
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE MrstPsbComponent::RequestToDisableBufferSharingMode()
 {
     BufferShareStatus bsret;
 
@@ -1766,9 +1731,9 @@ OMX_ERRORTYPE MrstPsbComponent::DisableBufferSharingMode()
     }
     buffer_sharing_info = NULL;
 
-    bsret = buffer_sharing_lib->encoderDisableSharingMode();
+    bsret = buffer_sharing_lib->encoderRequestToDisableSharingMode();
     if (bsret != BS_SUCCESS) {
-        LOGE("%s(),%d:   disable sharing mode failed.", __func__, __LINE__);
+        LOGE("%s(),%d: request to disable sharing mode failed.", __func__, __LINE__);
         return OMX_ErrorUndefined;
     }
 
@@ -1842,7 +1807,7 @@ OMX_ERRORTYPE MrstPsbComponent::RequestShareBuffers(MixVideo* mix, int width, in
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToLib()
+OMX_ERRORTYPE MrstPsbComponent::RegisterShareBuffersToLib()
 {
     if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
             (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
@@ -1864,7 +1829,7 @@ OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToLib()
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToPort()
+OMX_ERRORTYPE MrstPsbComponent::RegisterShareBuffersToPort()
 {
     if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
             (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
@@ -1890,7 +1855,7 @@ OMX_ERRORTYPE MrstPsbComponent::RegisterShareBufferToPort()
     return ret;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::EnterShareBufferingMode()
+OMX_ERRORTYPE MrstPsbComponent::EnterBufferSharingMode()
 {
     if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
             (buffer_sharing_state != BUFFER_SHARING_LOADED)) {
@@ -1916,7 +1881,7 @@ OMX_ERRORTYPE MrstPsbComponent::EnterShareBufferingMode()
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE MrstPsbComponent::ExitShareBufferingMode()
+OMX_ERRORTYPE MrstPsbComponent::ExitBufferSharingMode()
 {
     if ((buffer_sharing_state != BUFFER_SHARING_INVALID) &&
             (buffer_sharing_state != BUFFER_SHARING_EXECUTING)) {
@@ -1941,7 +1906,6 @@ OMX_ERRORTYPE MrstPsbComponent::ExitShareBufferingMode()
     buffer_sharing_state = BUFFER_SHARING_LOADED;
     return OMX_ErrorNone;
 }
-
 /* end of share buffer setting */
 
 OMX_ERRORTYPE MrstPsbComponent::ProcessorFlush(OMX_U32 port_index) {
