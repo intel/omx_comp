@@ -53,13 +53,6 @@ typedef enum
 
 typedef enum
 {
-    NAL_STARTCODE_3_BYTE,
-    NAL_STARTCODE_4_BYTE,
-    NAL_STARTCODE_INVALID
-} NalStartCodeType;
-
-typedef enum
-{
     BUFFER_SHARING_INVALID,
     BUFFER_SHARING_LOADED,
     BUFFER_SHARING_EXECUTING
@@ -122,14 +115,9 @@ private:
                                          PortVideo *port_out,
                                          bool *vcp_changed);
 
-    AvcNaluType GetNaluType(OMX_U8* nal,NalStartCodeType startcode_type);
-
-    OMX_ERRORTYPE SplitNalByStartCode(OMX_U8* buf, OMX_U32 len,OMX_U8** nalbuf, OMX_U32* nallen,
-                                      NalStartCodeType startcode_type);
-
     static void AvcEncMixBufferCallback(ulong token, uchar *data);
-    OMX_ERRORTYPE ExtractConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,OMX_U8** config_buf, OMX_U32* config_len,OMX_U8** video_buf, OMX_U32* video_len);
-    bool DetectSyncFrame(OMX_U8* coded_buf, OMX_U32 coded_len);
+    OMX_ERRORTYPE ParserConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,OMX_U8** config_buf, OMX_U32* config_len);
+
     /* end of vcp setting helpers */
 
     /* share buffer setting */
@@ -168,6 +156,7 @@ private:
 
     /* for Nalu format encapsulation and config data setting*/
     bool b_config_sent;
+    bool b_sync_frame;
     OMX_U8* video_data;
     OMX_U32 video_len;
 

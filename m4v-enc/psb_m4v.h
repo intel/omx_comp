@@ -118,7 +118,7 @@ private:
 
     inline bool DetectSyncFrame(OMX_U8* vop);
 
-    OMX_ERRORTYPE ExtractConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,OMX_U8** config_buf, OMX_U32* config_len,OMX_U8** video_buf, OMX_U32* video_len);
+    OMX_ERRORTYPE ParserConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,OMX_U8** config_buf, OMX_U32* config_len);
 
     /* end of vcp setting helpers */
     /* share buffer setting */

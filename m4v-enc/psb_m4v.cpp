@@ -1296,9 +1296,8 @@ bool MrstPsbComponent::DetectSyncFrame(OMX_U8* vop)
     M4vVopType voptype=  static_cast<M4vVopType>(vop[4] & M4V_VOP_TYPE_MASK);
     return ( voptype == I_FRAME );
 }
-OMX_ERRORTYPE MrstPsbComponent::ExtractConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,
-        OMX_U8** config_buf, OMX_U32* config_len,
-        OMX_U8** video_buf, OMX_U32* video_len)
+OMX_ERRORTYPE MrstPsbComponent::ParserConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,
+        OMX_U8** config_buf, OMX_U32* config_len)
 {
 
     if(coded_buf == NULL || coded_len < 4) {
@@ -1310,8 +1309,6 @@ OMX_ERRORTYPE MrstPsbComponent::ExtractConfigData(OMX_U8* coded_buf, OMX_U32 cod
     OMX_U8* buf_in = coded_buf;
     *config_buf = NULL;
     *config_len = 0;
-    *video_buf = NULL;
-    *video_len = 0;
 
     while (i < coded_len)
     {
@@ -1335,20 +1332,6 @@ OMX_ERRORTYPE MrstPsbComponent::ExtractConfigData(OMX_U8* coded_buf, OMX_U32 cod
     *config_buf = coded_buf;
     *config_len = i - 4;
 
-    if(*config_len == 0) {
-        *video_len = coded_len;
-        *video_buf = coded_buf;
-    }
-    else {
-        //retain the video buf
-        *video_len = coded_len - *config_len;
-        if(*video_len > temp_coded_data_buffer_size) {
-            LOGE("temp_coded_data_buffer_size is too small %d",__LINE__);
-            return OMX_ErrorUndefined;
-        }
-        memcpy(temp_coded_data_buffer,coded_buf+*config_len,*video_len);
-        *video_buf =  temp_coded_data_buffer;
-    }
     return OMX_ErrorNone;
 }
 
@@ -1447,10 +1430,12 @@ nomal_start:
             goto out;
         }
 
-        oret = ExtractConfigData(mixiovec_out[0]->data,mixiovec_out[0]->data_size,&config_data, &config_len,&video_data, &video_len);
+        oret = ParserConfigData(mixiovec_out[0]->data,mixiovec_out[0]->data_size,&config_data, &config_len);
+        video_data = mixiovec_out[0]->data;
+        video_len = mixiovec_out[0]->data_size;
         if(OMX_ErrorNone != oret)
         {
-            LOGE("%s(), %d: exit, ExtractConfigData() failed (ret == 0x%08x)\n",__func__, __LINE__, oret);
+            LOGE("%s(), %d: exit, ParserConfigData() failed (ret == 0x%08x)\n",__func__, __LINE__, oret);
             goto out;
         }
     }
@@ -1461,6 +1446,11 @@ nomal_start:
             outfilledlen = config_len;
             outflags |= OMX_BUFFERFLAG_CODECCONFIG;
             b_config_sent = true;
+            if(config_data  == NULL) {
+                LOGE("%s()exit config_data is NULL.",__func__);
+                oret = OMX_ErrorUndefined;
+                goto out;
+            }
             if(buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset != config_data) {
                 memcpy(buffers[OUTPORT_INDEX]->pBuffer+buffers[OUTPORT_INDEX]->nOffset,config_data,config_len);
             }
@@ -1469,7 +1459,14 @@ nomal_start:
             //stagefright only accept the first set of config data, hence discard following ones
             outfilledlen = 0;
         }
-
+        //separate vol data from frame
+        video_len = mixiovec_out[0]->data_size - config_len;
+        if(video_len > temp_coded_data_buffer_size) {
+            LOGE("temp_coded_data_buffer_size is too small %s",__LINE__);
+            return OMX_ErrorUndefined;
+        }
+        memcpy(temp_coded_data_buffer,mixiovec_out[0]->data + config_len,video_len);
+        video_data = temp_coded_data_buffer;
         outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
     }
     else {

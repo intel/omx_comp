@@ -248,7 +248,7 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateAvcPort(OMX_U32 port_index,
 
     avcEncIDRPeriod = 0;
     avcEncPFrames = 0;
-    avcEncNaluFormatType = OMX_NaluFormatStartCodes;
+    avcEncNaluFormatType = OMX_NaluFormatStartCodesSeparateFirstHeader;
 
     avcEncParamIntelBitrateType.nPortIndex = port_index;
     avcEncParamIntelBitrateType.eControlRate = OMX_Video_Intel_ControlRateMax;
@@ -505,13 +505,12 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentGetParameter(
         AVC_ENCODE_ERROR_CHECKING(p)
 
         if(nParamIndex == OMX_IndexParamNalStreamFormat) {
-            p->eNaluFormat = OMX_NaluFormatStartCodes;
+            p->eNaluFormat = OMX_NaluFormatStartCodesSeparateFirstHeader;
             LOGV("%s(), OMX_IndexParamNalStreamFormat 0x%x", __func__,
                  p->eNaluFormat);
         } else {
             p->eNaluFormat = (OMX_NALUFORMATSTYPE)(OMX_NaluFormatStartCodes |
-                                                   OMX_NaluFormatFourByteInterleaveLength |
-                                                   OMX_NaluFormatZeroByteInterleaveLength);
+                                                   OMX_NaluFormatStartCodesSeparateFirstHeader);
             LOGV("%s(), OMX_IndexParamNalStreamFormatSupported 0x%x",
                  __func__, p->eNaluFormat);
         }
@@ -786,7 +785,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
         if (p->bBytestream == OMX_TRUE) {
             avcEncNaluFormatType = OMX_NaluFormatStartCodes;
         } else {
-            avcEncNaluFormatType = OMX_NaluFormatZeroByteInterleaveLength;
+            avcEncNaluFormatType = OMX_NaluFormatStartCodesSeparateFirstHeader;
         }
 
         break;
@@ -800,8 +799,7 @@ OMX_ERRORTYPE MrstPsbComponent::ComponentSetParameter(
         AVC_ENCODE_ERROR_CHECKING(p)
 
         if (p->eNaluFormat == OMX_NaluFormatStartCodes || p->eNaluFormat
-                == OMX_NaluFormatFourByteInterleaveLength || p->eNaluFormat
-                == OMX_NaluFormatZeroByteInterleaveLength) {
+                == OMX_NaluFormatStartCodesSeparateFirstHeader) {
             OMX_STATETYPE state;
             CBaseGetState((void *) GetComponentHandle(), &state);
             if (state != OMX_StateLoaded && state != OMX_StateWaitForResources) {
@@ -1501,6 +1499,7 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorInit(void)
     MixDisplayAndroid *display = NULL;
 
     temp_coded_data_buffer = NULL;
+    b_sync_frame = false;
 
     uint major, minor;
 
@@ -1761,30 +1760,8 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorResume(void)
     return ret;
 }
 
-bool MrstPsbComponent::DetectSyncFrame(OMX_U8* coded_buf, OMX_U32 coded_len)
-{
-    AvcNaluType nalu_type;
-    OMX_U8 *nal;
-    OMX_U32 nal_len;
-
-    SplitNalByStartCode(coded_buf, coded_len , &nal, &nal_len, NAL_STARTCODE_4_BYTE);
-    if(nal == NULL)
-    {
-        LOGE("%s:%d: No nal unit extracted", __func__, __LINE__);
-        return false;
-    }
-    nalu_type = GetNaluType(nal, NAL_STARTCODE_4_BYTE);
-
-    if ( nalu_type == CODED_SLICE_IDR ) {
-        return true;
-    };
-
-    return false;
-}
 // The function is based on mix_videofmtenc_h264_AnnexB_to_length_prefixed()
-OMX_ERRORTYPE MrstPsbComponent::ExtractConfigData(OMX_U8* coded_buf, OMX_U32 coded_len,
-        OMX_U8** config_buf, OMX_U32* config_len,
-        OMX_U8** video_buf, OMX_U32* video_len)
+OMX_ERRORTYPE MrstPsbComponent::ParserConfigData(OMX_U8* coded_buf,OMX_U32 coded_len,OMX_U8** config_buf, OMX_U32* config_len)
 {
     unsigned int pos = 0;
     unsigned int last_pos = 0;
@@ -1798,8 +1775,6 @@ OMX_ERRORTYPE MrstPsbComponent::ExtractConfigData(OMX_U8* coded_buf, OMX_U32 cod
 
     *config_buf = NULL;
     *config_len = 0;
-    *video_buf = NULL;
-    *video_len = 0;
 
     LOGV ("Begin\n");
 
@@ -1831,8 +1806,6 @@ OMX_ERRORTYPE MrstPsbComponent::ExtractConfigData(OMX_U8* coded_buf, OMX_U32 cod
     if(nal_type != SPS && nal_type != PPS) {
 
         *config_len = 0;
-        *video_buf = coded_buf;
-        *video_len = coded_len;
         return OMX_ErrorNone;
     }
 
@@ -1892,16 +1865,7 @@ OMX_ERRORTYPE MrstPsbComponent::ExtractConfigData(OMX_U8* coded_buf, OMX_U32 cod
 
     *config_len = length;
     *config_buf = coded_buf;
-    *video_len = coded_len - *config_len;
-    //retain the video buf
-    if(*video_len > temp_coded_data_buffer_size) {
-        LOGE("temp_coded_data_buffer_size is too small %d",__LINE__);
-        return OMX_ErrorUndefined;
-    }
-    memcpy(temp_coded_data_buffer,coded_buf+*config_len,*video_len);
-    *video_buf =  temp_coded_data_buffer;
     LOGV ("End\n");
-
     return OMX_ErrorNone;
 }
 
@@ -1977,22 +1941,42 @@ normal_start:
     }
 
     /* encoder */
-    if (avcEncNaluFormatType == OMX_NaluFormatZeroByteInterleaveLength) {
+    LOGV("in buffer = 0x%x ts = %lld",
+         buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset,
+         buffers[INPORT_INDEX]->nTimeStamp);
 
-        LOGE("Not support yet");
-        oret = OMX_ErrorUndefined;
-        goto out;
+    switch(avcEncNaluFormatType) {
 
-    } else if (avcEncNaluFormatType == OMX_NaluFormatStartCodes) {
+    case OMX_NaluFormatStartCodes: //CAUTION: this case not tested yet
+        LOGV("begin to call mix_video_encode()");
+        mret = mix_video_encode(mix, mixbuffer_in, 1, mixiovec_out, 1,
+                                MIX_VIDEOENCODEPARAMS(mvp));
+
+        LOGV("%s(), mret = 0x%08x", __func__, mret);
+        LOGV("output data size = %d", mixiovec_out[0]->data_size);
+
+        outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
+
+        if (mret != MIX_RESULT_SUCCESS) {
+            LOGE("%s(), %d: exit, mix_video_encode failed (ret == 0x%08x)\n",
+                 __func__, __LINE__, mret);
+            oret = OMX_ErrorUndefined;
+            goto out;
+        }
+
+        if (mixiovec_out[0]-> data_size == 0) {
+            retain[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+            retain[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
+            goto out;
+        }
+        outfilledlen = mixiovec_out[0]-> data_size;
+        break;
+    case OMX_NaluFormatStartCodesSeparateFirstHeader:
         /*
         FIXME: Stagefright requires:
         1. SPS and PPS are packed together in single output buffer;
         2. Only 1 SPS & PPS buffer is sent in one session;
         */
-        LOGV("in buffer = 0x%x ts = %lld",
-             buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset,
-             buffers[INPORT_INDEX]->nTimeStamp);
-
         if (video_len == 0) {
 
             LOGV("begin to call mix_video_encode()");
@@ -2016,41 +2000,58 @@ normal_start:
                 retain[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
                 goto out;
             }
-
-            oret = ExtractConfigData(mixiovec_out[0]->data,mixiovec_out[0]->data_size,&config_data, &config_len,&video_data, &video_len);
-            if(OMX_ErrorNone != oret )
-            {
-                LOGE("%s(), %d: exit, ExtractConfigData() failed (ret == 0x%08x)\n",__func__, __LINE__, oret);
+            b_sync_frame = false;
+            oret = ParserConfigData(mixiovec_out[0]->data,mixiovec_out[0]->data_size,&config_data, &config_len);
+            video_data = mixiovec_out[0]->data;
+            video_len = mixiovec_out[0]->data_size;
+            if(OMX_ErrorNone != oret ) {
+                LOGE("%s(), %d: exit, ParserConfigData() failed (ret == 0x%08x)\n",__func__, __LINE__, oret);
                 goto out;
             }
 
         }
+        //IDR frame
         if( config_len != 0) {
-            //config data needs to be sent completely in a ProcessorProcess() cycle
+            //Need send SPS+PPS NAL unit since stagefright want this as codec config data
             if(!b_config_sent) {
                 outfilledlen = config_len;
                 outflags |= OMX_BUFFERFLAG_CODECCONFIG;
                 b_config_sent = true;
+                if(config_data  == NULL) {
+                    LOGE("%s()exit config_data is NULL.",__func__);
+                    oret = OMX_ErrorUndefined;
+                    goto out;
+                }
                 if (buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset != config_data) {
                     memcpy(buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset, config_data, config_len);
                 }
+                // Separate SPS+PPS data from first IDR frame
+                video_len = mixiovec_out[0]->data_size - config_len;
+                if(video_len > temp_coded_data_buffer_size) {
+                    LOGE("temp_coded_data_buffer_size is too small %s",__LINE__);
+                    return OMX_ErrorUndefined;
+                }
+                memcpy(temp_coded_data_buffer,mixiovec_out[0]->data + config_len,video_len);
+                video_data = temp_coded_data_buffer;
             }
             else {
-#if 1           //stagefright only accept the first set of config data, hence discard following ones
-                outfilledlen = 0;
-#else           //not discard following config data, might cause some composing issue
-                outfilledlen = config_len;
-                if (buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset != config_data) {
-                    memcpy(buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset, config_data, config_len);
+                //send SPS+PPS+IDR frame data
+                if (buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset != video_data) {
+                    memcpy(buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset, video_data,video_len);
                 }
-#endif
+                outfilledlen = video_len;
+                video_data = NULL;
+                video_len = 0;
             }
+            outflags |= OMX_BUFFERFLAG_SYNCFRAME;
             outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
+            b_sync_frame = true;
         }
         else {
-            //video data might be sent one or multiple times. current implementation sent data all at once
+            //NAL frame
             outfilledlen = video_len;
-            if (DetectSyncFrame(video_data, video_len)) {
+            if (b_sync_frame) {
+                //first IDR frame NAL data has been separated. It's a sync frame
                 outflags |= OMX_BUFFERFLAG_SYNCFRAME;
             }
 
@@ -2075,6 +2076,13 @@ normal_start:
         } else {
             retain[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;  //get again
         }
+        break;
+
+    default:
+        LOGE("Unsupported Nalu format.%s",__LINE__);
+        oret = OMX_ErrorUndefined;
+        break;
+
     }
 
 #if SHOW_FPS
@@ -2135,113 +2143,6 @@ out:
 
     return oret;
 }
-
-OMX_ERRORTYPE MrstPsbComponent::SplitNalByStartCode(OMX_U8* buf, OMX_U32 len,
-        OMX_U8** nalbuf, OMX_U32* nallen,
-        NalStartCodeType startcode_type)
-{
-    if (buf == NULL || len == 0 ||
-            nalbuf == NULL || nallen == NULL) {
-        return OMX_ErrorBadParameter;
-    };
-
-    *nalbuf = NULL;
-    *nallen = 0;
-
-    OMX_U32 ofst = 0;
-    OMX_U8 *data = buf;
-    OMX_U8 *next_nalbuf;
-
-    if (startcode_type == NAL_STARTCODE_3_BYTE) {
-        while(ofst < len - 2) {
-            if ( data[0] ==0x00 &&
-                    data[1] == 0x00 &&
-                    data[2] == 0x01 ) {
-                *nalbuf = data;
-                break;
-            }
-            data ++;
-            ofst ++;
-        };
-
-        if (*nalbuf == NULL) {
-            return OMX_ErrorNone;
-        };
-
-        data += 3;
-        ofst += 3;
-
-        next_nalbuf = NULL;
-
-        while(ofst < len - 2) {
-            if (data[0] == 0x00 &&
-                    data[1] == 0x00 &&
-                    data[2] == 0x01 ) {
-                next_nalbuf = data;
-                break;
-            }
-            data ++;
-            ofst ++;
-        }
-    } else if (startcode_type == NAL_STARTCODE_4_BYTE) {
-        while(ofst < len - 3) {
-            if ( data[0] ==0x00 &&
-                    data[1] == 0x00 &&
-                    data[2] == 0x00 &&
-                    data[3] == 0x01) {
-                *nalbuf = data;
-                break;
-            }
-            data ++;
-            ofst ++;
-        };
-
-        if (*nalbuf == NULL) {
-            return OMX_ErrorNone;
-        };
-
-        data += 4;
-        ofst += 4;
-
-        next_nalbuf = NULL;
-
-        while(ofst < len - 3) {
-            if (data[0] == 0x00 &&
-                    data[1] == 0x00 &&
-                    data[2] == 0x00 &&
-                    data[3] == 0x01) {
-                next_nalbuf = data;
-                break;
-            }
-            data ++;
-            ofst ++;
-        }
-
-    } else {
-        return OMX_ErrorBadParameter;
-    };
-
-    if (next_nalbuf != NULL) {
-        *nallen = next_nalbuf - *nalbuf;
-    } else {
-        *nallen = &buf[len - 1] - *nalbuf + 1;
-    };
-
-    return OMX_ErrorNone;
-};
-
-AvcNaluType MrstPsbComponent::GetNaluType(OMX_U8* nal,
-        NalStartCodeType startcode_type)
-{
-    if (startcode_type == NAL_STARTCODE_3_BYTE) {
-        return static_cast<AvcNaluType>(nal[3] & 0x1F);
-    } else if (startcode_type == NAL_STARTCODE_4_BYTE) {
-        return static_cast<AvcNaluType>(nal[4] & 0x1F);
-    } else {
-        return INVALID_NAL_TYPE;
-    };
-}
-
 /* end of implement ComponentBase::Processor[*] */
 
 OMX_ERRORTYPE MrstPsbComponent::__AvcChangeVcpWithPortParam(
@@ -2296,7 +2197,8 @@ OMX_ERRORTYPE MrstPsbComponent::__AvcChangeVcpWithPortParam(
     }
 
 
-    if (avcEncNaluFormatType == OMX_NaluFormatStartCodes) {
+    if (avcEncNaluFormatType == OMX_NaluFormatStartCodes ||
+            avcEncNaluFormatType ==OMX_NaluFormatStartCodesSeparateFirstHeader) {
         mix_videoconfigparamsenc_h264_set_delimiter_type(
             MIX_VIDEOCONFIGPARAMSENC_H264(config), MIX_DELIMITER_ANNEXB);
         LOGV("%s(), use MIX_DELIMITER_ANNEXB", __func__);
