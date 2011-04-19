@@ -27,6 +27,11 @@
 #include <sys/time.h>
 #include <OMX_Core.h>
 
+// #define LOG_NDEBUG 0
+
+#define LOG_TAG "mrst_h263"
+#include <utils/Log.h>
+
 //#include "oscl_base.h"
 //#include "oscl_types.h"
 
@@ -60,13 +65,19 @@ OMX_BOOL H263HeaderParser::DecodeH263Header(OMX_U8* aInputBuffer, int32 *width,
     if (codeword == 1) return OMX_FALSE;
 
     ReadBits(aInputBuffer, 1, &codeword);
-    if (codeword == 1) return OMX_FALSE;
+    if (codeword == 1){
+	       LOGW("split_screen_indicator don't support!");
+     }
 
     ReadBits(aInputBuffer, 1, &codeword);
-    if (codeword == 1) return OMX_FALSE;
+    if (codeword == 1) {
+	       LOGW("document_freeze_camera don't support!");
+      }
 
     ReadBits(aInputBuffer, 1, &codeword);
-    if (codeword == 1) return OMX_FALSE;
+    if (codeword == 1) {
+	       LOGW("freeze_picture_release don't support!");
+       }
 
     /* source format */
     ReadBits(aInputBuffer, 3, &codeword);

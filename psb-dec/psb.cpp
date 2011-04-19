@@ -2908,9 +2908,12 @@ OMX_ERRORTYPE MrstPsbComponent::__H263ChangePortParamWithCodecData(
     unsigned int display_width, display_height;
 
     H263HeaderParser h263_header_parser;
-    h263_header_parser.DecodeH263Header((OMX_U8 *) codec_data,
+    OMX_BOOL result;
+    result = h263_header_parser.DecodeH263Header((OMX_U8 *) codec_data,
                                         (int32 *) &width, (int32 *) &height, (int32 *) &display_width,
                                         (int32 *) &display_height);
+    if(OMX_FALSE ==result)
+		return OMX_ErrorBadParameter;
 
     memcpy(&h263pd, h263port->GetPortDefinition(),
            sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
