@@ -2560,8 +2560,10 @@ retry_decode:
 
                 MixVideoConfigParamsDec *config_params_dec =
                     MIX_VIDEOCONFIGPARAMSDEC(config_params);
-                avcDecFrameWidth  = config_params_dec->picture_width;
-                avcDecFrameHeight = config_params_dec->picture_height;
+                avcDecFrameWidth  = config_params_dec->picture_width -
+                    config_params_dec->crop_left - config_params_dec->crop_right;
+                avcDecFrameHeight = config_params_dec->picture_height -
+                    config_params_dec->crop_top - config_params_dec->crop_bottom;
 
                 if(avcDecodeSettings.nMaxWidth != 0 && avcDecodeSettings.nMaxHeight != 0) {
                     if(avcDecFrameWidth  > avcDecodeSettings.nMaxWidth ||
