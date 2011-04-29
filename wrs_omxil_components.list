@@ -3,3 +3,6 @@ libwrs_omxil_intel_mrst_psb_avc_enc.so
 libwrs_omxil_intel_mrst_psb_h263_enc.so
 libwrs_omxil_intel_mrst_psb_m4v_enc.so
 libwrs_omxil_intel_mrst_psb_dec.so
+libomx_ipp_aacdec.so
+libomx_ipp_mp3dec.so
+libomx_ipp_aacenc.so
