@@ -164,7 +164,8 @@ private:
     const static OMX_U32 OUTPORT_INDEX = 1;
 
     /* default buffer */
-    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 256; //10; //32; //10;
+    //BZ 1286: change inport buffer number from 256 to 10 to cut down buffering time
+    const static OMX_U32 INPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
     const static OMX_U32 INPORT_AVC_MIN_BUFFER_COUNT = 1;
     const static OMX_U32 INPORT_AVC_BUFFER_SIZE = 1382400; //40960;
     const static OMX_U32 OUTPORT_AVC_ACTUAL_BUFFER_COUNT = 10;
