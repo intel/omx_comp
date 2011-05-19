@@ -6,3 +6,7 @@ libwrs_omxil_intel_mrst_psb_dec.so
 libomx_ipp_aacdec.so
 libomx_ipp_mp3dec.so
 libomx_ipp_aacenc.so
+libomx_ipp_amrwbenc.so
+libomx_ipp_amrnbenc.so
+libomx_ipp_amrwbdec.so
+libomx_ipp_amrnbdec.so
