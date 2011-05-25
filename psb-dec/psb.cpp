@@ -2191,8 +2191,6 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
     VABuffer *vaBuf;
     int retry_decode_count;
 
-    LOGE("%s(): <**************> enter decode\n", __func__);
-
     LOGV_IF(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS,
             "%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
 
@@ -2277,6 +2275,10 @@ OMX_ERRORTYPE MrstPsbComponent::ProcessorProcess(
 
         outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
         retain[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+
+        buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
+        buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
+        buffers[OUTPORT_INDEX]->nFlags = outflags;
 
         outframe_counter++;
 
