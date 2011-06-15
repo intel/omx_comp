@@ -10,3 +10,7 @@ libomx_ipp_amrwbenc.so
 libomx_ipp_amrnbenc.so
 libomx_ipp_amrwbdec.so
 libomx_ipp_amrnbdec.so
+libOMXVideoDecoderAVC.so
+libOMXVideoDecoderH263.so
+libOMXVideoDecoderWMV.so
+libOMXVideoDecoderMPEG4.so
