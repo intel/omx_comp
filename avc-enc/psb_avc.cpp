@@ -260,8 +260,8 @@ OMX_ERRORTYPE MrstPsbComponent::__AllocateAvcPort(OMX_U32 port_index,
     SetTypeHeader(&avcEncConfigNalSize, sizeof(avcEncConfigNalSize));
 
     avcEncConfigSliceNumbers.nPortIndex = port_index;
-    avcEncConfigSliceNumbers.nISliceNumber = 1;
-    avcEncConfigSliceNumbers.nPSliceNumber = 1;
+    avcEncConfigSliceNumbers.nISliceNumber = 2;
+    avcEncConfigSliceNumbers.nPSliceNumber = 2;
     SetTypeHeader(&avcEncConfigSliceNumbers, sizeof(avcEncConfigSliceNumbers));
 
     avcEncConfigAir.nPortIndex = port_index;
@@ -2192,8 +2192,15 @@ OMX_ERRORTYPE MrstPsbComponent::__AvcChangeVcpWithPortParam(
         }
 
     } else {
-        mix_videoconfigparamsenc_h264_set_slice_num(
-            MIX_VIDEOCONFIGPARAMSENC_H264(config), 1);
+
+        mix_videoconfigparamsenc_h264_set_I_slice_num(
+            MIX_VIDEOCONFIGPARAMSENC_H264(config),
+            avcEncConfigSliceNumbers.nISliceNumber);
+
+        mix_videoconfigparamsenc_h264_set_P_slice_num(
+            MIX_VIDEOCONFIGPARAMSENC_H264(config),
+            avcEncConfigSliceNumbers.nPSliceNumber);
+
     }
 
 
