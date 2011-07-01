@@ -113,5 +113,107 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderWMV
 include $(BUILD_SHARED_LIBRARY)
 
+## for encode
+
+include $(CLEAR_VARS)
+
+LOCAL_CPPFLAGS :=
+LOCAL_LDFLAGS :=
+
+LOCAL_SHARED_LIBRARIES := \
+        libwrs_omxil_common \
+	liblog \
+        libva_videoenc			    \
+	libva \
+	libva-android \
+	libva-tpi \
+        libutils \
+        libsharedbuffer
+
+LOCAL_C_INCLUDES := \
+    $(WRS_OMXIL_CORE_ROOT)/utils/inc \
+    $(WRS_OMXIL_CORE_ROOT)/base/inc \
+    $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
+    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videoenc 	\
+    $(TARGET_OUT_HEADERS)/libva	\
+    $(TARGET_OUT_HEADERS)/libsharedbuffer
+
+LOCAL_SRC_FILES := \
+    OMXComponentCodecBase.cpp\
+    OMXVideoEncoderBase.cpp\
+    OMXVideoEncoderAVC.cpp
+
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libOMXVideoEncoderAVC
+include $(BUILD_SHARED_LIBRARY)
+
+
+include $(CLEAR_VARS)
+
+LOCAL_CPPFLAGS :=
+LOCAL_LDFLAGS :=
+
+LOCAL_SHARED_LIBRARIES := \
+        libwrs_omxil_common \
+	liblog \
+        libva_videoenc			    \
+	libva \
+	libva-android \
+	libva-tpi \
+        libutils \
+        libsharedbuffer
+
+LOCAL_C_INCLUDES := \
+    $(WRS_OMXIL_CORE_ROOT)/utils/inc \
+    $(WRS_OMXIL_CORE_ROOT)/base/inc \
+    $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
+    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videoenc 	\
+    $(TARGET_OUT_HEADERS)/libva	\
+    $(TARGET_OUT_HEADERS)/libsharedbuffer
+
+LOCAL_SRC_FILES := \
+    OMXComponentCodecBase.cpp\
+    OMXVideoEncoderBase.cpp\
+    OMXVideoEncoderH263.cpp
+
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libOMXVideoEncoderH263
+include $(BUILD_SHARED_LIBRARY)
+
+
+
+
+include $(CLEAR_VARS)
+
+LOCAL_CPPFLAGS :=
+LOCAL_LDFLAGS :=
+
+LOCAL_SHARED_LIBRARIES := \
+        libwrs_omxil_common \
+	liblog \
+        libva_videoenc			    \
+	libva \
+	libva-android \
+	libva-tpi \
+        libutils \
+        libsharedbuffer
+
+LOCAL_C_INCLUDES := \
+    $(WRS_OMXIL_CORE_ROOT)/utils/inc \
+    $(WRS_OMXIL_CORE_ROOT)/base/inc \
+    $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
+    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videoenc 	\
+    $(TARGET_OUT_HEADERS)/libva	\
+    $(TARGET_OUT_HEADERS)/libsharedbuffer
+
+LOCAL_SRC_FILES := \
+    OMXComponentCodecBase.cpp\
+    OMXVideoEncoderBase.cpp\
+    OMXVideoEncoderMPEG4.cpp
+
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libOMXVideoEncoderMPEG4
+include $(BUILD_SHARED_LIBRARY)
+
 
 endif

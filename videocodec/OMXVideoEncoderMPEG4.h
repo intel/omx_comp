@@ -37,7 +37,6 @@ protected:
             OMX_U32 numberBuffers);
 
    virtual OMX_ERRORTYPE BuildHandlerList(void);
-
    DECLARE_HANDLER(OMXVideoEncoderMPEG4, ParamVideoMpeg4);
 
 private:

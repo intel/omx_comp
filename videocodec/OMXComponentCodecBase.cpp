@@ -115,6 +115,8 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentSetConfig(
     OMX_INDEXTYPE nIndex,
     OMX_PTR pComponentConfigStructure) {
 
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+
     OMXHANDLER handler = FindHandler(nIndex, false);
     if (handler == NULL) {
         LOGE("ComponentSetConfig: No handler for index %d", nIndex);
@@ -122,7 +124,10 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentSetConfig(
     }
 
     LOGV("ComponentSetConfig: Index = 0x%x", nIndex);
-    return (*handler)(this, pComponentConfigStructure);
+    pthread_mutex_lock(&mSerializationLock);
+    ret = (*handler)(this, pComponentConfigStructure);
+    pthread_mutex_unlock(&mSerializationLock);
+    return ret;
 }
 
 OMX_ERRORTYPE OMXComponentCodecBase::ProcessorInit(void) {

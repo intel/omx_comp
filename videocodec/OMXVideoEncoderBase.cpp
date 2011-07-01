@@ -14,18 +14,36 @@
 * limitations under the License.
 */
 
-
-// #define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
+#undef LOG_TAG
 #define LOG_TAG "OMXVideoEncoderBase"
 #include <utils/Log.h>
 #include "OMXVideoEncoderBase.h"
 
-static const char* RAW_MIME_TYPE = "video/raw";
+static const char *RAW_MIME_TYPE = "video/raw";
 
-OMXVideoEncoderBase::OMXVideoEncoderBase() {
+OMXVideoEncoderBase::OMXVideoEncoderBase()
+    :mEncoderVideo(NULL)
+    ,mEncoderParams(NULL)
+    ,inFrameCnt(0)
+    ,outFrameCnt(0)
+    ,mGetBufDone(OMX_TRUE)
+    ,mFirstFrame(OMX_TRUE) {
+
+    mEncoderParams = new VideoParamsCommon();
+    if (!mEncoderParams) LOGE("OMX_ErrorInsufficientResources");
+
+    mBsState = BS_STATE_INVALID;
+    OMX_ERRORTYPE ret = InitBSMode();
+    if(ret != OMX_ErrorNone) {
+        LOGE("InitBSMode failed in Constructor ");
+        DeinitBSMode();
+    }
 }
 
 OMXVideoEncoderBase::~OMXVideoEncoderBase() {
+
+    // destroy ports
     if (this->ports) {
         if (this->ports[INPORT_INDEX]) {
             delete this->ports[INPORT_INDEX];
@@ -36,6 +54,22 @@ OMXVideoEncoderBase::~OMXVideoEncoderBase() {
             delete this->ports[OUTPORT_INDEX];
             this->ports[OUTPORT_INDEX] = NULL;
         }
+    }
+
+    // Release video encoder object
+    if(mEncoderVideo) {
+        releaseVideoEncoder(mEncoderVideo);
+        mEncoderVideo = NULL;
+    }
+
+    if(mEncoderParams) {
+        delete mEncoderParams;
+        mEncoderParams = NULL;
+    }
+
+    OMX_ERRORTYPE oret = DeinitBSMode();
+    if (oret != OMX_ErrorNone) {
+        LOGE("DeinitBSMode in destructor");
     }
 }
 
@@ -131,15 +165,15 @@ OMX_ERRORTYPE OMXVideoEncoderBase::InitOutputPort(void) {
     mConfigIntelBitrate.nMaxEncodeBitrate = 4000 * 1024; // Maximum bitrate
     mConfigIntelBitrate.nTargetPercentage = 95; // Target bitrate as percentage of maximum bitrate; e.g. 95 is 95%
     mConfigIntelBitrate.nWindowSize = 1000; // Window size in milliseconds allowed for bitrate to reach target
-    mConfigIntelBitrate.nInitialQP = 36;  // Initial QP for I frames
-    mConfigIntelBitrate.nMinQP = 18;
+    mConfigIntelBitrate.nInitialQP = 24;  // Initial QP for I frames
+    mConfigIntelBitrate.nMinQP = 1;
 
     // OMX_VIDEO_CONFIG_INTEL_SLICE_NUMBERS
     memset(&mConfigIntelSliceNumbers, 0, sizeof(mConfigIntelSliceNumbers));
     SetTypeHeader(&mConfigIntelSliceNumbers, sizeof(mConfigIntelSliceNumbers));
     mConfigIntelSliceNumbers.nPortIndex = OUTPORT_INDEX;
-    mConfigIntelSliceNumbers.nISliceNumber = 1;
-    mConfigIntelSliceNumbers.nPSliceNumber = 1;
+    mConfigIntelSliceNumbers.nISliceNumber = 2;
+    mConfigIntelSliceNumbers.nPSliceNumber = 2;
 
     // OMX_VIDEO_CONFIG_INTEL_AIR
     memset(&mConfigIntelAir, 0, sizeof(mConfigIntelAir));
@@ -225,126 +259,294 @@ OMX_ERRORTYPE OMXVideoEncoderBase::InitInputPortFormatSpecific(OMX_PARAM_PORTDEF
     return OMX_ErrorNone;
 }
 
+OMX_ERRORTYPE OMXVideoEncoderBase::SetVideoEncoderParam(){
+    Encode_Status ret = ENCODE_SUCCESS;
+    PortVideo *port_in = NULL;
+    const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput = NULL;
+    port_in  =  static_cast<PortVideo *>(ports[INPORT_INDEX]);
+    paramPortDefinitionInput = port_in->GetPortDefinition();
+
+    mEncoderParams->type = VideoParamsTypeCommon;
+    mEncoderParams->size = sizeof(VideoParamsCommon);
+    mEncoderVideo->getParameters(mEncoderParams);
+    mEncoderParams->resolution.height = paramPortDefinitionInput->format.video.nFrameHeight;
+    mEncoderParams->resolution.width = paramPortDefinitionInput->format.video.nFrameWidth;
+//    mEncoderParams->frameRate.frameRateDenom = 1;
+//    mEncoderParams->frameRate.frameRateNum = paramPortDefinitionInput->format.video.xFramerate;
+    //mEncoderParams->profile = (VAProfile)mParamProfileLevel.eProfile;
+    //mEncoderParams->level = mParamProfileLevel.eLevel;
+    mEncoderParams->type = VideoParamsTypeCommon;
+    mEncoderParams->size = sizeof(VideoParamsCommon);
+    ret = mEncoderVideo ->setParameters(mEncoderParams);
+    CHECK_ENCODE_STATUS("setParameters");
+
+    return OMX_ErrorNone;
+}
+
 OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorInit(void) {
-    OMX_ERRORTYPE ret;
-    ret = OMXComponentCodecBase::ProcessorInit();
-    CHECK_RETURN_VALUE("OMXComponentCodecBase::ProcessorInit");
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    ret = SetVideoEncoderParam();
+    CHECK_STATUS("SetVideoEncoderParam");
+
+    ret = StartBufferSharing();
+    CHECK_STATUS("StartBufferSharing");
+
+    if (mEncoderVideo->start() != ENCODE_SUCCESS) {
+        LOGE("Failed. ret = 0x%08x\n", ret);
+        return OMX_ErrorUndefined;
+    }
 
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorDeinit(void) {
     OMX_ERRORTYPE ret;
-    return OMXComponentCodecBase::ProcessorDeinit();
+    if (mBsState == BS_STATE_EXECUTING) {
+        ret = StopBufferSharing();
+        if (ret != OMX_ErrorNone) {
+            LOGE("StopBufferSharing failed");
+        }
+    }
+
+    if(mEncoderVideo) {
+        mEncoderVideo->stop();
+    }
+    return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorStop(void) {
-    OMX_ERRORTYPE ret;
+
     this->ports[INPORT_INDEX]->ReturnAllRetainedBuffers();
-    return OMXComponentCodecBase::ProcessorStop();
+    return OMX_ErrorNone;
+}
+OMX_ERRORTYPE OMXVideoEncoderBase:: ProcessorProcess(
+		OMX_BUFFERHEADERTYPE **buffers,
+		buffer_retain_t *retains,
+		OMX_U32 numberBuffers){
+
+		LOGV("OMXVideoEncoderBase:: ProcessorProcess \n");
+		return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorFlush(OMX_U32 portIndex) {
+    LOGV("OMXVideoEncoderBase::ProcessorFlush\n");
     if (portIndex == INPORT_INDEX || portIndex == OMX_ALL) {
         this->ports[INPORT_INDEX]->ReturnAllRetainedBuffers();
+        mEncoderVideo->flush();
     }
-
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorProcess(
-    OMX_BUFFERHEADERTYPE **buffers,
-    buffer_retain_t *retains,
-    OMX_U32 numberBuffers) {
+OMX_ERRORTYPE OMXVideoEncoderBase::AllocateSharedBuffers(int width, int height) {
+    int index = 0;
+    int bufSize = 0;
+    Encode_Status ret = ENCODE_SUCCESS;
 
-    return OMX_ErrorNotImplemented;
-}
-
-OMX_ERRORTYPE OMXVideoEncoderBase::EnableBufferSharing(void)
-{
-    BufferShareStatus ret;
-
-    if (mBufferSharingState != BUFFER_SHARING_INVALID) {
-        LOGE("EnableBufferSharing: Invalid buffer sharing state: %d", mBufferSharingState);
+    if (width <= 0 || height <= 0) {
+        LOGE("width <= 0 || height <= 0");
         return OMX_ErrorUndefined;
     }
 
-    mBufferSharingCount = 4;
-    mBufferSharingInfo = NULL;
-    mBufferSharingLib = BufferShareRegistry::getInstance();
+    CHECK_BS_STATE();
 
-    ret = mBufferSharingLib->encoderRequestToEnableSharingMode();
-    if (ret != BS_SUCCESS) {
-        LOGE("encoderRequestToEnableSharingMode failed. Error = %d", ret);
-        return OMX_ErrorUndefined;
-    }
-
-    return OMX_ErrorNone;
-}
-
-OMX_ERRORTYPE OMXVideoEncoderBase::DisableBufferSharing(void)
-{
-    BufferShareStatus ret;
-
-    if ((mBufferSharingState != BUFFER_SHARING_INVALID) &&
-        (mBufferSharingState != BUFFER_SHARING_LOADED)) {
-        LOGE("DisableBufferSharing: Invalid buffer sharing state: %d", mBufferSharingState);
-        return OMX_ErrorUndefined;
-    }
-
-    if (mBufferSharingState == BUFFER_SHARING_INVALID) {
+    if (mBsState == BS_STATE_INVALID) {
+        LOGW("buffer sharing not enabled, do nothing");
         return OMX_ErrorNone;
     }
 
-    if (mBufferSharingInfo) {
-        delete [] mBufferSharingInfo;
+    if (mSharedBufArray != NULL) {
+        delete [] mSharedBufArray;
+        mSharedBufArray = NULL;
     }
-    mBufferSharingInfo = NULL;
 
-    ret = mBufferSharingLib->encoderRequestToDisableSharingMode();
-    if (ret != BS_SUCCESS) {
-        LOGE("encoderRequestToDisableSharingMode failed. Error = %d", ret);
+    mSharedBufArray = new SharedBufferType[mSharedBufCnt];
+    VideoParamsUsrptrBuffer paramsUsrptrBuffer;
+
+    for (index = 0; index < mSharedBufCnt; index++) {
+
+        bufSize = SHARE_PTR_ALIGN(width) * height * 3 / 2;
+
+        paramsUsrptrBuffer.type = VideoParamsTypeUsrptrBuffer;
+        paramsUsrptrBuffer.size =  sizeof(VideoParamsUsrptrBuffer);
+        paramsUsrptrBuffer.expectedSize = bufSize;
+        paramsUsrptrBuffer.format = STRING_TO_FOURCC("NV12");
+        paramsUsrptrBuffer.width = width;
+        paramsUsrptrBuffer.height = height;
+
+        mEncoderVideo->getParameters(&paramsUsrptrBuffer);
+        if (ret != ENCODE_SUCCESS) {
+            LOGE("Get usrptr failed");
+            if (mSharedBufArray) {
+                delete []mSharedBufArray;
+                mSharedBufArray = NULL;
+            }
+            return OMX_ErrorUndefined;
+        }
+
+        mSharedBufArray[index].pointer = paramsUsrptrBuffer.usrPtr;
+        mSharedBufArray[index].stride = paramsUsrptrBuffer.stride;
+        mSharedBufArray[index].allocatedSize = paramsUsrptrBuffer.actualSize;
+        mSharedBufArray[index].width = width;
+        mSharedBufArray[index].height = height;
+        mSharedBufArray[index].dataSize = mSharedBufArray[index].stride * height * 3 / 2;
+
+        LOGV("width:%d, Height:%d, stride:%d, pointer:%p", mSharedBufArray[index].width,
+             mSharedBufArray[index].height, mSharedBufArray[index].stride,
+             mSharedBufArray[index].pointer);
+    }
+
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoEncoderBase::UploadSharedBuffers() {
+    CHECK_BS_STATE();
+
+    if (mBsState == BS_STATE_INVALID) {
+        LOGW("buffer sharing not enabled, do nothing.");
+        return OMX_ErrorNone;
+    }
+
+    BufferShareStatus ret = mBsInstance->encoderSetSharedBuffer(mSharedBufArray, mSharedBufCnt);
+    CHECK_BS_STATUS	("encoderSetSharedBuffer");
+
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoEncoderBase::SetBSInfoToPort() {
+    CHECK_BS_STATE();
+
+    OMX_VIDEO_CONFIG_PRI_INFOTYPE privateinfoparam;
+    memset(&privateinfoparam, 0, sizeof(privateinfoparam));
+    SetTypeHeader(&privateinfoparam, sizeof(privateinfoparam));
+
+    //caution: buffer-sharing info stored in INPORT (raw port)
+    privateinfoparam.nPortIndex = INPORT_INDEX;
+    if (mBsState == BS_STATE_INVALID) {
+        privateinfoparam.nCapacity = 0;
+        privateinfoparam.nHolder = NULL;
+    } else {
+        privateinfoparam.nCapacity = mSharedBufCnt;
+        privateinfoparam.nHolder = mSharedBufArray;
+    }
+    OMX_ERRORTYPE ret = static_cast<PortVideo *>(ports[privateinfoparam.nPortIndex])->SetPortPrivateInfoParam(&privateinfoparam, false);
+
+    return ret;
+}
+
+OMX_ERRORTYPE OMXVideoEncoderBase::TriggerBSMode() {
+    CHECK_BS_STATE();
+
+    if (mBsState == BS_STATE_INVALID) {
+        LOGW("buffer sharing not enabled.");
+        return OMX_ErrorNone;
+    }
+
+    BufferShareStatus ret = mBsInstance->encoderEnterSharingMode();
+    if (ret == BS_PEER_DOWN) {
+        LOGE("upstream component down during buffer sharing state transition.");
+    }
+    CHECK_BS_STATUS	("encoderEnterSharingMode");
+
+    mBsState = BS_STATE_EXECUTING;
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoEncoderBase::CheckAndEnableBSMode() {
+    BufferShareStatus bsret;
+
+    if (mBsState != BS_STATE_INVALID) {
+        LOGE("failed (incorrect state).");
         return OMX_ErrorUndefined;
     }
 
-    mBufferSharingState = BUFFER_SHARING_INVALID;
+    if (mBsInstance->isBufferSharingModeEnabled()) {
+        LOGV("Buffer sharing is enabled");
+        mBsState = BS_STATE_LOADED;
+    } else {
+        LOGV("Buffer sharing is disabled");
+        mBsState = BS_STATE_INVALID;
+    }
+
+    return OMX_ErrorNone;
+}
+
+
+OMX_ERRORTYPE OMXVideoEncoderBase::InitBSMode(void) {
+    BufferShareStatus ret;
+
+    if (mBsState != BS_STATE_INVALID) {
+        LOGE("InitBSMode: Invalid buffer sharing state: %d", mBsState);
+        return OMX_ErrorUndefined;
+    }
+
+    mSharedBufCnt = SHARED_BUFFER_CNT;
+    mSharedBufArray = NULL;
+    mBsInstance = BufferShareRegistry::getInstance();
+
+    ret = mBsInstance->encoderRequestToEnableSharingMode();
+    CHECK_BS_STATUS	("encoderRequestToEnableSharingMode");
+
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoEncoderBase::DeinitBSMode(void) {
+    BufferShareStatus ret;
+
+    CHECK_BS_STATE();
+
+    if (mBsState == BS_STATE_INVALID) {
+        return OMX_ErrorNone;
+    }
+
+    if (mBsState) {
+        delete [] mSharedBufArray;
+        mSharedBufArray = NULL;
+    }
+
+    ret = mBsInstance->encoderRequestToDisableSharingMode();
+    CHECK_BS_STATUS	("encoderRequestToDisableSharingMode");
+
+
+    mBsState = BS_STATE_INVALID;
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::StartBufferSharing(void) {
     // TODO: consolidate the following APIs
 
-    /*
-    CheckAndEnableBufferSharingMode
-    RequestShareBuffers
-    RegisterShareBuffersToPort
-    RegisterShareBuffersToLib
-    EnterBufferSharingMode
-    */
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+
+    ret = CheckAndEnableBSMode();
+    CHECK_STATUS("CheckAndEnableBSMode");
+
+    ret = AllocateSharedBuffers(mEncoderParams->resolution.width,mEncoderParams->resolution.height);
+    CHECK_STATUS("AllocateSharedBuffers");
+
+    ret = SetBSInfoToPort();
+    CHECK_STATUS("SetBSInfoToPort");
+
+    ret = UploadSharedBuffers();
+    CHECK_STATUS("UploadSharedBuffers");
+
+    ret = TriggerBSMode();
+    CHECK_STATUS("UploadSharedBuffers");
+
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::StopBufferSharing(void) {
-    if ((mBufferSharingState != BUFFER_SHARING_INVALID) &&
-        (mBufferSharingState != BUFFER_SHARING_EXECUTING)) {
-        LOGE("StopBufferSharing: Invalid buffer sharing state: %d", mBufferSharingState);
-        return OMX_ErrorUndefined;
-    }
 
-    if (mBufferSharingState == BUFFER_SHARING_INVALID) {
+    if (mBsState == BS_STATE_INVALID) {
         return OMX_ErrorNone;
     }
 
-    BufferShareStatus ret = mBufferSharingLib->encoderExitSharingMode();
-    if (ret != BS_SUCCESS) {
-        LOGE("encoderExitSharingMode failed. Error = %d", ret);
-        return OMX_ErrorUndefined;
-    }
+    BufferShareStatus ret = mBsInstance->encoderExitSharingMode();
+    CHECK_BS_STATUS	("encoderExitSharingMode");
 
-    mBufferSharingState = BUFFER_SHARING_LOADED;
+
+    mBsState = BS_STATE_LOADED;
     return OMX_ErrorNone;
 }
-
 
 OMX_ERRORTYPE OMXVideoEncoderBase::BuildHandlerList(void) {
     OMXComponentCodecBase::BuildHandlerList();
@@ -492,6 +694,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::GetConfigIntelBitrate(OMX_PTR pStructure) {
 
 OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelBitrate(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
+    Encode_Status retStatus = ENCODE_SUCCESS;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
         LOGE("SetConfigIntelBitrate failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
@@ -511,7 +714,21 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelBitrate(OMX_PTR pStructure) {
         LOGE("SetConfigIntelBitrate failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }
-    // TODO: apply Bitrate configuration in Executing state
+    VideoConfigBitRate configBitRate;
+    configBitRate.type = VideoConfigTypeBitRate;
+    configBitRate.size = sizeof(VideoConfigBitRate);
+    mEncoderVideo->getConfig(&configBitRate);
+    configBitRate.type = VideoConfigTypeBitRate;
+    configBitRate.size = sizeof(VideoConfigBitRate);
+    configBitRate.rcParams.bitRate = mConfigIntelBitrate.nMaxEncodeBitrate;
+    configBitRate.rcParams.initQP = mConfigIntelBitrate.nInitialQP;
+    configBitRate.rcParams.minQP = mConfigIntelBitrate.nMinQP;
+    configBitRate.rcParams.windowSize = mConfigIntelBitrate.nWindowSize;
+    configBitRate.rcParams.targetPercentage = mConfigIntelBitrate.nTargetPercentage;
+    retStatus = mEncoderVideo->setConfig(&configBitRate);
+    if(retStatus!=ENCODE_SUCCESS){
+	LOGW("failed to set IntelBitrate !\n");
+    }
     return OMX_ErrorNone;
 }
 
@@ -564,6 +781,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::GetConfigIntelAIR(OMX_PTR pStructure) {
 
 OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelAIR(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
+    Encode_Status retStatus = ENCODE_SUCCESS;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
         LOGE("SetConfigIntelAIR failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
@@ -583,7 +801,20 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelAIR(OMX_PTR pStructure) {
         LOGE("SetConfigIntelAIR failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }
-    // TODO: apply AIR configuration in Executing state
+
+    VideoConfigAIR configAIR;
+    configAIR.type = VideoConfigTypeAIR;
+    configAIR.size = sizeof(VideoParamsCommon);
+    mEncoderVideo->getConfig(&configAIR);
+    configAIR.type = VideoConfigTypeAIR;
+    configAIR.size = sizeof(VideoParamsCommon);
+    configAIR.airParams.airAuto = mConfigIntelAir.bAirAuto;
+    configAIR.airParams.airMBs = mConfigIntelAir.nAirMBs;
+    configAIR.airParams.airThreshold = mConfigIntelAir.nAirThreshold;
+    retStatus = mEncoderVideo->setConfig(&configAIR);
+    if(retStatus != ENCODE_SUCCESS){
+	LOGW("Failed to set AIR config\n");
+    }
     return OMX_ErrorNone;
 }
 
@@ -599,6 +830,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::GetConfigVideoFramerate(OMX_PTR pStructure) {
 
 OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoFramerate(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
+    Encode_Status retStatus = ENCODE_SUCCESS;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
         LOGE("SetConfigVideoFramerate failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
@@ -618,7 +850,18 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoFramerate(OMX_PTR pStructure) {
         LOGE("SetConfigIntelAIR failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }
-    // TODO: apply Framerate configuration in Executing state
+    VideoConfigFrameRate framerate;
+    framerate.type = VideoConfigTypeFrameRate;
+    framerate.size = sizeof(VideoConfigFrameRate);
+    mEncoderVideo->getConfig(&framerate);
+    framerate.type = VideoConfigTypeFrameRate;
+    framerate.size = sizeof(VideoConfigFrameRate);
+    framerate.frameRate.frameRateDenom = 1;
+    framerate.frameRate.frameRateNum = mConfigFramerate.xEncodeFramerate>>16;
+    retStatus = mEncoderVideo->setConfig(&framerate);
+    if(retStatus != ENCODE_SUCCESS){
+	LOGW("Failed to set frame rate config! \n");
+    }
     return OMX_ErrorNone;
 }
 
@@ -629,6 +872,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::GetConfigVideoIntraVOPRefresh(OMX_PTR pStruct
 
 OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoIntraVOPRefresh(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
+    Encode_Status retStatus = ENCODE_SUCCESS;
     OMX_CONFIG_INTRAREFRESHVOPTYPE *p = (OMX_CONFIG_INTRAREFRESHVOPTYPE *)pStructure;
     CHECK_TYPE_HEADER(p);
     CHECK_PORT_INDEX(p, OUTPORT_INDEX);
@@ -638,6 +882,18 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoIntraVOPRefresh(OMX_PTR pStruct
     CHECK_SET_CONFIG_STATE();
 
     // TODO: apply VOP refresh configuration in Executing state
+    VideoConfigIntraRefreshType configIntraRefreshType;
+    configIntraRefreshType.type = VideoConfigTypeIntraRefreshType;
+    configIntraRefreshType.size = sizeof(VideoConfigIntraRefreshType);
+    if(mConfigIntelAir.bAirEnable){
+	configIntraRefreshType.refreshType = VIDEO_ENC_AIR;
+    }else{
+	configIntraRefreshType.refreshType = VIDEO_ENC_NONIR;
+    }
+    retStatus = mEncoderVideo->setConfig(&configIntraRefreshType);
+    if(retStatus != ENCODE_SUCCESS){
+	LOGW("Failed to set refresh config!\n");
+   }
     return OMX_ErrorNone;
 }
 

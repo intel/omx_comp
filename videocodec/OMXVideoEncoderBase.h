@@ -19,13 +19,16 @@
 #ifndef OMX_VIDEO_ENCODER_BASE_H_
 #define OMX_VIDEO_ENCODER_BASE_H_
 
-
 #include "OMXComponentCodecBase.h"
 #include <IntelBufferSharing.h>
-//#include "VideoEncoderInterface.h"
+#include <va/va_tpi.h>
+#include <va/va_android.h>
+#include<VideoEncoderHost.h>
 
 using android::sp;
 using android::BufferShareRegistry;
+
+#define SHARED_BUFFER_CNT 4
 
 class OMXVideoEncoderBase : public OMXComponentCodecBase {
 public:
@@ -65,14 +68,19 @@ protected:
     DECLARE_HANDLER(OMXVideoEncoderBase, ParamVideoProfileLevelQuerySupported);
 
 protected:
-    virtual OMX_ERRORTYPE EnableBufferSharing(void);
-    virtual OMX_ERRORTYPE DisableBufferSharing(void);
+    virtual OMX_ERRORTYPE InitBSMode(void);
+    virtual OMX_ERRORTYPE DeinitBSMode(void);
     virtual OMX_ERRORTYPE StartBufferSharing(void);
     virtual OMX_ERRORTYPE StopBufferSharing(void);
-
+private:
+    OMX_ERRORTYPE CheckAndEnableBSMode();
+    OMX_ERRORTYPE AllocateSharedBuffers(int width, int height);
+    OMX_ERRORTYPE UploadSharedBuffers();
+    OMX_ERRORTYPE SetBSInfoToPort();
+    OMX_ERRORTYPE TriggerBSMode();
+    OMX_ERRORTYPE SetVideoEncoderParam();
 
 protected:
-    //IVideoEncoder *mVideoEncoder;
     OMX_VIDEO_PARAM_BITRATETYPE mParamBitrate;
     OMX_VIDEO_CONFIG_PRI_INFOTYPE mConfigPriInfo;
     OMX_VIDEO_PARAM_INTEL_BITRATETYPE mParamIntelBitrate;
@@ -80,31 +88,45 @@ protected:
     OMX_VIDEO_CONFIG_INTEL_SLICE_NUMBERS mConfigIntelSliceNumbers;
     OMX_VIDEO_CONFIG_INTEL_AIR mConfigIntelAir;
     OMX_CONFIG_FRAMERATETYPE  mConfigFramerate;
-//    OMX_VIDEO_PARAM_INTEL_ADAPTIVE_SLICE_CONTROL mParamIntelAdaptiveSliceControl;
+    //OMX_VIDEO_PARAM_INTEL_ADAPTIVE_SLICE_CONTROL mParamIntelAdaptiveSliceControl;
     OMX_VIDEO_PARAM_PROFILELEVELTYPE mParamProfileLevel;
 
+    IVideoEncoder *mEncoderVideo;
+    VideoParamsCommon *mEncoderParams;
+    OMX_U32 inFrameCnt;
+    OMX_U32 outFrameCnt;
+    OMX_BOOL mFirstFrame;
+    OMX_BOOL mGetBufDone;
+
+    enum {
+        BS_STATE_INVALID,
+        BS_STATE_LOADED,
+        BS_STATE_EXECUTING
+    } mBsState;
+
+    SharedBufferType *mSharedBufArray;
+
 private:
+
+    // For fps calculation
+    OMX_TICKS lastTs;
+    float lastFps;
+
     enum {
         // OMX_PARAM_PORTDEFINITIONTYPE
         INPORT_MIN_BUFFER_COUNT = 1,
         INPORT_ACTUAL_BUFFER_COUNT = 5,
         INPORT_BUFFER_SIZE = 1382400,
 
-            // OMX_PARAM_PORTDEFINITIONTYPE
+        // OMX_PARAM_PORTDEFINITIONTYPE
         OUTPORT_MIN_BUFFER_COUNT = 1,
         OUTPORT_ACTUAL_BUFFER_COUNT = 2,
         OUTPORT_BUFFER_SIZE = 1382400,
     };
 
-    sp<BufferShareRegistry> mBufferSharingLib;
-    int mBufferSharingCount;
-    SharedBufferType* mBufferSharingInfo;
+    sp<BufferShareRegistry> mBsInstance;
+    OMX_U32 mSharedBufCnt;
 
-    enum {
-        BUFFER_SHARING_INVALID,
-        BUFFER_SHARING_LOADED,
-        BUFFER_SHARING_EXECUTING
-    } mBufferSharingState;
 };
 
 #endif /* OMX_VIDEO_ENCODER_BASE_H_ */

@@ -15,16 +15,18 @@
 */
 
 
-// #define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #define LOG_TAG "OMXVideoEncoderMPEG4"
 #include <utils/Log.h>
 #include "OMXVideoEncoderMPEG4.h"
 
-static const char* MPEG4_MIME_TYPE = "video/mpeg4";
+static const char *MPEG4_MIME_TYPE = "video/mpeg4";
 
 OMXVideoEncoderMPEG4::OMXVideoEncoderMPEG4() {
     LOGV("OMXVideoEncoderMPEG4 is constructed.");
     BuildHandlerList();
+    mEncoderVideo =  createVideoEncoder(MPEG4_MIME_TYPE);
+    if (!mEncoderVideo) LOGE("OMX_ErrorInsufficientResources");
 }
 
 OMXVideoEncoderMPEG4::~OMXVideoEncoderMPEG4() {
@@ -56,19 +58,164 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::InitOutputPortFormatSpecific(OMX_PARAM_PORTD
 }
 
 OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorInit(void) {
+
     return OMXVideoEncoderBase::ProcessorInit();
 }
 
 OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorDeinit(void) {
+
     return OMXVideoEncoderBase::ProcessorDeinit();
 }
 
 OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
-        OMX_BUFFERHEADERTYPE **buffers,
-        buffer_retain_t *retains,
-        OMX_U32 numberBuffers) {
+    OMX_BUFFERHEADERTYPE **buffers,
+    buffer_retain_t *retains,
+    OMX_U32 numberBuffers) {
 
-    return OMXVideoEncoderBase::ProcessorProcess(buffers, retains, numberBuffers);
+    VideoEncOutputBuffer outBuf;
+    VideoEncRawBuffer inBuf;
+    Encode_Status ret = ENCODE_SUCCESS;
+
+    OMX_U32 outfilledlen = 0;
+    OMX_S64 outtimestamp = 0;
+    OMX_U32 outflags = 0;
+    OMX_ERRORTYPE oret = OMX_ErrorNone;
+
+
+    LOGV_IF(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS,
+            "%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
+
+    if (!buffers[INPORT_INDEX]->nFilledLen) {
+        LOGV("%s(),%d: input buffer's nFilledLen is zero\n",  __func__, __LINE__);
+        goto out;
+    }
+
+    if (mBsState != BS_STATE_INVALID) {
+        inBuf.size = mSharedBufArray[0].dataSize;
+        inBuf.data =
+            *(reinterpret_cast<uint8_t **>(buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset));
+    } else {
+        inBuf.data =
+            buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
+        inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
+    }
+
+    LOGV("inBuf.data=%x, size=%d", (unsigned)inBuf.data, inBuf.size);
+
+    outBuf.data =
+        buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
+    outBuf.dataSize = 0;
+    outBuf.bufferSize = buffers[OUTPORT_INDEX]->nAllocLen - buffers[OUTPORT_INDEX]->nOffset;
+
+
+    if(mGetBufDone) {
+        // encode and setConfig need to be thread safe
+        pthread_mutex_unlock(&mSerializationLock);
+        ret = mEncoderVideo->encode(&inBuf);
+        pthread_mutex_unlock(&mSerializationLock);
+
+        CHECK_ENCODE_STATUS("encode");
+        mGetBufDone = OMX_FALSE;
+
+        // This is for buffer contention, we won't release current buffer
+        // but the last input buffer
+        ports[INPORT_INDEX]->ReturnAllRetainedBuffers();
+    }
+
+    if(mFirstFrame) {
+        LOGV("mFirstFrame\n");
+        outBuf.format = OUTPUT_CODEC_DATA;
+        ret = mEncoderVideo->getOutput(&outBuf);
+        CHECK_ENCODE_STATUS("getOutput");
+        // Return code could not be ENCODE_BUFFER_TOO_SMALL
+        // If we don't return error, we will have dead lock issue
+        if (ret == ENCODE_BUFFER_TOO_SMALL) {
+            return OMX_ErrorUndefined;
+        }
+
+        LOGV("output codec data size = %d", outBuf.dataSize);
+
+        outflags |= OMX_BUFFERFLAG_CODECCONFIG;
+        outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
+        outflags |= OMX_BUFFERFLAG_SYNCFRAME;
+
+        outfilledlen = outBuf.dataSize;
+        mFirstFrame = OMX_FALSE;
+    } else {
+        outBuf.format = OUTPUT_EVERYTHING;
+        mEncoderVideo->getOutput(&outBuf);
+        CHECK_ENCODE_STATUS("getOutput");
+
+        LOGV("output data size = %d", outBuf.dataSize);
+
+
+        outfilledlen = outBuf.dataSize;
+        outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
+
+        if (outBuf.flag & ENCODE_BUFFERFLAG_SYNCFRAME) {
+            outflags |= OMX_BUFFERFLAG_SYNCFRAME;
+        }
+        if(outBuf.flag & ENCODE_BUFFERFLAG_ENDOFFRAME) {
+            LOGV("Get buffer done\n");
+            outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
+            mGetBufDone = OMX_TRUE;
+            retains[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
+
+        } else {
+            retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;  //get again
+
+        }
+
+    }
+
+    if (outfilledlen > 0) {
+        retains[OUTPORT_INDEX] = BUFFER_RETAIN_NOT_RETAIN;
+    } else {
+        retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+    }
+
+
+
+#if SHOW_FPS
+    {
+        struct timeval t;
+        OMX_TICKS current_ts, interval_ts;
+        float current_fps, average_fps;
+
+        t.tv_sec = t.tv_usec = 0;
+        gettimeofday(&t, NULL);
+
+        current_ts =
+            (nsecs_t)t.tv_sec * 1000000000 + (nsecs_t)t.tv_usec * 1000;
+        interval_ts = current_ts - lastTs;
+        lastTs = current_ts;
+
+        current_fps = (float)1000000000 / (float)interval_ts;
+        average_fps = (current_fps + lastFps) / 2;
+        lastFps = current_fps;
+
+        LOGV("FPS = %2.1f\n", average_fps);
+    }
+#endif
+
+out:
+
+    if(retains[OUTPORT_INDEX] != BUFFER_RETAIN_GETAGAIN) {
+        buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
+        buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
+        buffers[OUTPORT_INDEX]->nFlags = outflags;
+    }
+
+    if (retains[INPORT_INDEX] == BUFFER_RETAIN_NOT_RETAIN ||
+            retains[INPORT_INDEX] == BUFFER_RETAIN_ACCUMULATE ) {
+        inFrameCnt ++;
+    }
+
+    if (retains[OUTPORT_INDEX] == BUFFER_RETAIN_NOT_RETAIN)
+        outFrameCnt ++;
+
+    return oret;
+
 }
 
 OMX_ERRORTYPE OMXVideoEncoderMPEG4::BuildHandlerList(void) {

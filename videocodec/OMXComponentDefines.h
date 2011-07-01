@@ -76,6 +76,30 @@
         return OMX_ErrorNone;\
     }
 
+#define CHECK_BS_STATE() \
+    if (mBsState == BS_STATE_EXECUTING) { \
+        LOGE("Wrong state)"); \
+        return OMX_ErrorUndefined; \
+    }
+
+#define CHECK_BS_STATUS(FUNC) \
+    if (ret != BS_SUCCESS) { \
+        LOGE(FUNC"Failed. ret = 0x%08x\n", ret); \
+        return OMX_ErrorUndefined; \
+    }
+
+#define CHECK_STATUS(FUNC) \
+    if (ret != OMX_ErrorNone) { \
+        LOGE(FUNC"Failed. ret = 0x%08x\n", ret); \
+        return ret; \
+    }
+
+#define CHECK_ENCODE_STATUS(FUNC)\
+    if (ret < ENCODE_SUCCESS) { \
+        LOGE(FUNC"Failed. ret = 0x%08x\n", ret); \
+        return OMX_ErrorUndefined; \
+    }
+
 #define DECLARE_OMX_COMPONENT(NAME, ROLE, CLASS) \
     static const char *gName = (const char *)(NAME);\
     static const char *gRole = (const char *)(ROLE);\

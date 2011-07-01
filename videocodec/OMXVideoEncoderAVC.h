@@ -18,7 +18,6 @@
 #ifndef OMX_VIDEO_ENCODER_AVC_H_
 #define OMX_VIDEO_ENCODER_AVC_H_
 
-
 #include "OMXVideoEncoderBase.h"
 
 class OMXVideoEncoderAVC : public OMXVideoEncoderBase {
@@ -30,22 +29,23 @@ protected:
     virtual OMX_ERRORTYPE InitOutputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput);
     virtual OMX_ERRORTYPE ProcessorInit(void);
     virtual OMX_ERRORTYPE ProcessorDeinit(void);
+
     virtual OMX_ERRORTYPE ProcessorProcess(
-            OMX_BUFFERHEADERTYPE **buffers,
-            buffer_retain_t *retains,
-            OMX_U32 numberBuffers);
+        OMX_BUFFERHEADERTYPE **buffers,
+        buffer_retain_t *retains,
+        OMX_U32 numberBuffers);
 
-   virtual OMX_ERRORTYPE BuildHandlerList(void);
 
-   DECLARE_HANDLER(OMXVideoEncoderAVC, ParamVideoAvc);
-   DECLARE_HANDLER(OMXVideoEncoderAVC, ParamNalStreamFormat);
-   DECLARE_HANDLER(OMXVideoEncoderAVC, ParamNalStreamFormatSupported);
-   DECLARE_HANDLER(OMXVideoEncoderAVC, ParamNalStreamFormatSelect);
-   DECLARE_HANDLER(OMXVideoEncoderAVC, ConfigVideoAVCIntraPeriod);
-   DECLARE_HANDLER(OMXVideoEncoderAVC, ConfigVideoNalSize);
-   DECLARE_HANDLER(OMXVideoEncoderAVC, ParamIntelAVCVUI);
-   DECLARE_HANDLER(OMXVideoEncoderAVC, ParamVideoBytestream);
+    virtual OMX_ERRORTYPE BuildHandlerList(void);
 
+    DECLARE_HANDLER(OMXVideoEncoderAVC, ParamVideoAvc);
+    DECLARE_HANDLER(OMXVideoEncoderAVC, ParamNalStreamFormat);
+    DECLARE_HANDLER(OMXVideoEncoderAVC, ParamNalStreamFormatSupported);
+    DECLARE_HANDLER(OMXVideoEncoderAVC, ParamNalStreamFormatSelect);
+    DECLARE_HANDLER(OMXVideoEncoderAVC, ConfigVideoAVCIntraPeriod);
+    DECLARE_HANDLER(OMXVideoEncoderAVC, ConfigVideoNalSize);
+    DECLARE_HANDLER(OMXVideoEncoderAVC, ParamIntelAVCVUI);
+    DECLARE_HANDLER(OMXVideoEncoderAVC, ParamVideoBytestream);
 
 private:
     enum {
@@ -61,7 +61,10 @@ private:
     OMX_NALSTREAMFORMATTYPE mNalStreamFormat;
     OMX_VIDEO_CONFIG_AVCINTRAPERIOD mConfigAvcIntraPeriod;
     OMX_VIDEO_CONFIG_NALSIZE mConfigNalSize;
+    OMX_VIDEO_PARAM_INTEL_BITRATETYPE avcEncParamIntelBitrateType;
     //OMX_VIDEO_PARAM_INTEL_AVCVUI mParamIntelAvcVui;
+
+    VideoParamsAVC *mEncAVCParams;
 };
 
 #endif /* OMX_VIDEO_ENCODER_AVC_H_ */

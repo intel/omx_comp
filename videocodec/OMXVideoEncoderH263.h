@@ -21,6 +21,7 @@
 
 #include "OMXVideoEncoderBase.h"
 
+
 class OMXVideoEncoderH263 : public OMXVideoEncoderBase {
 public:
     OMXVideoEncoderH263();
@@ -31,13 +32,13 @@ protected:
     virtual OMX_ERRORTYPE ProcessorInit(void);
     virtual OMX_ERRORTYPE ProcessorDeinit(void);
     virtual OMX_ERRORTYPE ProcessorProcess(
-            OMX_BUFFERHEADERTYPE **buffers,
-            buffer_retain_t *retains,
-            OMX_U32 numberBuffers);
+        OMX_BUFFERHEADERTYPE **buffers,
+        buffer_retain_t *retains,
+        OMX_U32 numberBuffers);
 
-   virtual OMX_ERRORTYPE BuildHandlerList(void);
+    virtual OMX_ERRORTYPE BuildHandlerList(void);
 
-   DECLARE_HANDLER(OMXVideoEncoderH263, ParamVideoH263);
+    DECLARE_HANDLER(OMXVideoEncoderH263, ParamVideoH263);
 
 private:
     enum {
@@ -48,6 +49,7 @@ private:
     };
 
     OMX_VIDEO_PARAM_H263TYPE mParamH263;
+
 };
 
 
