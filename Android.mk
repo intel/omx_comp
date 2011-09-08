@@ -2,12 +2,15 @@ ifeq ($(strip $(BOARD_USES_MRST_OMX)),true)
 
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
+LOCAL_MODULE := wrs_omxil_components.list
+LOCAL_SRC_FILES := wrs_omxil_components.list
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_PREBUILT)
 
+include $(CLEAR_VARS)
 VENDORS_INTEL_MRST_COMPONENTS_ROOT := $(LOCAL_PATH)
 
-PRODUCT_COPY_FILES += \
-	$(LOCAL_PATH)/wrs_omxil_components.list:system/etc/wrs_omxil_components.list
-#$(call add-prebuilt-files, ETC, wrs_omxil_components.list)
 
 WRS_OMXIL_CORE_ROOT := hardware/intel/wrs_omxil_core
 
