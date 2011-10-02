@@ -21,9 +21,9 @@ LIBVA_TOP := hardware/intel/libva
 
 #intel video codecs
 include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/psb-dec/Android.mk
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/avc-enc/Android.mk
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/h263-enc/Android.mk
-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/m4v-enc/Android.mk
+#include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/avc-enc/Android.mk
+#include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/h263-enc/Android.mk
+#include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/m4v-enc/Android.mk
 include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/videocodec/Android.mk
 
 #intel audio codecs
