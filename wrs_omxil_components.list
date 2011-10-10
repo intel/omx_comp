@@ -1,8 +1,4 @@
 #libwrs_omxil_intel_mrst_sst.so
-libwrs_omxil_intel_mrst_psb_avc_enc.so
-libwrs_omxil_intel_mrst_psb_h263_enc.so
-libwrs_omxil_intel_mrst_psb_m4v_enc.so
-libwrs_omxil_intel_mrst_psb_dec.so
 libOMXVideoDecoderAVC.so
 libOMXVideoDecoderH263.so
 libOMXVideoDecoderWMV.so
