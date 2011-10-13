@@ -26,6 +26,11 @@ LOCAL_SRC_FILES := \
     OMXVideoDecoderBase.cpp\
     OMXVideoDecoderAVC.cpp
 
+LOCAL_COPY_HEADERS := \
+    vabuffer.h
+
+LOCAL_COPY_HEADERS_TO :=libva
+
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderAVC
 include $(BUILD_SHARED_LIBRARY)
