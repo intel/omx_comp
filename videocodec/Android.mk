@@ -1,8 +1,6 @@
 ifeq ($(strip $(BOARD_USES_WRS_OMXIL_CORE)),true)
 LOCAL_PATH := $(call my-dir)
 
-VENDORS_INTEL_MRST_LIBMIX_ROOT := hardware/intel/PRIVATE/libmix
-
 include $(CLEAR_VARS)
 
 LOCAL_CPPFLAGS :=
@@ -18,7 +16,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
     $(PV_INCLUDES) \
-    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videodecoder \
+    $(TARGET_OUT_HEADERS)/libmixcodec \
     $(TARGET_OUT_HEADERS)/libva
 
 LOCAL_SRC_FILES := \
@@ -51,7 +49,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
     $(PV_INCLUDES) \
-    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videodecoder \
+    $(TARGET_OUT_HEADERS)/libmixcodec \
     $(TARGET_OUT_HEADERS)/libva
 
 LOCAL_SRC_FILES := \
@@ -78,7 +76,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
     $(PV_INCLUDES) \
-    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videodecoder \
+    $(TARGET_OUT_HEADERS)/libmixcodec \
     $(TARGET_OUT_HEADERS)/libva
 
 LOCAL_SRC_FILES := \
@@ -106,7 +104,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
     $(PV_INCLUDES) \
-    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videodecoder \
+    $(TARGET_OUT_HEADERS)/libmixcodec \
     $(TARGET_OUT_HEADERS)/libva
 
 LOCAL_SRC_FILES := \
@@ -139,7 +137,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
-    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videoenc 	\
+    $(TARGET_OUT_HEADERS)/libmixcodec 	\
     $(TARGET_OUT_HEADERS)/libva	\
     $(TARGET_OUT_HEADERS)/libsharedbuffer
 
@@ -172,7 +170,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
-    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videoenc 	\
+    $(TARGET_OUT_HEADERS)/libmixcodec 	\
     $(TARGET_OUT_HEADERS)/libva	\
     $(TARGET_OUT_HEADERS)/libsharedbuffer
 
@@ -207,7 +205,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
-    $(VENDORS_INTEL_MRST_LIBMIX_ROOT)/videoenc 	\
+    $(TARGET_OUT_HEADERS)/libmixcodec 	\
     $(TARGET_OUT_HEADERS)/libva	\
     $(TARGET_OUT_HEADERS)/libsharedbuffer
 
