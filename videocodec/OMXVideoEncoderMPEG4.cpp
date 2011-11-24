@@ -90,15 +90,9 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
         goto out;
     }
 
-    if (mBsState != BS_STATE_INVALID) {
-        inBuf.size = mSharedBufArray[0].dataSize;
-        inBuf.data =
-            *(reinterpret_cast<uint8_t **>(buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset));
-    } else {
-        inBuf.data =
-            buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
-        inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
-    }
+    inBuf.data =
+        buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
+    inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
 
     LOGV("inBuf.data=%x, size=%d", (unsigned)inBuf.data, inBuf.size);
 

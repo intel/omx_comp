@@ -20,15 +20,12 @@
 #define OMX_VIDEO_ENCODER_BASE_H_
 
 #include "OMXComponentCodecBase.h"
-#include <IntelBufferSharing.h>
 #include <va/va_tpi.h>
 #include <va/va_android.h>
 #include<VideoEncoderHost.h>
 
 using android::sp;
-using android::BufferShareRegistry;
 
-#define SHARED_BUFFER_CNT 7
 
 class OMXVideoEncoderBase : public OMXComponentCodecBase {
 public:
@@ -66,18 +63,9 @@ protected:
     DECLARE_HANDLER(OMXVideoEncoderBase, ConfigVideoIntraVOPRefresh);
     DECLARE_HANDLER(OMXVideoEncoderBase, ParamIntelAdaptiveSliceControl);
     DECLARE_HANDLER(OMXVideoEncoderBase, ParamVideoProfileLevelQuerySupported);
+    DECLARE_HANDLER(OMXVideoEncoderBase, ParamGoogleMetaDataInBuffers);
 
-protected:
-    virtual OMX_ERRORTYPE InitBSMode(void);
-    virtual OMX_ERRORTYPE DeinitBSMode(void);
-    virtual OMX_ERRORTYPE StartBufferSharing(void);
-    virtual OMX_ERRORTYPE StopBufferSharing(void);
 private:
-    OMX_ERRORTYPE CheckAndEnableBSMode();
-    OMX_ERRORTYPE AllocateSharedBuffers(int width, int height);
-    OMX_ERRORTYPE UploadSharedBuffers();
-    OMX_ERRORTYPE SetBSInfoToPort();
-    OMX_ERRORTYPE TriggerBSMode();
     OMX_ERRORTYPE SetVideoEncoderParam();
 
 protected:
@@ -99,13 +87,7 @@ protected:
     OMX_BOOL mGetBufDone;
     OMX_U32 mPFrames;
 
-    enum {
-        BS_STATE_INVALID,
-        BS_STATE_LOADED,
-        BS_STATE_EXECUTING
-    } mBsState;
-
-    SharedBufferType *mSharedBufArray;
+    OMX_BOOL mMetaDataBufferSharing;
 
 private:
 
@@ -116,7 +98,7 @@ private:
     enum {
         // OMX_PARAM_PORTDEFINITIONTYPE
         INPORT_MIN_BUFFER_COUNT = 1,
-        INPORT_ACTUAL_BUFFER_COUNT = SHARED_BUFFER_CNT,
+        INPORT_ACTUAL_BUFFER_COUNT = 2,
         INPORT_BUFFER_SIZE = 1382400,
 
         // OMX_PARAM_PORTDEFINITIONTYPE
@@ -124,9 +106,6 @@ private:
         OUTPORT_ACTUAL_BUFFER_COUNT = 2,
         OUTPORT_BUFFER_SIZE = 1382400,
     };
-
-    sp<BufferShareRegistry> mBsInstance;
-    OMX_U32 mSharedBufCnt;
 
 };
 

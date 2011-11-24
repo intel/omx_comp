@@ -127,15 +127,8 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
         goto out;
     }
 
-    if (mBsState != BS_STATE_INVALID) {
-        LOGV(" Share buffer mode\n");
-        inBuf.size = mSharedBufArray[0].dataSize;
-        inBuf.data =
-            *(reinterpret_cast<uint8_t **>(buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset));
-    } else {
-        inBuf.data = buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
-        inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
-    }
+    inBuf.data = buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
+    inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
 
     LOGV("inBuf.data=%x, size=%d",(unsigned)inBuf.data, inBuf.size);
 
@@ -242,6 +235,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
                 outBuf.format = OUTPUT_CODEC_DATA;
                 ret = mEncoderVideo->getOutput(&outBuf);
                 CHECK_ENCODE_STATUS("getOutput");
+
                 // Return code could not be ENCODE_BUFFER_TOO_SMALL
                 // If we don't return error, we will have dead lock issue
                 if (ret == ENCODE_BUFFER_TOO_SMALL) {

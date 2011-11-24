@@ -143,16 +143,14 @@ LOCAL_SHARED_LIBRARIES := \
 	libva \
 	libva-android \
 	libva-tpi \
-        libutils \
-        libsharedbuffer
+        libutils
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
     $(TARGET_OUT_HEADERS)/libmixcodec 	\
-    $(TARGET_OUT_HEADERS)/libva	\
-    $(TARGET_OUT_HEADERS)/libsharedbuffer
+    $(TARGET_OUT_HEADERS)/libva
 
 LOCAL_SRC_FILES := \
     OMXComponentCodecBase.cpp\
@@ -176,16 +174,14 @@ LOCAL_SHARED_LIBRARIES := \
 	libva \
 	libva-android \
 	libva-tpi \
-        libutils \
-        libsharedbuffer
+        libutils
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
     $(TARGET_OUT_HEADERS)/libmixcodec 	\
-    $(TARGET_OUT_HEADERS)/libva	\
-    $(TARGET_OUT_HEADERS)/libsharedbuffer
+    $(TARGET_OUT_HEADERS)/libva
 
 LOCAL_SRC_FILES := \
     OMXComponentCodecBase.cpp\
@@ -211,16 +207,14 @@ LOCAL_SHARED_LIBRARIES := \
 	libva \
 	libva-android \
 	libva-tpi \
-        libutils \
-        libsharedbuffer
+        libutils
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
     $(TARGET_OUT_HEADERS)/libmixcodec 	\
-    $(TARGET_OUT_HEADERS)/libva	\
-    $(TARGET_OUT_HEADERS)/libsharedbuffer
+    $(TARGET_OUT_HEADERS)/libva
 
 LOCAL_SRC_FILES := \
     OMXComponentCodecBase.cpp\
