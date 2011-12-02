@@ -20,11 +20,12 @@
 #include "OMXVideoDecoderBase.h"
 #include "vabuffer.h"
 
-static const char* VA_RAW_MIME_TYPE = "video/x-raw-va";
+static const char* VA_RAW_MIME_TYPE = "video/raw";
 static const uint32_t VA_COLOR_FORMAT = 0x7FA00E00;
 
 OMXVideoDecoderBase::OMXVideoDecoderBase()
-    : mVideoDecoder(NULL) {
+    : mVideoDecoder(NULL),
+      bNativeBufferEnable(false) {
 }
 
 OMXVideoDecoderBase::~OMXVideoDecoderBase() {
@@ -478,8 +479,45 @@ OMX_ERRORTYPE OMXVideoDecoderBase::TranslateDecodeStatus(Decode_Status status) {
 OMX_ERRORTYPE OMXVideoDecoderBase::BuildHandlerList(void) {
     OMXComponentCodecBase::BuildHandlerList();
     AddHandler(OMX_IndexParamVideoPortFormat, GetParamVideoPortFormat, SetParamVideoPortFormat);
+    AddHandler((OMX_INDEXTYPE)OMX_IndexParamGoogleNativeBuffers, NULL,
+                    SetParamVideoGoogleNativeBuffers);
+    AddHandler((OMX_INDEXTYPE)OMX_IndexParamGoogleNativeBufferUsage,
+                    GetParamVideoGoogleNativeBufferUsage, NULL);
     //AddHandler(PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX, GetCapabilityFlags, SetCapabilityFlags);
     return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoDecoderBase::SetParamVideoGoogleNativeBuffers(OMX_PTR pStructure) {
+
+    OMX_ERRORTYPE ret= OMX_ErrorNone;
+    OMX_GOOGLE_ENABLE_ANDROID_BUFFERS *p =
+            (OMX_GOOGLE_ENABLE_ANDROID_BUFFERS *)pStructure;
+
+    CHECK_TYPE_HEADER(p);
+    CHECK_PORT_INDEX_RANGE(p);
+    CHECK_SET_PARAM_STATE();
+
+    bNativeBufferEnable = p->enable;
+
+    return ret;
+
+}
+
+OMX_ERRORTYPE OMXVideoDecoderBase::GetParamVideoGoogleNativeBufferUsage(OMX_PTR pStructure) {
+
+    OMX_ERRORTYPE ret= OMX_ErrorNone;
+    OMX_GOOGLE_ANDROID_BUFFERS_USAGE *p =
+            (OMX_GOOGLE_ANDROID_BUFFERS_USAGE *)pStructure;
+
+    CHECK_TYPE_HEADER(p);
+    CHECK_PORT_INDEX_RANGE(p);
+    CHECK_SET_PARAM_STATE();
+
+    if (bNativeBufferEnable)
+            p->nUsage=GRALLOC_USAGE_HW_RENDER;
+
+    return ret;
+
 }
 
 OMX_ERRORTYPE OMXVideoDecoderBase::GetParamVideoPortFormat(OMX_PTR pStructure) {

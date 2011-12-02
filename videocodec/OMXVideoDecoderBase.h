@@ -54,6 +54,8 @@ protected:
 
     virtual OMX_ERRORTYPE BuildHandlerList(void);
     DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoPortFormat);
+    DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoGoogleNativeBuffers);
+    DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoGoogleNativeBufferUsage);
     DECLARE_HANDLER(OMXVideoDecoderBase, CapabilityFlags);
 
 private:
@@ -71,6 +73,7 @@ private:
 
 protected:
     IVideoDecoder *mVideoDecoder;
+    bool bNativeBufferEnable;
 };
 
 #endif /* OMX_VIDEO_DECODER_BASE_H_ */
