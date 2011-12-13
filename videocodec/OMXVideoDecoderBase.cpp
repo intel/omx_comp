@@ -21,7 +21,7 @@
 #include "vabuffer.h"
 
 static const char* VA_RAW_MIME_TYPE = "video/raw";
-static const uint32_t VA_COLOR_FORMAT = 0x7FA00E00;
+static const uint32_t VA_COLOR_FORMAT = 0x100;
 
 OMXVideoDecoderBase::OMXVideoDecoderBase()
     : mVideoDecoder(NULL),
