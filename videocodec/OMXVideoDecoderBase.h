@@ -45,10 +45,14 @@ protected:
             OMX_BUFFERHEADERTYPE **buffers,
             buffer_retain_t *retains,
             OMX_U32 numberBuffers);
+   virtual  OMX_ERRORTYPE ProcessorPreFreeBuffer(OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBuffer);
+   virtual  OMX_ERRORTYPE ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* pBuffer);
+   virtual  OMX_ERRORTYPE ProcessorUseNativeBuffer(OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBuffer);
 
     virtual OMX_ERRORTYPE PrepareConfigBuffer(VideoConfigBuffer *p);
     virtual OMX_ERRORTYPE PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buffer, buffer_retain_t *retain, VideoDecodeBuffer *p);
-    virtual OMX_ERRORTYPE FillRenderBuffer(OMX_BUFFERHEADERTYPE *buffer, OMX_U32 inportBufferFlags);
+    // TODO: Overload this Function for backward compatability.
+    virtual OMX_ERRORTYPE FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuffer, OMX_U32 inportBufferFlags);
     virtual OMX_ERRORTYPE HandleFormatChange(void);
     virtual OMX_ERRORTYPE TranslateDecodeStatus(Decode_Status status);
 
@@ -67,7 +71,7 @@ private:
 
         // OMX_PARAM_PORTDEFINITIONTYPE
         OUTPORT_MIN_BUFFER_COUNT = 1,
-        OUTPORT_ACTUAL_BUFFER_COUNT = 2,
+        OUTPORT_ACTUAL_BUFFER_COUNT = 19,  //TODO: Fix this from SEG
         OUTPORT_BUFFER_SIZE = 1382400,
     };
 
