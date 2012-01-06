@@ -63,6 +63,9 @@ protected:
     DECLARE_HANDLER(OMXVideoDecoderBase, CapabilityFlags);
 
 private:
+    OMX_BUFFERHEADERTYPE* getDecodedBuffer( OMX_BUFFERHEADERTYPE *pBuffer, bool draining);
+    bool processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer);
+
     enum {
         // OMX_PARAM_PORTDEFINITIONTYPE
         INPORT_MIN_BUFFER_COUNT = 1,

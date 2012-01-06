@@ -235,11 +235,15 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
 
     OMX_ERRORTYPE ret;
     Decode_Status status;
+    OMX_BUFFERHEADERTYPE *pOriginalOutBuffer = buffers[OUTPORT_INDEX];
 
     // fill render buffer without draining decoder output queue
     LOGV("calling FillRenderBuffer() 1st time sending=%p", buffers[OUTPORT_INDEX]);
     ret = FillRenderBuffer(&buffers[OUTPORT_INDEX], 0);
     if (ret == OMX_ErrorNone) {
+
+        processOutPortBuffers(pOriginalOutBuffer ,buffers[OUTPORT_INDEX]);
+
         retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
         LOGV("FillRenderBuffer() 1st time got=%p, returning INPORT_INDEX.", buffers[OUTPORT_INDEX]);
         // TODO: continue decoding
@@ -297,8 +301,29 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
     if (ret == OMX_ErrorNotReady) {
         retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
         ret = OMX_ErrorNone;
+    } else if ( ret == OMX_ErrorNone) {
+        processOutPortBuffers(pOriginalOutBuffer ,buffers[OUTPORT_INDEX]);
     }
     return ret;
+}
+
+bool OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer) {
+    OMX_ERRORTYPE ret= OMX_ErrorNone;
+    if ( pOriginalOutBuffer != pNewOutBuffer ) {
+        // We are not returning the same buffer that we got. Remove this buffer from output port
+        LOGV("%s:original=%p ret=%p", __FUNCTION__, pOriginalOutBuffer, pNewOutBuffer);
+        ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pNewOutBuffer);
+        if ( OMX_ErrorNone != ret ) {
+            LOGE("failed in RemoveThisBuffer= %p", pNewOutBuffer);
+        }
+
+        // Put back the original buffer back to the head
+        ret = this->ports[OUTPORT_INDEX]->RetainThisBuffer(pOriginalOutBuffer, false);
+        if ( OMX_ErrorNone != ret ) {
+            LOGE("failed in PushThisBuffer = %p", pOriginalOutBuffer);
+        }
+    }
+    return true;
 }
 
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFreeBuffer(OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBuffer) {
@@ -375,32 +400,20 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buf
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuffer, OMX_U32 inportBufferFlags) {
-    LOGV("OMXVideoDecoderBase::FillRenderBuffer() entered");
-    OMX_BUFFERHEADERTYPE *pBuffer = *ppBuffer;
-    bool draining = (inportBufferFlags & OMX_BUFFERFLAG_EOS);
-    if (draining) {
-            LOGI("%s EOS received on buffer[INPORT]->nFlags", __FUNCTION__);
-    }
-
+OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYPE *pBuffer, bool draining) {
+    LOGV("OMXVideoDecoderBase::%s() entered", __FUNCTION__);
     //pthread_mutex_lock(&mSerializationLock);
     const VideoRenderBuffer *renderBuffer = mVideoDecoder->getOutput(draining);
     //pthread_mutex_unlock(&mSerializationLock);
     if (renderBuffer == NULL) {
-        LOGI("getOutput returned NULL, EOS_Flag = %d", draining);
-        pBuffer->nFilledLen = 0;
-        if (draining) {
-            LOGI("EOS received");
-            pBuffer->nFlags = OMX_BUFFERFLAG_EOS;
-            return OMX_ErrorNone;
-        }
-        return OMX_ErrorNotReady;
+        return NULL;
     }
+
     LOGI("getOutput returned %p",renderBuffer->surface);
 
     if(bNativeBufferEnable == true) {
-        LOGI("%s: returning  with  %p ", __FUNCTION__, renderBuffer->nwOMXBufHeader);
-        *ppBuffer = pBuffer = (OMX_BUFFERHEADERTYPE*) renderBuffer->nwOMXBufHeader;
+        LOGV("%s: returning  with  %p ", __FUNCTION__, renderBuffer->nwOMXBufHeader);
+        pBuffer = (OMX_BUFFERHEADERTYPE*) renderBuffer->nwOMXBufHeader;
         pBuffer->nFilledLen = sizeof(VideoRenderBuffer);
         pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
         pBuffer->nTimeStamp = renderBuffer->timeStamp;
@@ -419,9 +432,70 @@ OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuf
      // set "RenderDone" in next "FillRenderBuffer" with the same OMX buffer header.
     // this indicates surface is "rendered" and can be reused for decoding.
     pBuffer->pPlatformPrivate = (void *)renderBuffer;
-    LOGV("%s, buffer->pPlatformPrivate = %p pBuff=%p omxbuf=%p %s",
+    LOGI("%s, buffer->pPlatformPrivate = %p pBuff=%p omxbuf=%p %s",
         __FUNCTION__, renderBuffer, pBuffer, renderBuffer->nwOMXBufHeader,
         pBuffer==renderBuffer->nwOMXBufHeader?"Same": "Differ");
+
+    return pBuffer;
+}
+
+OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuffer, OMX_U32 inportBufferFlags) {
+    OMX_BUFFERHEADERTYPE *pBuffer;
+    bool draining = (inportBufferFlags & OMX_BUFFERFLAG_EOS);
+    OMX_ERRORTYPE ret;
+
+    pBuffer = *ppBuffer;
+    pBuffer->nFilledLen = 0;
+    LOGV("OMXVideoDecoderBase::FillRenderBuffer() entered draining=%d ppBuffer=%p", draining, *ppBuffer);
+
+    if ( false == draining) {
+        // This is the normal operation
+        pBuffer = getDecodedBuffer(pBuffer, draining);
+        if ( NULL == pBuffer ) {
+            LOGE("OMXVideoDecoderBase::FillRenderBuffer() not ready");
+            return OMX_ErrorNotReady;
+        }
+
+        *ppBuffer = pBuffer;
+        LOGI("OMXVideoDecoderBase::FillRenderBuffer() returning %p", *ppBuffer);
+    } else {
+        // We have hit EOS. We need to give back all the buffers we have with us
+        LOGI("%s EOS received on buffer[INPORT]->nFlags ppBuffer=%p", __FUNCTION__, *ppBuffer);
+        OMX_BUFFERHEADERTYPE *pPendingBuffer;
+        pBuffer = getDecodedBuffer(pBuffer, draining);
+        while ( NULL != pBuffer ) {
+            ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pBuffer);
+            if ( OMX_ErrorNone != ret ) {
+                LOGE("%s: removing buffer %p failed with error %d", __FUNCTION__, pBuffer, ret);
+            }
+            pPendingBuffer = getDecodedBuffer(pBuffer, draining);
+            LOGI("%s EOS in loop pBuffer=%p ppBuffer=%p pPendingBuffer=%p", __FUNCTION__, pBuffer, *ppBuffer, pPendingBuffer);
+            if ( NULL != pPendingBuffer ) {
+                // We have hit the EOS. Give pBuffer
+                this->ports[OUTPORT_INDEX]->ReturnThisBuffer(pBuffer);
+            } else {
+                // Return pBuffer it as part of ppBuffer
+                break;
+            }
+
+            pBuffer = pPendingBuffer;
+        }
+
+        *ppBuffer = pBuffer;
+
+        // pBuffer is NOT expected to be null
+        if ( NULL != pBuffer ) {
+            // This means we dont have any more buffers
+            ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pBuffer);
+            if ( OMX_ErrorNone != ret ) {
+                LOGE("%s: removing buffer %p failed with error %d", __FUNCTION__, pBuffer, ret);
+            }
+            pBuffer->nFilledLen = 0;
+            pBuffer->nFlags = OMX_BUFFERFLAG_EOS;
+            LOGI("EOS sending ");
+        }
+    }
+
     return OMX_ErrorNone;
 }
 
