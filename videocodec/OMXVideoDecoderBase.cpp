@@ -223,6 +223,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorFlush(OMX_U32 portIndex) {
         //pthread_mutex_lock(&mSerializationLock);
         mVideoDecoder->flush();
         //pthread_mutex_unlock(&mSerializationLock);
+    } else {
+	mVideoDecoder->flushOutport();
     }
     // TODO: do we need to flush output port?
     return OMX_ErrorNone;
@@ -283,6 +285,11 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             LOGW("Decoder returns DECODE_NO_REFERENCE.");
             retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
             return OMX_ErrorNone;
+	} else if (status == DECODE_NO_SURFACE) {
+            LOGW("Decoder returns DECODE_NO_SURFACE.");
+            retains[OUTPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
+            buffers[OUTPORT_INDEX]->nFilledLen = 0;
+            return OMX_ErrorNone;
         } else if (status != DECODE_SUCCESS && status != DECODE_FRAME_DROPPED) {
             if (checkFatalDecoderError(status)) {
                 return TranslateDecodeStatus(status);
@@ -334,6 +341,12 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFreeBuffer(OMX_U32 nPortIndex, OM
         pBuffer->pPlatformPrivate = NULL;
     }
     return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorReleaseLock(void) {
+	LOGV("%s entered", __FUNCTION__);
+	mVideoDecoder->releaseLock();
+	return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* pBuffer) {
