@@ -75,7 +75,7 @@ private:
 
         // OMX_PARAM_PORTDEFINITIONTYPE
         OUTPORT_MIN_BUFFER_COUNT = 1,
-        OUTPORT_ACTUAL_BUFFER_COUNT = 19,  //TODO: Fix this from SEG
+        OUTPORT_ACTUAL_BUFFER_COUNT = 10,  // default value for WMV9/MP4
         OUTPORT_BUFFER_SIZE = 1382400,
     };
 
