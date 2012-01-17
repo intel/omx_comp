@@ -7,9 +7,11 @@ LOCAL_CPPFLAGS :=
 LOCAL_LDFLAGS :=
 
 LOCAL_SHARED_LIBRARIES := \
-libwrs_omxil_common \
+    libwrs_omxil_common \
     libva_videodecoder \
-    liblog
+    liblog\
+    libva \
+    libva-android
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
@@ -42,7 +44,9 @@ LOCAL_LDFLAGS :=
 LOCAL_SHARED_LIBRARIES := \
     libwrs_omxil_common \
     libva_videodecoder \
-    liblog
+    liblog \
+    libva \
+    libva-android
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
@@ -69,7 +73,9 @@ LOCAL_LDFLAGS :=
 LOCAL_SHARED_LIBRARIES := \
     libwrs_omxil_common \
     libva_videodecoder \
-    liblog
+    liblog \
+    libva \
+    libva-android
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
@@ -97,7 +103,9 @@ LOCAL_LDFLAGS :=
 LOCAL_SHARED_LIBRARIES := \
     libwrs_omxil_common \
     libva_videodecoder \
-    liblog
+    liblog \
+    libva \
+    libva-android
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \

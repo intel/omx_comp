@@ -25,7 +25,8 @@ static const uint32_t VA_COLOR_FORMAT = 0x100;
 
 OMXVideoDecoderBase::OMXVideoDecoderBase()
     : mVideoDecoder(NULL),
-      bNativeBufferEnable(false) {
+      bNativeBufferEnable(false),
+      mIsThumbNail(false) {
 }
 
 OMXVideoDecoderBase::~OMXVideoDecoderBase() {
@@ -194,6 +195,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorDeinit(void) {
         LOGE("ProcessorDeinit: Video decoder is not created.");
         return OMX_ErrorDynamicResourcesUnavailable;
     }
+    mIsThumbNail = false;
+
     //pthread_mutex_lock(&mSerializationLock);
     mVideoDecoder->stop();
     //pthread_mutex_unlock(&mSerializationLock);
@@ -213,6 +216,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorStop(void) {
 
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorFlush(OMX_U32 portIndex) {
     LOGI("Flushing port# %p.", portIndex);
+    mIsThumbNail = false;
     if (mVideoDecoder == NULL) {
         LOGE("ProcessorFlush: Video decoder is not created.");
         return OMX_ErrorDynamicResourcesUnavailable;
@@ -430,25 +434,21 @@ OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYP
         pBuffer->nFilledLen = sizeof(VideoRenderBuffer);
         pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
         pBuffer->nTimeStamp = renderBuffer->timeStamp;
+        LOGI("%s, buffer->pPlatformPrivate = %p pBuff=%p omxbuf=%p %s",
+        __FUNCTION__, renderBuffer, pBuffer, renderBuffer->nwOMXBufHeader,
+        pBuffer==renderBuffer->nwOMXBufHeader?"Same": "Differ");
     } else {
-        pBuffer->nFilledLen = sizeof(VABuffer);
-		VABuffer *p = (VABuffer *)(pBuffer->pBuffer + pBuffer->nOffset);
-
-		// TODO: pass cropping data to VABuffer
-		p->surface = renderBuffer->surface;
-		p->display = renderBuffer->display;
-		p->frame_structure = renderBuffer->scanFormat;
-        pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
+    // TODO: Right now exercising this case only for ThumbNail.
+        LOGV("%s, thumbNail Enabled , pBuffer = %p, pBuffer->pBuffer = %p, renderBuffer = %p", __FUNCTION__, pBuffer, pBuffer->pBuffer, renderBuffer);
+        MapRawNV12(renderBuffer, pBuffer->pBuffer + pBuffer->nOffset, pBuffer->nFilledLen);
+        pBuffer->nFilledLen = sizeof(VideoRenderBuffer);
         pBuffer->nTimeStamp = renderBuffer->timeStamp;
+        pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
     }
 
      // set "RenderDone" in next "FillRenderBuffer" with the same OMX buffer header.
     // this indicates surface is "rendered" and can be reused for decoding.
     pBuffer->pPlatformPrivate = (void *)renderBuffer;
-    LOGI("%s, buffer->pPlatformPrivate = %p pBuff=%p omxbuf=%p %s",
-        __FUNCTION__, renderBuffer, pBuffer, renderBuffer->nwOMXBufHeader,
-        pBuffer==renderBuffer->nwOMXBufHeader?"Same": "Differ");
-
     return pBuffer;
 }
 
@@ -476,7 +476,11 @@ OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuf
         LOGI("%s EOS received on buffer[INPORT]->nFlags ppBuffer=%p", __FUNCTION__, *ppBuffer);
         OMX_BUFFERHEADERTYPE *pPendingBuffer;
         pBuffer = getDecodedBuffer(pBuffer, draining);
-        while ( NULL != pBuffer ) {
+        if ( NULL == pBuffer ) {
+            LOGV("OMXVideoDecoderBase::FillRenderBuffer() EOS on input reached, no Output Buffers to be rendered.");
+            return OMX_ErrorNone;
+        }
+        while (pBuffer != NULL) {
             ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pBuffer);
             if ( OMX_ErrorNone != ret ) {
                 LOGE("%s: removing buffer %p failed with error %d", __FUNCTION__, pBuffer, ret);
@@ -626,6 +630,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::BuildHandlerList(void) {
     AddHandler((OMX_INDEXTYPE)OMX_IndexParamGoogleNativeBufferUsage,
                     GetParamVideoGoogleNativeBufferUsage, NULL);
     //AddHandler(PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX, GetCapabilityFlags, SetCapabilityFlags);
+    AddHandler((OMX_INDEXTYPE)OMX_IndexParamGoogleThumbNail,
+                    NULL, SetConfigVideoThumbNail);
     return OMX_ErrorNone;
 }
 
@@ -653,7 +659,6 @@ OMX_ERRORTYPE OMXVideoDecoderBase::GetParamVideoGoogleNativeBufferUsage(OMX_PTR 
 
     CHECK_TYPE_HEADER(p);
     CHECK_PORT_INDEX_RANGE(p);
-    CHECK_SET_PARAM_STATE();
 
     if (bNativeBufferEnable)
             p->nUsage=GRALLOC_USAGE_HW_RENDER;
@@ -700,6 +705,82 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetParamVideoPortFormat(OMX_PTR pStructure) {
     return OMX_ErrorNone;
 }
 
+OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32& size) {
+    VAStatus vaStatus;
+    VAImageFormat imageFormat;
+    VAImage vaImage;
+    int32_t width = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameWidth;
+    int32_t height = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameHeight;
+
+    size = width * height * 3 / 2;
+
+    vaStatus = vaSyncSurface(renderBuffer->display, renderBuffer->surface);
+    if (vaStatus != VA_STATUS_SUCCESS) {
+        return OMX_ErrorUndefined;
+    }
+
+    vaImage.image_id = VA_INVALID_ID;
+    // driver currently only supports NV12 and IYUV format.
+    // byte_order information is from driver  and hard-coded here
+    imageFormat.fourcc = VA_FOURCC_NV12;
+    imageFormat.byte_order = VA_LSB_FIRST;
+    imageFormat.bits_per_pixel = 16;
+    vaStatus = vaCreateImage(
+        renderBuffer->display,
+        &imageFormat,
+        width,
+        height,
+        &vaImage);
+    if (vaStatus != VA_STATUS_SUCCESS) {
+        return OMX_ErrorUndefined;
+    }
+
+    vaStatus = vaGetImage(
+        renderBuffer->display,
+        renderBuffer->surface,
+        0,
+        0,
+        vaImage.width,
+        vaImage.height,
+        vaImage.image_id);
+    if (vaStatus != VA_STATUS_SUCCESS) {
+        vaDestroyImage(renderBuffer->display, vaImage.image_id);
+        return OMX_ErrorUndefined;
+    }
+
+    void *pBuf = NULL;
+    vaStatus = vaMapBuffer(renderBuffer->display, vaImage.buf, &pBuf);
+    if (vaStatus != VA_STATUS_SUCCESS) {
+        vaDestroyImage(renderBuffer->display, vaImage.image_id);
+        return OMX_ErrorUndefined;
+    }
+    if (size == (int32_t)vaImage.data_size) {
+        memcpy(rawData, pBuf, size);
+    } else {
+        // copy Y data
+        uint8_t *src = (uint8_t*)pBuf;
+        uint8_t *dst = rawData;
+        int32_t row = 0;
+        for (row = 0; row < height; row++) {
+            memcpy(dst, src, width);
+            dst += width;
+            src += vaImage.pitches[0];
+        }
+        // copy interleaved V and  U data
+        src = (uint8_t*)pBuf + vaImage.offsets[1];
+        for (row = 0; row < height/2; row++) {
+            memcpy(dst, src, width);
+            dst += width;
+            src += vaImage.pitches[1];
+        }
+    }
+
+    if (vaImage.image_id != VA_INVALID_ID) {
+        vaDestroyImage(renderBuffer->display, vaImage.image_id);
+    }
+    return OMX_ErrorNone;
+}
+
 OMX_ERRORTYPE OMXVideoDecoderBase::GetCapabilityFlags(OMX_PTR pStructure) {
 #if 0
     OMX_ERRORTYPE ret;
@@ -725,3 +806,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetCapabilityFlags(OMX_PTR pStructure) {
     return OMX_ErrorUnsupportedSetting;
 }
 
+OMX_ERRORTYPE OMXVideoDecoderBase::SetConfigVideoThumbNail(OMX_PTR pStructure) {
+   mIsThumbNail = true;
+   LOGV("SetConfigVideoThumbNail() enabling mIsThumbNail to true.");
+     return OMX_ErrorNone;
+}
