@@ -102,6 +102,8 @@ LOCAL_LDFLAGS :=
 
 LOCAL_SHARED_LIBRARIES := \
     libwrs_omxil_common \
+    libasfparser \
+    libmixvbp_vc1 \
     libva_videodecoder \
     liblog \
     libva \
