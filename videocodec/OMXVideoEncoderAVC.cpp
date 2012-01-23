@@ -355,6 +355,8 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::SetParamVideoAvc(OMX_PTR pStructure) {
     // TODO: do we need to check if port is enabled?
     // TODO: see SetPortAvcParam implementation - Can we make simple copy????
     memcpy(&mParamAvc, p, sizeof(mParamAvc));
+
+    mPFrames = p->nPFrames;
     return OMX_ErrorNone;
 }
 

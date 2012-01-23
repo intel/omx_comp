@@ -234,6 +234,8 @@ OMX_ERRORTYPE OMXVideoEncoderH263::SetParamVideoH263(OMX_PTR pStructure) {
     // TODO: do we need to check if port is enabled?
     // TODO: see SetPortH263Param implementation - Can we make simple copy????
     memcpy(&mParamH263, p, sizeof(mParamH263));
+
+    mPFrames = p->nPFrames;
     return OMX_ErrorNone;
 }
 

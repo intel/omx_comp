@@ -97,6 +97,7 @@ protected:
     OMX_U32 outFrameCnt;
     OMX_BOOL mFirstFrame;
     OMX_BOOL mGetBufDone;
+    OMX_U32 mPFrames;
 
     enum {
         BS_STATE_INVALID,

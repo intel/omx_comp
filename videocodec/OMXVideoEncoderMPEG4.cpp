@@ -244,6 +244,8 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::SetParamVideoMpeg4(OMX_PTR pStructure) {
     // TODO: do we need to check if port is enabled?
     // TODO: see SetPortMpeg4Param implementation - Can we make simple copy????
     memcpy(&mParamMpeg4, p, sizeof(mParamMpeg4));
+
+    mPFrames = p->nPFrames;
     return OMX_ErrorNone;
 }
 
