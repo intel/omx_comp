@@ -27,6 +27,7 @@ OMXVideoEncoderBase::OMXVideoEncoderBase()
     ,mEncoderParams(NULL)
     ,inFrameCnt(0)
     ,outFrameCnt(0)
+    ,mPFrames(0)
     ,mGetBufDone(OMX_TRUE)
     ,mFirstFrame(OMX_TRUE) {
 
@@ -239,6 +240,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::InitOutputPort(void) {
     InitOutputPortFormatSpecific(&paramPortDefinitionOutput);
 
     port->SetPortDefinition(&paramPortDefinitionOutput, true);
+    port->SetPortBitrateParam(&mParamBitrate, true);
 
     // OMX_VIDEO_PARAM_PORTFORMATTYPE
     OMX_VIDEO_PARAM_PORTFORMATTYPE paramPortFormat;
@@ -271,12 +273,47 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetVideoEncoderParam(){
     mEncoderVideo->getParameters(mEncoderParams);
     mEncoderParams->resolution.height = paramPortDefinitionInput->format.video.nFrameHeight;
     mEncoderParams->resolution.width = paramPortDefinitionInput->format.video.nFrameWidth;
-//    mEncoderParams->frameRate.frameRateDenom = 1;
-//    mEncoderParams->frameRate.frameRateNum = paramPortDefinitionInput->format.video.xFramerate;
+
+    // frame rate parameters.
+    mEncoderParams->frameRate.frameRateDenom = 1;
+    if(mConfigFramerate.xEncodeFramerate != 0) {
+        mEncoderParams->frameRate.frameRateNum = mConfigFramerate.xEncodeFramerate >> 16;
+    } else {
+        mEncoderParams->frameRate.frameRateNum = paramPortDefinitionInput->format.video.xFramerate >> 16;
+        mConfigFramerate.xEncodeFramerate = mEncoderParams->frameRate.frameRateNum;
+    }
+    if(mPFrames == 0) {
+        mPFrames = mEncoderParams->frameRate.frameRateNum / 2;
+    }
+    mEncoderParams->intraPeriod = mPFrames;
+
     //mEncoderParams->profile = (VAProfile)mParamProfileLevel.eProfile;
     //mEncoderParams->level = mParamProfileLevel.eLevel;
     mEncoderParams->type = VideoParamsTypeCommon;
     mEncoderParams->size = sizeof(VideoParamsCommon);
+
+    // bit rate parameters
+    mEncoderParams->rcParams.bitRate = mParamBitrate.nTargetBitrate;
+    switch( mParamBitrate.eControlRate ) {
+        case OMX_Video_ControlRateDisable:
+            mEncoderParams->rcMode = RATE_CONTROL_NONE;
+            break;
+
+        case OMX_Video_ControlRateVariable:
+        case OMX_Video_ControlRateVariableSkipFrames:
+            mEncoderParams->rcMode = RATE_CONTROL_VBR;
+            break;
+
+        case OMX_Video_ControlRateConstant:
+        case OMX_Video_ControlRateConstantSkipFrames:
+            mEncoderParams->rcMode = RATE_CONTROL_CBR;
+            break;
+
+        default:
+            mEncoderParams->rcMode = RATE_CONTROL_NONE;
+            break;
+    }
+
     ret = mEncoderVideo ->setParameters(mEncoderParams);
     CHECK_ENCODE_STATUS("setParameters");
 
@@ -610,7 +647,8 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamVideoBitrate(OMX_PTR pStructure) {
     CHECK_TYPE_HEADER(p);
     CHECK_PORT_INDEX(p, OUTPORT_INDEX);
     CHECK_SET_PARAM_STATE();
-
+    OMX_U32 index = p->nPortIndex;
+    PortVideo *port = NULL;
     // This disables other type of bitrate control mechanism
     // TODO: check if it is desired
     mParamIntelBitrate.eControlRate = OMX_Video_Intel_ControlRateMax;
@@ -619,6 +657,8 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamVideoBitrate(OMX_PTR pStructure) {
     mParamBitrate.eControlRate = p->eControlRate;
     mParamBitrate.nTargetBitrate = p->nTargetBitrate;
 
+    port = static_cast<PortVideo *>(ports[index]);
+    ret = port->SetPortBitrateParam(p, false);
     return OMX_ErrorNone;
 }
 
