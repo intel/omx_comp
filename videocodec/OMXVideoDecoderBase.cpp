@@ -291,7 +291,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             return OMX_ErrorNone;
 	} else if (status == DECODE_NO_SURFACE) {
             LOGW("Decoder returns DECODE_NO_SURFACE.");
-            retains[OUTPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
+            retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
             buffers[OUTPORT_INDEX]->nFilledLen = 0;
             return OMX_ErrorNone;
         } else if (status != DECODE_SUCCESS && status != DECODE_FRAME_DROPPED) {
