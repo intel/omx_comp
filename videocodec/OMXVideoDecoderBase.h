@@ -45,7 +45,6 @@ protected:
             OMX_BUFFERHEADERTYPE **buffers,
             buffer_retain_t *retains,
             OMX_U32 numberBuffers);
-   virtual  OMX_ERRORTYPE ProcessorPreFreeBuffer(OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBuffer);
    virtual  OMX_ERRORTYPE ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* pBuffer);
    virtual  OMX_ERRORTYPE ProcessorUseNativeBuffer(OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBuffer);
     virtual OMX_ERRORTYPE ProcessorReleaseLock(void);
@@ -59,16 +58,16 @@ protected:
     virtual OMX_ERRORTYPE MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32& size);
 
     virtual OMX_ERRORTYPE BuildHandlerList(void);
-    DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoPortFormat);
-    DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoGoogleNativeBuffers);
-    DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoGoogleNativeBufferUsage);
-    DECLARE_HANDLER(OMXVideoDecoderBase, CapabilityFlags);
-    DECLARE_HANDLER(OMXVideoDecoderBase, ConfigVideoThumbNail);
+    DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoPortFormat);   // get Param Video port format and setParam Video port format.
+    DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoGoogleNativeBuffers);  // set the flag to enable native buffers
+    DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoGoogleNativeBufferUsage); // get the usage flags for this codec . These will be sent while allocating gralloc buffers.
+    DECLARE_HANDLER(OMXVideoDecoderBase, CapabilityFlags);   //
+    DECLARE_HANDLER(OMXVideoDecoderBase, ConfigVideoThumbNail);  // to generate thumbNails.
     bool mIsThumbNail;
 
 private:
     OMX_BUFFERHEADERTYPE* getDecodedBuffer( OMX_BUFFERHEADERTYPE *pBuffer, bool draining);
-    bool processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer);
+    OMX_ERRORTYPE processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer);
 
     enum {
         // OMX_PARAM_PORTDEFINITIONTYPE

@@ -241,15 +241,11 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
 
     OMX_ERRORTYPE ret;
     Decode_Status status;
-    OMX_BUFFERHEADERTYPE *pOriginalOutBuffer = buffers[OUTPORT_INDEX];
 
     // fill render buffer without draining decoder output queue
     LOGV("calling FillRenderBuffer() 1st time sending=%p", buffers[OUTPORT_INDEX]);
     ret = FillRenderBuffer(&buffers[OUTPORT_INDEX], 0);
     if (ret == OMX_ErrorNone) {
-
-        processOutPortBuffers(pOriginalOutBuffer ,buffers[OUTPORT_INDEX]);
-
         retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
         LOGV("FillRenderBuffer() 1st time got=%p, returning INPORT_INDEX.", buffers[OUTPORT_INDEX]);
         // TODO: continue decoding
@@ -276,11 +272,14 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
         //pthread_mutex_unlock(&mSerializationLock);
 
         if (status == DECODE_FORMAT_CHANGE) {
-            ret = HandleFormatChange();
-            CHECK_RETURN_VALUE("HandleFormatChange");
+//            TODO: This feature is in process of being enabled.
+//                  until then return safely without crashing.
+//            ret = HandleFormatChange();
+//            CHECK_RETURN_VALUE("HandleFormatChange");
             buffers[OUTPORT_INDEX]->nFilledLen = 0;
             // don't use the output buffer if format is changed.
-            return OMX_ErrorNone;
+            LOGE("DECODE_FORMAT_CHANGE not implemented returning error.");
+            return OMX_ErrorDynamicResourcesUnavailable;
         } else if (status == DECODE_NO_CONFIG) {
             LOGW("Decoder returns DECODE_NO_CONFIG.");
             retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
@@ -291,7 +290,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             return OMX_ErrorNone;
 	} else if (status == DECODE_NO_SURFACE) {
             LOGW("Decoder returns DECODE_NO_SURFACE.");
-            retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+            retains[OUTPORT_INDEX] = BUFFER_RETAIN_PUSHBACK;
             buffers[OUTPORT_INDEX]->nFilledLen = 0;
             return OMX_ErrorNone;
         } else if (status != DECODE_SUCCESS && status != DECODE_FRAME_DROPPED) {
@@ -308,17 +307,16 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
     }
     // drain the decoder output queue when in EOS state and fill the render buffer
     ret = FillRenderBuffer(&buffers[OUTPORT_INDEX], buffers[INPORT_INDEX]->nFlags);
-    LOGV("calling FillRenderBuffer() 2nd time got=%p", buffers[OUTPORT_INDEX]);
     if (ret == OMX_ErrorNotReady) {
         retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
         ret = OMX_ErrorNone;
-    } else if ( ret == OMX_ErrorNone) {
-        processOutPortBuffers(pOriginalOutBuffer ,buffers[OUTPORT_INDEX]);
+    } else {
+       LOGV("FillRenderBuffer() 2nd time got=%p", buffers[OUTPORT_INDEX]);
     }
     return ret;
 }
 
-bool OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer) {
+OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer) {
     OMX_ERRORTYPE ret= OMX_ErrorNone;
     if ( pOriginalOutBuffer != pNewOutBuffer ) {
         // We are not returning the same buffer that we got. Remove this buffer from output port
@@ -326,25 +324,16 @@ bool OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalO
         ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pNewOutBuffer);
         if ( OMX_ErrorNone != ret ) {
             LOGE("failed in RemoveThisBuffer= %p", pNewOutBuffer);
+            return ret;
         }
-
         // Put back the original buffer back to the head
         ret = this->ports[OUTPORT_INDEX]->RetainThisBuffer(pOriginalOutBuffer, false);
         if ( OMX_ErrorNone != ret ) {
             LOGE("failed in PushThisBuffer = %p", pOriginalOutBuffer);
+            return ret;
         }
     }
-    return true;
-}
-
-OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFreeBuffer(OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBuffer) {
-    if (nPortIndex == OUTPORT_INDEX && pBuffer->pPlatformPrivate) {
-        VideoRenderBuffer *p = (VideoRenderBuffer *)pBuffer->pPlatformPrivate;
-        LOGV("%s [%p]->renderDone = true", __FUNCTION__, p);
-        p->renderDone = true;
-        pBuffer->pPlatformPrivate = NULL;
-    }
-    return OMX_ErrorNone;
+    return ret;
 }
 
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorReleaseLock(void) {
@@ -356,12 +345,12 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorReleaseLock(void) {
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* pBuffer) {
     OMX_ERRORTYPE ret= OMX_ErrorNone;
     if (pBuffer->pPlatformPrivate) {
-        LOGI("%s omxBufferHeader = %p, handle = %p, [%p]->renderDone=true;", __FUNCTION__, pBuffer, pBuffer->pBuffer, pBuffer->pPlatformPrivate);
+        LOGV("%s omxBufferHeader = %p, handle = %p, [%p]->renderDone=true;", __FUNCTION__, pBuffer, pBuffer->pBuffer, pBuffer->pPlatformPrivate);
         mVideoDecoder->renderDone((VideoRenderBuffer*)pBuffer->pPlatformPrivate);
         pBuffer->pPlatformPrivate = NULL;
         ret = OMX_ErrorNone;
     } else if (bNativeBufferEnable == true) {
-        LOGI("%s calling flagNativeBuffer()", __FUNCTION__);
+        LOGV("%s calling flagNativeBuffer()", __FUNCTION__);
         if ((mVideoDecoder->flagNativeBuffer((void *)pBuffer)) != DECODE_SUCCESS)
          ret = OMX_ErrorBadParameter;
     }
@@ -418,102 +407,99 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buf
 }
 
 OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYPE *pBuffer, bool draining) {
-    LOGV("OMXVideoDecoderBase::%s() entered", __FUNCTION__);
-    //pthread_mutex_lock(&mSerializationLock);
+    LOGV("%s entered", __FUNCTION__);
     const VideoRenderBuffer *renderBuffer = mVideoDecoder->getOutput(draining);
-    //pthread_mutex_unlock(&mSerializationLock);
     if (renderBuffer == NULL) {
         return NULL;
     }
 
-    LOGI("getOutput returned %p",renderBuffer->surface);
-
+    LOGV("getOutput returned %p",renderBuffer->surface);
     if(bNativeBufferEnable == true) {
-        LOGV("%s: returning  with  %p ", __FUNCTION__, renderBuffer->nwOMXBufHeader);
+       // decode to Graphic Buffers
+        LOGV("%s, buffer->pPlatformPrivate = %p pBuff=%p omxbuf=%p %s",
+              __FUNCTION__, renderBuffer, pBuffer, renderBuffer->nwOMXBufHeader,
+              pBuffer==renderBuffer->nwOMXBufHeader?"Same": "Differ");
         pBuffer = (OMX_BUFFERHEADERTYPE*) renderBuffer->nwOMXBufHeader;
-        pBuffer->nFilledLen = sizeof(VideoRenderBuffer);
-        pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
-        pBuffer->nTimeStamp = renderBuffer->timeStamp;
-        LOGI("%s, buffer->pPlatformPrivate = %p pBuff=%p omxbuf=%p %s",
-        __FUNCTION__, renderBuffer, pBuffer, renderBuffer->nwOMXBufHeader,
-        pBuffer==renderBuffer->nwOMXBufHeader?"Same": "Differ");
     } else {
-    // TODO: Right now exercising this case only for ThumbNail.
-        LOGV("%s, thumbNail Enabled , pBuffer = %p, pBuffer->pBuffer = %p, renderBuffer = %p", __FUNCTION__, pBuffer, pBuffer->pBuffer, renderBuffer);
+        // memcpy to thumbNail Buffer.
+        LOGV("%s, thumbNail Enabled , pBuffer = %p, pBuffer->pBuffer = %p, renderBuffer = %p",
+             __FUNCTION__, pBuffer, pBuffer->pBuffer, renderBuffer);
         MapRawNV12(renderBuffer, pBuffer->pBuffer + pBuffer->nOffset, pBuffer->nFilledLen);
-        pBuffer->nFilledLen = sizeof(VideoRenderBuffer);
-        pBuffer->nTimeStamp = renderBuffer->timeStamp;
-        pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
     }
+    pBuffer->nFilledLen = sizeof(VideoRenderBuffer);
+    pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
+    pBuffer->nTimeStamp = renderBuffer->timeStamp;
 
-     // set "RenderDone" in next "FillRenderBuffer" with the same OMX buffer header.
-    // this indicates surface is "rendered" and can be reused for decoding.
+    //pPlatformPrivate used inside ProcessorPreFillBuffer to signal reuse by decoder.
     pBuffer->pPlatformPrivate = (void *)renderBuffer;
     return pBuffer;
 }
 
 OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuffer, OMX_U32 inportBufferFlags) {
-    OMX_BUFFERHEADERTYPE *pBuffer;
+    OMX_BUFFERHEADERTYPE *pBufReturn, *pBufReceived;
     bool draining = (inportBufferFlags & OMX_BUFFERFLAG_EOS);
-    OMX_ERRORTYPE ret;
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
 
-    pBuffer = *ppBuffer;
-    pBuffer->nFilledLen = 0;
-    LOGV("OMXVideoDecoderBase::FillRenderBuffer() entered draining=%d ppBuffer=%p", draining, *ppBuffer);
+    LOGV("%s entered ppBuffer=%p", __FUNCTION__, *ppBuffer);
+    pBufReceived = *ppBuffer;
 
     if ( false == draining) {
         // This is the normal operation
-        pBuffer = getDecodedBuffer(pBuffer, draining);
-        if ( NULL == pBuffer ) {
-            LOGE("OMXVideoDecoderBase::FillRenderBuffer() not ready");
+        pBufReturn = getDecodedBuffer(pBufReceived, draining);
+        if ( NULL == pBufReturn ) {
+            LOGV("Decoder not ready to return any Buffers");
             return OMX_ErrorNotReady;
         }
-
-        *ppBuffer = pBuffer;
-        LOGI("OMXVideoDecoderBase::FillRenderBuffer() returning %p", *ppBuffer);
+         ret = processOutPortBuffers(pBufReceived, pBufReturn);
     } else {
-        // We have hit EOS. We need to give back all the buffers we have with us
-        LOGI("%s EOS received on buffer[INPORT]->nFlags ppBuffer=%p", __FUNCTION__, *ppBuffer);
-        OMX_BUFFERHEADERTYPE *pPendingBuffer;
-        pBuffer = getDecodedBuffer(pBuffer, draining);
-        if ( NULL == pBuffer ) {
-            LOGV("OMXVideoDecoderBase::FillRenderBuffer() EOS on input reached, no Output Buffers to be rendered.");
-            return OMX_ErrorNone;
+       // EOS. return all the output buffers we have with us
+       LOGV("%s EOS received on buffer[INPORT]->nFlags ppBuffer=%p", __FUNCTION__, *ppBuffer);
+        bool retainReceivedBuffer = true;
+        pBufReceived->nFilledLen = 0;
+        pBufReturn = getDecodedBuffer(pBufReceived, draining);
+        if ( NULL == pBufReturn ) {
+            LOGV("no Output Buffers to be removed/returned.");
+            //put the received buffer back on the retainedbufferqueue.
+            ret = this->ports[OUTPORT_INDEX]->RetainThisBuffer(pBufReceived, true);
+        if ( OMX_ErrorNone != ret ) {
+        LOGE("failed in RetainThisBuffer = %p", pBufReceived);
         }
-        while (pBuffer != NULL) {
-            ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pBuffer);
+            return ret;
+        }
+        while (pBufReturn != NULL) {
+            OMX_BUFFERHEADERTYPE *pPendingBuffer;
+            if(pBufReceived != pBufReturn) {
+                LOGV("removing buffer %p ", pBufReturn);
+            ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pBufReturn);
             if ( OMX_ErrorNone != ret ) {
-                LOGE("%s: removing buffer %p failed with error %d", __FUNCTION__, pBuffer, ret);
+            LOGE("%s: removing buffer %p failed with error %p", __FUNCTION__, pBufReturn, ret);
+                return ret;
             }
-            pPendingBuffer = getDecodedBuffer(pBuffer, draining);
-            LOGI("%s EOS in loop pBuffer=%p ppBuffer=%p pPendingBuffer=%p", __FUNCTION__, pBuffer, *ppBuffer, pPendingBuffer);
+            } else {
+               retainReceivedBuffer = false;
+            }
+            pPendingBuffer = getDecodedBuffer(pBufReceived, draining);
+            LOGV("%s in EOS loop pBuffer=%p ppBuffer=%p pPendingBuffer=%p", __FUNCTION__, pBufReturn, *ppBuffer, pPendingBuffer);
             if ( NULL != pPendingBuffer ) {
                 // We have hit the EOS. Give pBuffer
-                this->ports[OUTPORT_INDEX]->ReturnThisBuffer(pBuffer);
+                this->ports[OUTPORT_INDEX]->ReturnThisBuffer(pBufReturn);
             } else {
                 // Return pBuffer it as part of ppBuffer
                 break;
             }
-
-            pBuffer = pPendingBuffer;
+            pBufReturn = pPendingBuffer;
         }
-
-        *ppBuffer = pBuffer;
-
-        // pBuffer is NOT expected to be null
-        if ( NULL != pBuffer ) {
-            // This means we dont have any more buffers
-            ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pBuffer);
-            if ( OMX_ErrorNone != ret ) {
-                LOGE("%s: removing buffer %p failed with error %d", __FUNCTION__, pBuffer, ret);
-            }
-            pBuffer->nFilledLen = 0;
-            pBuffer->nFlags = OMX_BUFFERFLAG_EOS;
-            LOGI("EOS sending ");
+        if(retainReceivedBuffer) {
+            ret = this->ports[OUTPORT_INDEX]->RetainThisBuffer(pBufReceived, true);
+          if ( OMX_ErrorNone != ret ) {
+        LOGE("failed in RetainThisBuffer = %p", pBufReceived);
+        return ret;
+        }
         }
     }
-
-    return OMX_ErrorNone;
+    *ppBuffer = pBufReturn;
+    LOGV("%s returning %p", __FUNCTION__, *ppBuffer);
+    return ret;
 }
 
 OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
@@ -661,14 +647,14 @@ OMX_ERRORTYPE OMXVideoDecoderBase::GetParamVideoGoogleNativeBufferUsage(OMX_PTR 
     CHECK_PORT_INDEX_RANGE(p);
 
     if (bNativeBufferEnable)
-            p->nUsage=GRALLOC_USAGE_HW_RENDER;
+            p->nUsage = GRALLOC_USAGE_HW_RENDER;
 
     return ret;
 }
 
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorUseNativeBuffer(OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBufHeader) {
  if(bNativeBufferEnable && (nPortIndex  == OUTPORT_INDEX)) {
-    LOGI("entered OMXVideoDecoderBase::ProcessorUseNativeBuffer() pBufHeader = %p, pBufHeader->pBuffer = %p", pBufHeader, pBufHeader->pBuffer);
+    LOGV("entered OMXVideoDecoderBase::ProcessorUseNativeBuffer() pBufHeader = %p, pBufHeader->pBuffer = %p", pBufHeader, pBufHeader->pBuffer);
     mVideoDecoder->getClientNativeWindowBuffer((void *)pBufHeader, (void*) pBufHeader->pBuffer);
     return OMX_ErrorNone;
  } else {
