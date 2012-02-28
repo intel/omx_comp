@@ -272,14 +272,20 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
         //pthread_mutex_unlock(&mSerializationLock);
 
         if (status == DECODE_FORMAT_CHANGE) {
-//            TODO: This feature is in process of being enabled.
-//                  until then return safely without crashing.
-//            ret = HandleFormatChange();
-//            CHECK_RETURN_VALUE("HandleFormatChange");
-            buffers[OUTPORT_INDEX]->nFilledLen = 0;
-            // don't use the output buffer if format is changed.
-            LOGE("DECODE_FORMAT_CHANGE not implemented returning error.");
-            return OMX_ErrorDynamicResourcesUnavailable;
+
+            // Flush all the buffers from libmix
+            LOGE("Get all the buffers from libmix");
+            ret = FillRenderBuffer(&buffers[OUTPORT_INDEX], OMX_BUFFERFLAG_EOS);
+            if (ret == OMX_ErrorNotReady) {
+                retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+                ret = OMX_ErrorNone;
+                LOGE("FillRenderBuffer() not ready?");
+            }
+
+            // Modify the port settings and send notification
+            ret = HandleFormatChange();
+            CHECK_RETURN_VALUE("HandleFormatChange");
+            return OMX_ErrorNone;
         } else if (status == DECODE_NO_CONFIG) {
             LOGW("Decoder returns DECODE_NO_CONFIG.");
             retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
@@ -459,12 +465,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuf
         pBufReturn = getDecodedBuffer(pBufReceived, draining);
         if ( NULL == pBufReturn ) {
             LOGV("no Output Buffers to be removed/returned.");
-            //put the received buffer back on the retainedbufferqueue.
-            ret = this->ports[OUTPORT_INDEX]->RetainThisBuffer(pBufReceived, true);
-        if ( OMX_ErrorNone != ret ) {
-        LOGE("failed in RetainThisBuffer = %p", pBufReceived);
-        }
-            return ret;
+            return OMX_ErrorNotReady;
         }
         while (pBufReturn != NULL) {
             OMX_BUFFERHEADERTYPE *pPendingBuffer;
@@ -558,7 +559,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     this->ports[INPORT_INDEX]->SetPortDefinition(&paramPortDefinitionInput, true);
     this->ports[OUTPORT_INDEX]->SetPortDefinition(&paramPortDefinitionOutput, true);
 
-    this->ports[OUTPORT_INDEX]->ReportPortSettingsChanged();
+    this->ports[OUTPORT_INDEX]->ReportConfigOutputCrop();
     return OMX_ErrorNone;
 }
 
@@ -631,8 +632,16 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetParamVideoGoogleNativeBuffers(OMX_PTR pStr
     CHECK_PORT_INDEX_RANGE(p);
     CHECK_SET_PARAM_STATE();
 
+    OMX_PARAM_PORTDEFINITIONTYPE paramPortDefinitionOutput;
+
+    memcpy(&paramPortDefinitionOutput,
+        this->ports[OUTPORT_INDEX]->GetPortDefinition(),
+        sizeof(paramPortDefinitionOutput));
+
     bNativeBufferEnable = p->enable;
-    mVideoDecoder->enableNativeBuffers();
+
+    mVideoDecoder->enableNativeBuffers(paramPortDefinitionOutput.format.video.nFrameWidth,
+        paramPortDefinitionOutput.format.video.nFrameHeight);
     return ret;
 
 }
