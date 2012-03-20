@@ -19,9 +19,10 @@
 #include <utils/Log.h>
 #include "OMXVideoDecoderBase.h"
 #include "vabuffer.h"
+#include <system/graphics.h>
 
 static const char* VA_RAW_MIME_TYPE = "video/raw";
-static const uint32_t VA_COLOR_FORMAT = 0x100;
+static const uint32_t VA_COLOR_FORMAT = HAL_PIXEL_FORMAT_INTEL_NV12;
 
 OMXVideoDecoderBase::OMXVideoDecoderBase()
     : mVideoDecoder(NULL),
