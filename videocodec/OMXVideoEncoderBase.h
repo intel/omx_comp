@@ -28,7 +28,7 @@
 using android::sp;
 using android::BufferShareRegistry;
 
-#define SHARED_BUFFER_CNT 4
+#define SHARED_BUFFER_CNT 7
 
 class OMXVideoEncoderBase : public OMXComponentCodecBase {
 public:
@@ -116,7 +116,7 @@ private:
     enum {
         // OMX_PARAM_PORTDEFINITIONTYPE
         INPORT_MIN_BUFFER_COUNT = 1,
-        INPORT_ACTUAL_BUFFER_COUNT = 5,
+        INPORT_ACTUAL_BUFFER_COUNT = SHARED_BUFFER_CNT,
         INPORT_BUFFER_SIZE = 1382400,
 
         // OMX_PARAM_PORTDEFINITIONTYPE
