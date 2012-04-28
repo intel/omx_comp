@@ -164,7 +164,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
 
             outBuf.format = OUTPUT_EVERYTHING;
             ret = mEncoderVideo->getOutput(&outBuf);
-            CHECK_ENCODE_STATUS("encode");
+            CHECK_ENCODE_STATUS("getOutput");
 
             LOGV("output data size = %d", outBuf.dataSize);
             outfilledlen = outBuf.dataSize;
@@ -252,7 +252,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
                 mFirstFrame = OMX_FALSE;
             } else {
                 outBuf.format = OUTPUT_EVERYTHING;
-                mEncoderVideo->getOutput(&outBuf);
+                ret = mEncoderVideo->getOutput(&outBuf);
                 CHECK_ENCODE_STATUS("getOutput");
 
                 LOGV("output data size = %d", outBuf.dataSize);
