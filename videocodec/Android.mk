@@ -9,9 +9,11 @@ LOCAL_LDFLAGS :=
 LOCAL_SHARED_LIBRARIES := \
     libwrs_omxil_common \
     libva_videodecoder \
+    libmixvbp \
+    libmixvbp_h264 \
     liblog\
     libva \
-    libva-android
+    libva-android \
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
@@ -44,9 +46,10 @@ LOCAL_LDFLAGS :=
 LOCAL_SHARED_LIBRARIES := \
     libwrs_omxil_common \
     libva_videodecoder \
+    libmixvbp_mpeg4 \
     liblog \
     libva \
-    libva-android
+    libva-android \
 
 LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
