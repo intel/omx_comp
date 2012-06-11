@@ -22,7 +22,7 @@
 #include <system/graphics.h>
 
 static const char* VA_RAW_MIME_TYPE = "video/raw";
-static const uint32_t VA_COLOR_FORMAT = HAL_PIXEL_FORMAT_INTEL_NV12;
+static const uint32_t OMX_INTEL_COLOR_FormatYUV420SemiPlanar = OMX_COLOR_FormatVendorStartUnused + 0x200;
 
 OMXVideoDecoderBase::OMXVideoDecoderBase()
     : mVideoDecoder(NULL),
@@ -137,7 +137,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::InitOutputPort(void) {
     paramPortDefinitionOutput.format.video.xFramerate = 15 << 16;
     paramPortDefinitionOutput.format.video.bFlagErrorConcealment = OMX_FALSE;
     paramPortDefinitionOutput.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
-    paramPortDefinitionOutput.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)VA_COLOR_FORMAT;
+    paramPortDefinitionOutput.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_INTEL_COLOR_FormatYUV420SemiPlanar;
     paramPortDefinitionOutput.format.video.pNativeWindow = NULL;
     paramPortDefinitionOutput.bBuffersContiguous = OMX_FALSE;
     paramPortDefinitionOutput.nBufferAlignment = 0;
