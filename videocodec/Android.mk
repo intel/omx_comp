@@ -139,7 +139,8 @@ LOCAL_LDFLAGS :=
 LOCAL_SHARED_LIBRARIES := \
         libwrs_omxil_common \
 	liblog \
-        libva_videoenc			    \
+        libva_videoencoder \
+        libintelmetadatabuffer \
 	libva \
 	libva-android \
 	libva-tpi \
@@ -170,7 +171,8 @@ LOCAL_LDFLAGS :=
 LOCAL_SHARED_LIBRARIES := \
         libwrs_omxil_common \
 	liblog \
-        libva_videoenc			    \
+        libva_videoencoder    \
+        libintelmetadatabuffer \
 	libva \
 	libva-android \
 	libva-tpi \
@@ -203,7 +205,8 @@ LOCAL_LDFLAGS :=
 LOCAL_SHARED_LIBRARIES := \
         libwrs_omxil_common \
 	liblog \
-        libva_videoenc			    \
+        libva_videoencoder  \
+        libintelmetadatabuffer \
 	libva \
 	libva-android \
 	libva-tpi \

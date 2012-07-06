@@ -20,6 +20,7 @@
 #include <utils/Log.h>
 //for structs of Google extensions, e.g., StoreMetaDataInBuffersParams
 #include <media/stagefright/HardwareAPI.h>
+#include <IntelMetadataBuffer.h>
 #include "OMXVideoEncoderBase.h"
 
 static const char *RAW_MIME_TYPE = "video/raw";
@@ -784,6 +785,22 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamGoogleMetaDataInBuffers(OMX_PTR pStru
     LOGD("SetParamGoogleMetaDataInBuffers (enabled = %x)", p->bStoreMetaData);
     mMetaDataBufferSharing = p->bStoreMetaData;
 
+    if(mMetaDataBufferSharing == OMX_TRUE)
+    {
+        OMX_PARAM_PORTDEFINITIONTYPE pd;
+        memcpy(&pd, this->ports[INPORT_INDEX]->GetPortDefinition(), sizeof(pd));
+        pd.nBufferSize = IntelMetadataBuffer::GetMaxBufferSize();
+        LOGV("setting meta data buffer size: %d", pd.nBufferSize);
+        ports[INPORT_INDEX]->SetPortDefinition(&pd, true);
+    }
+
+    VideoParamsStoreMetaDataInBuffers storeMetaDataInBuffers;
+    storeMetaDataInBuffers.isEnabled = mMetaDataBufferSharing == OMX_TRUE;
+    LOGV("setting store metadata to hw encoder: %d", storeMetaDataInBuffers.isEnabled);
+    if(mEncoderVideo->setParameters(&storeMetaDataInBuffers) != ENCODE_SUCCESS){
+        LOGE("setParameters StoreMetaDataInBuffers failed");
+        return OMX_ErrorUndefined;
+    }
     return OMX_ErrorNone;
 };
 
