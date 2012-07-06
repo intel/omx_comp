@@ -229,7 +229,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorFlush(OMX_U32 portIndex) {
         mVideoDecoder->flush();
         //pthread_mutex_unlock(&mSerializationLock);
     } else {
-	mVideoDecoder->flushOutport();
+	//mVideoDecoder->flushOutport();
     }
     // TODO: do we need to flush output port?
     return OMX_ErrorNone;
@@ -362,7 +362,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* 
         ret = OMX_ErrorNone;
     } else if (bNativeBufferEnable == true) {
         LOGV("%s calling flagNativeBuffer()", __FUNCTION__);
-        if ((mVideoDecoder->flagNativeBuffer((void *)pBuffer)) != DECODE_SUCCESS)
+        //if ((mVideoDecoder->flagNativeBuffer((void *)pBuffer)) != DECODE_SUCCESS)
          ret = OMX_ErrorBadParameter;
     }
     return ret;
@@ -630,7 +630,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::BuildHandlerList(void) {
 
 OMX_ERRORTYPE OMXVideoDecoderBase::SetParamVideoGoogleNativeBuffers(OMX_PTR pStructure) {
     LOGV("entered OMXVideoDecoderBase::SetEnableAndroidNativeBuffers(), mEnableNativeWindowSupport enabled.");
-    OMX_ERRORTYPE ret= OMX_ErrorNone;
+    OMX_ERRORTYPE ret= OMX_ErrorUndefined;
     OMX_GOOGLE_ENABLE_ANDROID_BUFFERS *p =
             (OMX_GOOGLE_ENABLE_ANDROID_BUFFERS *)pStructure;
 
@@ -646,8 +646,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetParamVideoGoogleNativeBuffers(OMX_PTR pStr
 
     bNativeBufferEnable = p->enable;
 
-    mVideoDecoder->enableNativeBuffers(paramPortDefinitionOutput.format.video.nFrameWidth,
-        paramPortDefinitionOutput.format.video.nFrameHeight);
+    //mVideoDecoder->enableNativeBuffers(paramPortDefinitionOutput.format.video.nFrameWidth,
+    //    paramPortDefinitionOutput.format.video.nFrameHeight);
     return ret;
 
 }
@@ -670,8 +670,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::GetParamVideoGoogleNativeBufferUsage(OMX_PTR 
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorUseNativeBuffer(OMX_U32 nPortIndex, OMX_BUFFERHEADERTYPE* pBufHeader) {
  if(bNativeBufferEnable && (nPortIndex  == OUTPORT_INDEX)) {
     LOGV("entered OMXVideoDecoderBase::ProcessorUseNativeBuffer() pBufHeader = %p, pBufHeader->pBuffer = %p", pBufHeader, pBufHeader->pBuffer);
-    mVideoDecoder->getClientNativeWindowBuffer((void *)pBufHeader, (void*) pBufHeader->pBuffer);
-    return OMX_ErrorNone;
+    //mVideoDecoder->getClientNativeWindowBuffer((void *)pBufHeader, (void*) pBufHeader->pBuffer);
+    return OMX_ErrorUndefined;
  } else {
     return OMX_ErrorNone;
  }
