@@ -14,26 +14,22 @@
 * limitations under the License.
 */
 
-
-// #define LOG_NDEBUG 0
-#define LOG_TAG "OMXVideoDecoderWMV"
-#include <utils/Log.h>
 #include "OMXVideoDecoderWMV.h"
 
 // Be sure to have an equal string in VideoDecoderHost.cpp (libmix)
 static const char* WMV_MIME_TYPE = "video/wmv";
 
 OMXVideoDecoderWMV::OMXVideoDecoderWMV() {
-    LOGV("OMXVideoDecoderWMV is constructed.");
+    omx_verboseLog("OMXVideoDecoderWMV is constructed.");
     mVideoDecoder = createVideoDecoder(WMV_MIME_TYPE);
     if (!mVideoDecoder) {
-        LOGE("createVideoDecoder failed for \"%s\"", WMV_MIME_TYPE);
+        omx_errorLog("createVideoDecoder failed for \"%s\"", WMV_MIME_TYPE);
     }
     BuildHandlerList();
 }
 
 OMXVideoDecoderWMV::~OMXVideoDecoderWMV() {
-    LOGV("OMXVideoDecoderWMV is destructed.");
+    omx_verboseLog("OMXVideoDecoderWMV is destructed.");
 }
 
 OMX_ERRORTYPE OMXVideoDecoderWMV::InitInputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput) {
