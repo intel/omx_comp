@@ -32,31 +32,31 @@
 #define CHECK_TYPE_HEADER(P)\
     ret = CheckTypeHeader((P), sizeof(*(P)));\
     if (ret != OMX_ErrorNone) {\
-        LOGE("Invalid type header.");\
+        omx_errorLog("Invalid type header.");\
         return ret;\
     }
 
 #define CHECK_PORT_INDEX(P, INDEX)\
     if ((P)->nPortIndex != INDEX) {\
-        LOGE("Bad port index %lu, expected: %d", (P)->nPortIndex, INDEX);\
+        omx_errorLog("Bad port index %lu, expected: %d", (P)->nPortIndex, INDEX);\
         return OMX_ErrorBadPortIndex;\
     }
 
 #define CHECK_ENUMERATION_RANGE(INDEX, RANGE)\
     if (INDEX >= RANGE) {\
-        LOGE("No more enumeration.");\
+        omx_errorLog("No more enumeration.");\
         return OMX_ErrorNoMore;\
     }
 
 #define CHECK_PORT_INDEX_RANGE(P)\
     if ((P)->nPortIndex != 0 && (P)->nPortIndex != 1) {\
-        LOGE("Port out of range %lu", (P)->nPortIndex);\
+        omx_errorLog("Port out of range %lu", (P)->nPortIndex);\
         return OMX_ErrorBadPortIndex;\
     }
 
 #define CHECK_RETURN_VALUE(FUNC)\
     if (ret != OMX_ErrorNone) {\
-        LOGE(FUNC" failed: Error code = 0x%x", ret);\
+        omx_errorLog(FUNC" failed: Error code = 0x%x", ret);\
         return ret;\
     }
 
@@ -64,7 +64,7 @@
     OMX_STATETYPE state;\
     CBaseGetState((void *)GetComponentHandle(), &state);\
     if (state != OMX_StateLoaded && state != OMX_StateWaitForResources) {\
-        LOGE("Invalid state to set param.");\
+        omx_errorLog("Invalid state to set param.");\
         return OMX_ErrorIncorrectStateOperation;\
     }
 
@@ -72,31 +72,31 @@
     OMX_STATETYPE state;\
     CBaseGetState((void *)GetComponentHandle(), &state);\
     if (state == OMX_StateLoaded || state == OMX_StateWaitForResources) {\
-        LOGE("Invalid state to set config");\
+        omx_errorLog("Invalid state to set config");\
         return OMX_ErrorNone;\
     }
 
 #define CHECK_BS_STATE() \
     if (mBsState == BS_STATE_EXECUTING) { \
-        LOGE("Wrong state)"); \
+        omx_errorLog("Wrong state)"); \
         return OMX_ErrorUndefined; \
     }
 
 #define CHECK_BS_STATUS(FUNC) \
     if (ret != BS_SUCCESS) { \
-        LOGE(FUNC"Failed. ret = 0x%08x\n", ret); \
+        omx_errorLog(FUNC"Failed. ret = 0x%08x\n", ret); \
         return OMX_ErrorUndefined; \
     }
 
 #define CHECK_STATUS(FUNC) \
     if (ret != OMX_ErrorNone) { \
-        LOGE(FUNC"Failed. ret = 0x%08x\n", ret); \
+        omx_errorLog(FUNC"Failed. ret = 0x%08x\n", ret); \
         return ret; \
     }
 
 #define CHECK_ENCODE_STATUS(FUNC)\
     if (ret < ENCODE_SUCCESS) { \
-        LOGE(FUNC"Failed. ret = 0x%08x\n", ret); \
+        omx_errorLog(FUNC"Failed. ret = 0x%08x\n", ret); \
         return OMX_ErrorUndefined; \
     }
 

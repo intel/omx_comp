@@ -3,6 +3,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS := $(OMXLOG_CFLAGS) -DLOG_TAG=\"omx-avcdec\"
 LOCAL_CPPFLAGS :=
 LOCAL_LDFLAGS :=
 
@@ -20,6 +21,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
     $(PV_INCLUDES) \
+    $(TOP_DIR)/hardware/libhardware/include \
     $(TARGET_OUT_HEADERS)/libmixcodec \
     $(TARGET_OUT_HEADERS)/libva
 

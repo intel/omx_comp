@@ -14,9 +14,6 @@
 * limitations under the License.
 */
 
-#define LOG_NDEBUG 0
-#define LOG_TAG "OMXComponentCodecBase"
-#include <utils/Log.h>
 #include "OMXComponentCodecBase.h"
 
 
@@ -75,11 +72,11 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentGetParameter(
 
     OMXHANDLER handler = FindHandler(nIndex, true);
     if (handler == NULL) {
-        LOGE("ComponentGetParameter: No handler for index %d", nIndex);
+        omx_errorLog("ComponentGetParameter: No handler for index %d", nIndex);
         return OMX_ErrorUnsupportedIndex;
     }
 
-    LOGV("ComponentGetParameter: Index = 0x%x", nIndex);
+    omx_verboseLog("ComponentGetParameter: Index = 0x%x", nIndex);
     return (*handler)(this, pComponentParameterStructure);
 }
 
@@ -89,11 +86,11 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentSetParameter(
 
     OMXHANDLER handler = FindHandler(nIndex, false);
     if (handler == NULL) {
-        LOGE("ComponentSetParameter: No handler for index %d", nIndex);
+        omx_errorLog("ComponentSetParameter: No handler for index %d", nIndex);
         return OMX_ErrorUnsupportedIndex;
     }
 
-    LOGV("ComponentSetParameter: Index = 0x%x", nIndex);
+    omx_verboseLog("ComponentSetParameter: Index = 0x%x", nIndex);
     return (*handler)(this, pComponentParameterStructure);
 }
 
@@ -103,11 +100,11 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentGetConfig(
 
     OMXHANDLER handler = FindHandler(nIndex, true);
     if (handler == NULL) {
-        LOGE("ComponentGetConfig: No handler for index %d", nIndex);
+        omx_errorLog("ComponentGetConfig: No handler for index %d", nIndex);
         return OMX_ErrorUnsupportedIndex;
     }
 
-    LOGV("ComponentGetConfig: Index = 0x%x", nIndex);
+    omx_verboseLog("ComponentGetConfig: Index = 0x%x", nIndex);
     return (*handler)(this, pComponentConfigStructure);
 }
 
@@ -119,11 +116,11 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentSetConfig(
 
     OMXHANDLER handler = FindHandler(nIndex, false);
     if (handler == NULL) {
-        LOGE("ComponentSetConfig: No handler for index %d", nIndex);
+        omx_errorLog("ComponentSetConfig: No handler for index %d", nIndex);
         return OMX_ErrorUnsupportedIndex;
     }
 
-    LOGV("ComponentSetConfig: Index = 0x%x", nIndex);
+    omx_verboseLog("ComponentSetConfig: Index = 0x%x", nIndex);
     pthread_mutex_lock(&mSerializationLock);
     ret = (*handler)(this, pComponentConfigStructure);
     pthread_mutex_unlock(&mSerializationLock);
@@ -131,33 +128,33 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentSetConfig(
 }
 
 OMX_ERRORTYPE OMXComponentCodecBase::ProcessorInit(void) {
-    LOGV("OMXComponentCodecBase::ProcessorInit");
+    omx_verboseLog("OMXComponentCodecBase::ProcessorInit");
 
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXComponentCodecBase::ProcessorDeinit(void) {
-    LOGV("OMXComponentCodecBase::ProcessorDeinit");
+    omx_verboseLog("OMXComponentCodecBase::ProcessorDeinit");
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXComponentCodecBase::ProcessorStart(void) {
-    LOGV("OMXComponentCodecBase::ProcessorStart");
+    omx_verboseLog("OMXComponentCodecBase::ProcessorStart");
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXComponentCodecBase::ProcessorStop(void) {
-    LOGV("OMXComponentCodecBase::ProcessorStop");
+    omx_verboseLog("OMXComponentCodecBase::ProcessorStop");
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXComponentCodecBase::ProcessorPause(void) {
-    LOGV("OMXComponentCodecBase::ProcessorPause");
+    omx_verboseLog("OMXComponentCodecBase::ProcessorPause");
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXComponentCodecBase::ProcessorResume(void) {
-    LOGV("OMXComponentCodecBase::ProcessorResume");
+    omx_verboseLog("OMXComponentCodecBase::ProcessorResume");
     return OMX_ErrorNone;
 }
 

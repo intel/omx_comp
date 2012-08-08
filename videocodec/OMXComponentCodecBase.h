@@ -29,6 +29,7 @@
 #include <portvideo.h>
 
 #include <componentbase.h>
+#include <sysdeps.h>
 #include "OMXComponentDefines.h"
 
 

@@ -15,9 +15,6 @@
 */
 
 
-#define LOG_NDEBUG 0
-#define LOG_TAG "OMXVideoDecoderAVC"
-#include <utils/Log.h>
 #include "OMXVideoDecoderAVC.h"
 
 // Be sure to have an equal string in VideoDecoderHost.cpp (libmix)
@@ -30,16 +27,16 @@ OMXVideoDecoderAVC::OMXVideoDecoderAVC()
       mBufferSize(0),
       mFilledLen(0),
       mTimeStamp(INVALID_PTS) {
-    LOGV("OMXVideoDecoderAVC is constructed.");
+    omx_verboseLog("OMXVideoDecoderAVC is constructed.");
     mVideoDecoder = createVideoDecoder(AVC_MIME_TYPE);
     if (!mVideoDecoder) {
-        LOGE("createVideoDecoder failed for \"%s\"", AVC_MIME_TYPE);
+        omx_errorLog("createVideoDecoder failed for \"%s\"", AVC_MIME_TYPE);
     }
     BuildHandlerList();
 }
 
 OMXVideoDecoderAVC::~OMXVideoDecoderAVC() {
-    LOGV("OMXVideoDecoderAVC is destructed.");
+    omx_verboseLog("OMXVideoDecoderAVC is destructed.");
 }
 
 OMX_ERRORTYPE OMXVideoDecoderAVC::InitInputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput) {
@@ -106,7 +103,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::PrepareConfigBuffer(VideoConfigBuffer *p) {
         return OMX_ErrorNone;
     }
 
-    LOGW("AVC Video decoder used in Video Conferencing Mode.");
+    omx_warnLog("AVC Video decoder used in Video Conferencing Mode.");
 
     // For video conferencing application
     p->width = mDecodeSettings.nMaxWidth;
@@ -126,7 +123,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buff
     // OMX_BUFFERFLAG_CODECCONFIG is an optional flag
     // if flag is set, buffer will only contain codec data.
     if (buffer->nFlags & OMX_BUFFERFLAG_CODECCONFIG) {
-        LOGV("Received AVC codec data.");
+        omx_verboseLog("Received AVC codec data.");
         return ret;
     }
 
@@ -147,7 +144,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buff
         return ret;
     }
 
-    LOGW("Received fragmented buffer.");
+    omx_warnLog("Received fragmented buffer.");
     // use time stamp to determine frame boundary
     if (mTimeStamp == INVALID_PTS) {
         // first ever buffer
@@ -249,7 +246,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::GetParamIntelAVCDecodeSettings(OMX_PTR pStruct
 }
 
 OMX_ERRORTYPE OMXVideoDecoderAVC::SetParamIntelAVCDecodeSettings(OMX_PTR pStructure) {
-    LOGW("SetParamIntelAVCDecodeSettings");
+    omx_warnLog("SetParamIntelAVCDecodeSettings");
 
     OMX_ERRORTYPE ret;
     OMX_VIDEO_PARAM_INTEL_AVC_DECODE_SETTINGS *p = (OMX_VIDEO_PARAM_INTEL_AVC_DECODE_SETTINGS *)pStructure;
@@ -262,7 +259,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::SetParamIntelAVCDecodeSettings(OMX_PTR pStruct
         // TODO: check if we just return in this case.
         p->nMaxNumberOfReferenceFrame = NUM_REFERENCE_FRAME;
     }
-    LOGI("Maximum width = %lu, height = %lu, dpb = %lu", p->nMaxWidth, p->nMaxHeight, p->nMaxNumberOfReferenceFrame);
+    omx_infoLog("Maximum width = %lu, height = %lu, dpb = %lu", p->nMaxWidth, p->nMaxHeight, p->nMaxNumberOfReferenceFrame);
     mDecodeSettings = *p;
 
     return OMX_ErrorNone;
