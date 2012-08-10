@@ -14,8 +14,6 @@ VENDORS_INTEL_MRST_COMPONENTS_ROOT := $(LOCAL_PATH)
 
 WRS_OMXIL_CORE_ROOT := hardware/intel/wrs_omxil_core
 
-LIBVA_TOP := hardware/intel/libva
-
 # mrst sst audio
 #-include $(VENDORS_INTEL_MRST_COMPONENTS_ROOT)/sst/Android.mk
 

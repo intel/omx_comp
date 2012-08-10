@@ -22,6 +22,7 @@
 #include <media/stagefright/HardwareAPI.h>
 #include <IntelMetadataBuffer.h>
 #include "OMXVideoEncoderBase.h"
+using namespace android;
 
 static const char *RAW_MIME_TYPE = "video/raw";
 
