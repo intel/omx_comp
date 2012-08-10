@@ -1,8 +1,3 @@
-#libwrs_omxil_intel_mrst_sst.so
 libOMXVideoDecoderAVC.so
-libOMXVideoDecoderH263.so
 libOMXVideoDecoderWMV.so
-libOMXVideoDecoderMPEG4.so
 libOMXVideoEncoderAVC.so
-libOMXVideoEncoderH263.so
-libOMXVideoEncoderMPEG4.so
