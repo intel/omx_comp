@@ -135,7 +135,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::InitOutputPort(void) {
     paramPortDefinitionOutput.format.video.xFramerate = 15 << 16;
     paramPortDefinitionOutput.format.video.bFlagErrorConcealment = OMX_FALSE;
     paramPortDefinitionOutput.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
-    paramPortDefinitionOutput.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_INTEL_COLOR_FormatYUV420SemiPlanar;
+    paramPortDefinitionOutput.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_COLOR_FormatYUV420SemiPlanar;
     paramPortDefinitionOutput.format.video.pNativeWindow = NULL;
     paramPortDefinitionOutput.bBuffersContiguous = OMX_FALSE;
     paramPortDefinitionOutput.nBufferAlignment = 0;
