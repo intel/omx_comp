@@ -15,9 +15,6 @@
 */
 
 
-#define LOG_NDEBUG 0
-#define LOG_TAG "OMXVideoEncoderAVC"
-#include <utils/Log.h>
 #include "OMXVideoEncoderAVC.h"
 
 static const char *AVC_MIME_TYPE = "video/h264";
@@ -25,10 +22,10 @@ static const char *AVC_MIME_TYPE = "video/h264";
 OMXVideoEncoderAVC::OMXVideoEncoderAVC() {
     BuildHandlerList();
     mEncoderVideo =  createVideoEncoder(AVC_MIME_TYPE);
-    if (!mEncoderVideo) LOGE("OMX_ErrorInsufficientResources");
+    if (!mEncoderVideo) omx_errorLog("OMX_ErrorInsufficientResources");
 
     mEncAVCParams = new VideoParamsAVC();
-    if (!mEncAVCParams) LOGE("OMX_ErrorInsufficientResources");
+    if (!mEncAVCParams) omx_errorLog("OMX_ErrorInsufficientResources");
 }
 
 OMXVideoEncoderAVC::~OMXVideoEncoderAVC() {
@@ -119,29 +116,29 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
     VideoEncOutputBuffer outBuf;
     VideoEncRawBuffer inBuf;
 
-    LOGV_IF(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS,
-            "%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
+    if(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS)
+        omx_verboseLog("%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
 
     if (!buffers[INPORT_INDEX]->nFilledLen) {
-        LOGE("%s(),%d: input buffer's nFilledLen is zero\n",  __func__, __LINE__);
+        omx_errorLog("%s(),%d: input buffer's nFilledLen is zero\n",  __func__, __LINE__);
         goto out;
     }
 
     inBuf.data = buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
     inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
 
-    LOGV("inBuf.data=%x, size=%d",(unsigned)inBuf.data, inBuf.size);
+    omx_verboseLog("inBuf.data=%x, size=%d",(unsigned)inBuf.data, inBuf.size);
 
     outBuf.data = buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
     outBuf.dataSize = 0;
     outBuf.bufferSize = buffers[OUTPORT_INDEX]->nAllocLen - buffers[OUTPORT_INDEX]->nOffset;
 
     if( inBuf.size<=0) {
-        LOGE("The Input buf size is 0\n");
+        omx_errorLog("The Input buf size is 0\n");
         return OMX_ErrorBadParameter;
     }
 
-    LOGV("in buffer = 0x%x ts = %lld",
+    omx_verboseLog("in buffer = 0x%x ts = %lld",
          buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset,
          buffers[INPORT_INDEX]->nTimeStamp);
 
@@ -166,7 +163,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
             ret = mEncoderVideo->getOutput(&outBuf);
             CHECK_ENCODE_STATUS("getOutput");
 
-            LOGV("output data size = %d", outBuf.dataSize);
+            omx_verboseLog("output data size = %d", outBuf.dataSize);
             outfilledlen = outBuf.dataSize;
             outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
 
@@ -203,7 +200,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
                 return OMX_ErrorUndefined;
             }
 
-            LOGV("output codec data size = %d", outBuf.dataSize);
+            omx_verboseLog("output codec data size = %d", outBuf.dataSize);
 
             outfilledlen = outBuf.dataSize;
             outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
@@ -231,7 +228,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
         case OMX_NaluFormatStartCodesSeparateFirstHeader:
 
             if(mFirstFrame) {
-                LOGV("mFirstFrame\n");
+                omx_verboseLog("mFirstFrame\n");
                 outBuf.format = OUTPUT_CODEC_DATA;
                 ret = mEncoderVideo->getOutput(&outBuf);
                 CHECK_ENCODE_STATUS("getOutput");
@@ -242,7 +239,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
                     return OMX_ErrorUndefined;
                 }
 
-                LOGV("output codec data size = %d", outBuf.dataSize);
+                omx_verboseLog("output codec data size = %d", outBuf.dataSize);
 
                 outflags |= OMX_BUFFERFLAG_CODECCONFIG;
                 outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
@@ -255,7 +252,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
                 ret = mEncoderVideo->getOutput(&outBuf);
                 CHECK_ENCODE_STATUS("getOutput");
 
-                LOGV("output data size = %d", outBuf.dataSize);
+                omx_verboseLog("output data size = %d", outBuf.dataSize);
 
 
                 outfilledlen = outBuf.dataSize;
@@ -266,7 +263,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
                 }
 
                 if(outBuf.flag & ENCODE_BUFFERFLAG_ENDOFFRAME) {
-                    LOGV("Get buffer done\n");
+                    omx_verboseLog("Get buffer done\n");
                     outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
                     mGetBufDone = OMX_TRUE;
                     retains[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
@@ -289,7 +286,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
 
 
 out:
-    LOGV("output buffers = %p:%d, flag = %x", buffers[OUTPORT_INDEX]->pBuffer, outfilledlen, outflags);
+    omx_verboseLog("output buffers = %p:%d, flag = %x", buffers[OUTPORT_INDEX]->pBuffer, outfilledlen, outflags);
 
     if(retains[OUTPORT_INDEX] != BUFFER_RETAIN_GETAGAIN) {
         buffers[OUTPORT_INDEX]->nFilledLen = outfilledlen;
@@ -310,7 +307,8 @@ out:
         }
     }
 #endif
-    LOGV_IF(oret == OMX_ErrorNone, "%s(),%d: exit, encode is done\n", __func__, __LINE__);
+    if(oret == OMX_ErrorNone)
+	omx_verboseLog("%s(),%d: exit, encode is done\n", __func__, __LINE__);
 
     return oret;
 
@@ -372,11 +370,11 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::SetParamNalStreamFormat(OMX_PTR pStructure) {
     CHECK_TYPE_HEADER(p);
     CHECK_PORT_INDEX(p, OUTPORT_INDEX);
 
-    LOGV("p->eNaluFormat =%d\n",p->eNaluFormat);
+    omx_verboseLog("p->eNaluFormat =%d\n",p->eNaluFormat);
     if(p->eNaluFormat != OMX_NaluFormatStartCodes &&
             p->eNaluFormat != OMX_NaluFormatStartCodesSeparateFirstHeader &&
             p->eNaluFormat != OMX_NaluFormatOneNaluPerBuffer) {
-        LOGE("Format not support\n");
+        omx_errorLog("Format not support\n");
         return OMX_ErrorUnsupportedSetting;
     }
     mNalStreamFormat.eNaluFormat = p->eNaluFormat;
@@ -401,12 +399,12 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::GetParamNalStreamFormatSupported(OMX_PTR pStru
 }
 
 OMX_ERRORTYPE OMXVideoEncoderAVC::SetParamNalStreamFormatSupported(OMX_PTR pStructure) {
-    LOGW("SetParamNalStreamFormatSupported is not supported.");
+    omx_warnLog("SetParamNalStreamFormatSupported is not supported.");
     return OMX_ErrorUnsupportedSetting;
 }
 
 OMX_ERRORTYPE OMXVideoEncoderAVC::GetParamNalStreamFormatSelect(OMX_PTR pStructure) {
-    LOGW("GetParamNalStreamFormatSelect is not supported.");
+    omx_warnLog("GetParamNalStreamFormatSelect is not supported.");
     return OMX_ErrorUnsupportedSetting;
 }
 
@@ -474,7 +472,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::GetConfigVideoNalSize(OMX_PTR pStructure) {
 OMX_ERRORTYPE OMXVideoEncoderAVC::SetConfigVideoNalSize(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
-        LOGE("SetConfigVideoNalSize failed. Feature is disabled.");
+        omx_errorLog("SetConfigVideoNalSize failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
     }
     OMX_VIDEO_CONFIG_NALSIZE *p = (OMX_VIDEO_CONFIG_NALSIZE *)pStructure;
@@ -489,7 +487,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::SetConfigVideoNalSize(OMX_PTR pStructure) {
     CHECK_SET_CONFIG_STATE();
 
     if (mParamIntelBitrate.eControlRate != OMX_Video_Intel_ControlRateVideoConferencingMode) {
-        LOGE("SetConfigVideoNalSize failed. Feature is supported only in VCM.");
+        omx_errorLog("SetConfigVideoNalSize failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }
     // TODO: apply NAL Size configuration in Executing state

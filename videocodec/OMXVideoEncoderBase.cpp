@@ -14,12 +14,12 @@
 * limitations under the License.
 */
 
-//#define LOG_NDEBUG 0
-#undef LOG_TAG
-#define LOG_TAG "OMXVideoEncoderBase"
-#include <utils/Log.h>
 //for structs of Google extensions, e.g., StoreMetaDataInBuffersParams
+#ifdef ANDROID_JB
+#include <media/hardware/HardwareAPI.h>
+#elif ANDROID_PRE_JB
 #include <media/stagefright/HardwareAPI.h>
+#endif
 #include <IntelMetadataBuffer.h>
 #include "OMXVideoEncoderBase.h"
 using namespace android;
@@ -37,7 +37,7 @@ OMXVideoEncoderBase::OMXVideoEncoderBase()
     ,mMetaDataBufferSharing(OMX_FALSE) {
 
     mEncoderParams = new VideoParamsCommon();
-    if (!mEncoderParams) LOGE("OMX_ErrorInsufficientResources");
+    if (!mEncoderParams) omx_errorLog("OMX_ErrorInsufficientResources");
 
 }
 
@@ -321,7 +321,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorInit(void) {
     CHECK_STATUS("SetVideoEncoderParam");
 
     if (mEncoderVideo->start() != ENCODE_SUCCESS) {
-        LOGE("Failed. ret = 0x%08x\n", ret);
+        omx_errorLog("Failed. ret = 0x%08x\n", ret);
         return OMX_ErrorUndefined;
     }
 
@@ -347,12 +347,12 @@ OMX_ERRORTYPE OMXVideoEncoderBase:: ProcessorProcess(
 		buffer_retain_t *retains,
 		OMX_U32 numberBuffers){
 
-		LOGV("OMXVideoEncoderBase:: ProcessorProcess \n");
+		omx_verboseLog("OMXVideoEncoderBase:: ProcessorProcess \n");
 		return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorFlush(OMX_U32 portIndex) {
-    LOGV("OMXVideoEncoderBase::ProcessorFlush\n");
+    omx_verboseLog("OMXVideoEncoderBase::ProcessorFlush\n");
     if (portIndex == INPORT_INDEX || portIndex == OMX_ALL) {
         this->ports[INPORT_INDEX]->ReturnAllRetainedBuffers();
         mEncoderVideo->flush();
@@ -513,7 +513,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelBitrate(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
     Encode_Status retStatus = ENCODE_SUCCESS;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
-        LOGE("SetConfigIntelBitrate failed. Feature is disabled.");
+        omx_errorLog("SetConfigIntelBitrate failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
     }
     OMX_VIDEO_CONFIG_INTEL_BITRATETYPE *p = (OMX_VIDEO_CONFIG_INTEL_BITRATETYPE *)pStructure;
@@ -528,7 +528,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelBitrate(OMX_PTR pStructure) {
     CHECK_SET_CONFIG_STATE();
 
     if (mParamIntelBitrate.eControlRate != OMX_Video_Intel_ControlRateVideoConferencingMode) {
-        LOGE("SetConfigIntelBitrate failed. Feature is supported only in VCM.");
+        omx_errorLog("SetConfigIntelBitrate failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }
     VideoConfigBitRate configBitRate;
@@ -544,7 +544,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelBitrate(OMX_PTR pStructure) {
     configBitRate.rcParams.targetPercentage = mConfigIntelBitrate.nTargetPercentage;
     retStatus = mEncoderVideo->setConfig(&configBitRate);
     if(retStatus!=ENCODE_SUCCESS){
-	LOGW("failed to set IntelBitrate !\n");
+	omx_warnLog("failed to set IntelBitrate !\n");
     }
     return OMX_ErrorNone;
 }
@@ -563,7 +563,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::GetConfigIntelSliceNumbers(OMX_PTR pStructure
 OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelSliceNumbers(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
-        LOGE("SetConfigIntelSliceNumbers failed. Feature is disabled.");
+        omx_errorLog("SetConfigIntelSliceNumbers failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
     }
     OMX_VIDEO_CONFIG_INTEL_SLICE_NUMBERS *p = (OMX_VIDEO_CONFIG_INTEL_SLICE_NUMBERS *)pStructure;
@@ -578,7 +578,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelSliceNumbers(OMX_PTR pStructure
     CHECK_SET_CONFIG_STATE();
 
     if (mParamIntelBitrate.eControlRate != OMX_Video_Intel_ControlRateVideoConferencingMode) {
-        LOGE("SetConfigIntelSliceNumbers failed. Feature is supported only in VCM.");
+        omx_errorLog("SetConfigIntelSliceNumbers failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }
     // TODO: apply Slice numbers configuration in Executing state
@@ -600,7 +600,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelAIR(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
     Encode_Status retStatus = ENCODE_SUCCESS;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
-        LOGE("SetConfigIntelAIR failed. Feature is disabled.");
+        omx_errorLog("SetConfigIntelAIR failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
     }
     OMX_VIDEO_CONFIG_INTEL_AIR *p = (OMX_VIDEO_CONFIG_INTEL_AIR *)pStructure;
@@ -615,7 +615,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelAIR(OMX_PTR pStructure) {
     CHECK_SET_CONFIG_STATE();
 
     if (mParamIntelBitrate.eControlRate != OMX_Video_Intel_ControlRateVideoConferencingMode) {
-        LOGE("SetConfigIntelAIR failed. Feature is supported only in VCM.");
+        omx_errorLog("SetConfigIntelAIR failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }
 
@@ -630,7 +630,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelAIR(OMX_PTR pStructure) {
     configAIR.airParams.airThreshold = mConfigIntelAir.nAirThreshold;
     retStatus = mEncoderVideo->setConfig(&configAIR);
     if(retStatus != ENCODE_SUCCESS){
-	LOGW("Failed to set AIR config\n");
+	omx_warnLog("Failed to set AIR config\n");
     }
     return OMX_ErrorNone;
 }
@@ -649,7 +649,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoFramerate(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
     Encode_Status retStatus = ENCODE_SUCCESS;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
-        LOGE("SetConfigVideoFramerate failed. Feature is disabled.");
+        omx_errorLog("SetConfigVideoFramerate failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
     }
     OMX_CONFIG_FRAMERATETYPE *p = (OMX_CONFIG_FRAMERATETYPE *)pStructure;
@@ -664,7 +664,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoFramerate(OMX_PTR pStructure) {
     CHECK_SET_CONFIG_STATE();
 
     if (mParamIntelBitrate.eControlRate != OMX_Video_Intel_ControlRateVideoConferencingMode) {
-        LOGE("SetConfigIntelAIR failed. Feature is supported only in VCM.");
+        omx_errorLog("SetConfigIntelAIR failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }
     VideoConfigFrameRate framerate;
@@ -677,13 +677,13 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoFramerate(OMX_PTR pStructure) {
     framerate.frameRate.frameRateNum = mConfigFramerate.xEncodeFramerate>>16;
     retStatus = mEncoderVideo->setConfig(&framerate);
     if(retStatus != ENCODE_SUCCESS){
-	LOGW("Failed to set frame rate config! \n");
+	omx_warnLog("Failed to set frame rate config! \n");
     }
     return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::GetConfigVideoIntraVOPRefresh(OMX_PTR pStructure) {
-    LOGW("GetConfigVideoIntraVOPRefresh is not supported.");
+    omx_warnLog("GetConfigVideoIntraVOPRefresh is not supported.");
     return OMX_ErrorUnsupportedSetting;
 }
 
@@ -709,7 +709,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoIntraVOPRefresh(OMX_PTR pStruct
     }
     retStatus = mEncoderVideo->setConfig(&configIntraRefreshType);
     if(retStatus != ENCODE_SUCCESS){
-	LOGW("Failed to set refresh config!\n");
+	omx_warnLog("Failed to set refresh config!\n");
    }
     return OMX_ErrorNone;
 }
@@ -730,7 +730,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamIntelAdaptiveSliceControl(OMX_PTR pSt
 #if 0
     OMX_ERRORTYPE ret;
     if (mParamIntelBitrate.eControlRate == OMX_Video_Intel_ControlRateMax) {
-        LOGE("SetParamIntelAdaptiveSliceControl failed. Feature is disabled.");
+        omx_errorLog("SetParamIntelAdaptiveSliceControl failed. Feature is disabled.");
         return OMX_ErrorUnsupportedIndex;
     }
     OMX_VIDEO_PARAM_INTEL_ADAPTIVE_SLICE_CONTROL *p = (OMX_VIDEO_PARAM_INTEL_ADAPTIVE_SLICE_CONTROL *)pStructure;
@@ -760,7 +760,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::GetParamVideoProfileLevelQuerySupported(OMX_P
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::SetParamVideoProfileLevelQuerySupported(OMX_PTR pStructure) {
-    LOGW("SetParamVideoProfileLevelQuerySupported is not supported.");
+    omx_warnLog("SetParamVideoProfileLevelQuerySupported is not supported.");
     return OMX_ErrorUnsupportedSetting;
 }
 
@@ -783,7 +783,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamGoogleMetaDataInBuffers(OMX_PTR pStru
     CHECK_TYPE_HEADER(p);
     CHECK_PORT_INDEX(p, INPORT_INDEX);
 
-    LOGD("SetParamGoogleMetaDataInBuffers (enabled = %x)", p->bStoreMetaData);
+    omx_debugLog("SetParamGoogleMetaDataInBuffers (enabled = %x)", p->bStoreMetaData);
     mMetaDataBufferSharing = p->bStoreMetaData;
 
     if(mMetaDataBufferSharing == OMX_TRUE)
@@ -791,15 +791,15 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamGoogleMetaDataInBuffers(OMX_PTR pStru
         OMX_PARAM_PORTDEFINITIONTYPE pd;
         memcpy(&pd, this->ports[INPORT_INDEX]->GetPortDefinition(), sizeof(pd));
         pd.nBufferSize = IntelMetadataBuffer::GetMaxBufferSize();
-        LOGV("setting meta data buffer size: %d", pd.nBufferSize);
+        omx_verboseLog("setting meta data buffer size: %d", pd.nBufferSize);
         ports[INPORT_INDEX]->SetPortDefinition(&pd, true);
     }
 
     VideoParamsStoreMetaDataInBuffers storeMetaDataInBuffers;
     storeMetaDataInBuffers.isEnabled = mMetaDataBufferSharing == OMX_TRUE;
-    LOGV("setting store metadata to hw encoder: %d", storeMetaDataInBuffers.isEnabled);
+    omx_verboseLog("setting store metadata to hw encoder: %d", storeMetaDataInBuffers.isEnabled);
     if(mEncoderVideo->setParameters(&storeMetaDataInBuffers) != ENCODE_SUCCESS){
-        LOGE("setParameters StoreMetaDataInBuffers failed");
+        omx_errorLog("setParameters StoreMetaDataInBuffers failed");
         return OMX_ErrorUndefined;
     }
     return OMX_ErrorNone;

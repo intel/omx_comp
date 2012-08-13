@@ -42,6 +42,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS := $(OMXLOG_CFLAGS) -DLOG_TAG=\"omx-mpeg4dec\"
 LOCAL_CPPFLAGS :=
 LOCAL_LDFLAGS :=
 
@@ -72,6 +73,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS := $(OMXLOG_CFLAGS) -DLOG_TAG=\"omx-h263dec\"
 LOCAL_CPPFLAGS :=
 LOCAL_LDFLAGS :=
 
@@ -139,6 +141,7 @@ include $(CLEAR_VARS)
 LOCAL_CPPFLAGS :=
 LOCAL_LDFLAGS :=
 
+LOCAL_CFLAGS := $(OMXLOG_CFLAGS) -DLOG_TAG=\"omx-avcenc\"
 LOCAL_SHARED_LIBRARIES := \
         libwrs_omxil_common \
 	liblog \
@@ -153,6 +156,7 @@ LOCAL_C_INCLUDES := \
     $(WRS_OMXIL_CORE_ROOT)/utils/inc \
     $(WRS_OMXIL_CORE_ROOT)/base/inc \
     $(WRS_OMXIL_CORE_ROOT)/core/inc/khronos/openmax/include \
+    $(TOP)/frameworks/native/include/media/hardware \
     $(TARGET_OUT_HEADERS)/libmixcodec 	\
     $(TARGET_OUT_HEADERS)/libva
 
@@ -168,6 +172,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS := $(OMXLOG_CFLAGS) -DLOG_TAG=\"omx-h263enc\"
 LOCAL_CPPFLAGS :=
 LOCAL_LDFLAGS :=
 
@@ -202,6 +207,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS := $(OMXLOG_CFLAGS) -DLOG_TAG=\"omx-mpeg4enc\"
 LOCAL_CPPFLAGS :=
 LOCAL_LDFLAGS :=
 
