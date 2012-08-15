@@ -247,6 +247,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
 
                 outfilledlen = outBuf.dataSize;
                 mFirstFrame = OMX_FALSE;
+                retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;  //get again
             } else {
                 outBuf.format = OUTPUT_EVERYTHING;
                 ret = mEncoderVideo->getOutput(&outBuf);
@@ -275,11 +276,6 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
 
             }
 
-            if (outfilledlen > 0) {
-                retains[OUTPORT_INDEX] = BUFFER_RETAIN_NOT_RETAIN;
-            } else {
-                retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-            }
 
             break;
     }
