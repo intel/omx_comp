@@ -14,23 +14,19 @@
 * limitations under the License.
 */
 
-
-// #define LOG_NDEBUG 0
-#define LOG_TAG "OMXVideoEncoderH263"
-#include <utils/Log.h>
 #include "OMXVideoEncoderH263.h"
 
 static const char *H263_MIME_TYPE = "video/h263";
 
 OMXVideoEncoderH263::OMXVideoEncoderH263() {
-    LOGV("Constructer for OMXVideoEncoderH263.");
+    omx_verboseLog("Constructer for OMXVideoEncoderH263.");
     BuildHandlerList();
     mEncoderVideo =  createVideoEncoder(H263_MIME_TYPE);
-    if (!mEncoderVideo) LOGE("OMX_ErrorInsufficientResources");
+    if (!mEncoderVideo) omx_errorLog("OMX_ErrorInsufficientResources");
 }
 
 OMXVideoEncoderH263::~OMXVideoEncoderH263() {
-    LOGV("Destructer for OMXVideoEncoderH263.");
+    omx_verboseLog("Destructer for OMXVideoEncoderH263.");
 }
 
 OMX_ERRORTYPE OMXVideoEncoderH263::InitOutputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput) {
@@ -61,7 +57,7 @@ OMX_ERRORTYPE OMXVideoEncoderH263::InitOutputPortFormatSpecific(OMX_PARAM_PORTDE
 }
 
 OMX_ERRORTYPE OMXVideoEncoderH263::ProcessorInit(void) {
-    LOGV("OMXVideoEncoderH263::ProcessorInit\n");
+    omx_verboseLog("OMXVideoEncoderH263::ProcessorInit\n");
     return OMXVideoEncoderBase::ProcessorInit();
 }
 
@@ -73,7 +69,7 @@ OMX_ERRORTYPE OMXVideoEncoderH263::ProcessorProcess(
     OMX_BUFFERHEADERTYPE **buffers,
     buffer_retain_t *retains,
     OMX_U32 numberBuffers) {
-    LOGV("OMXVideoEncoderH263::ProcessorProcess \n");
+    omx_verboseLog("OMXVideoEncoderH263::ProcessorProcess \n");
 
     VideoEncOutputBuffer outBuf;
     VideoEncRawBuffer inBuf;
@@ -84,20 +80,20 @@ OMX_ERRORTYPE OMXVideoEncoderH263::ProcessorProcess(
     OMX_ERRORTYPE oret = OMX_ErrorNone;
     Encode_Status ret = ENCODE_SUCCESS;
 
-    LOGV("%s(): enter encode\n", __func__);
+    omx_verboseLog("%s(): enter encode\n", __func__);
 
-    LOGV_IF(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS,
-            "%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
+    if(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS)
+        omx_verboseLog("%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
 
     if (!buffers[INPORT_INDEX]->nFilledLen) {
-        LOGE("%s(),%d: input buffer's nFilledLen is zero\n", __func__, __LINE__);
+        omx_errorLog("%s(),%d: input buffer's nFilledLen is zero\n", __func__, __LINE__);
         goto out;
     }
 
     inBuf.data = buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
     inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
 
-    LOGV("buffer_in.data=%x, data_size=%d",
+    omx_verboseLog("buffer_in.data=%x, data_size=%d",
          (unsigned)inBuf.data, inBuf.size);
 
     outBuf.data =	buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
@@ -122,7 +118,7 @@ OMX_ERRORTYPE OMXVideoEncoderH263::ProcessorProcess(
     ret = mEncoderVideo->getOutput(&outBuf);
     CHECK_ENCODE_STATUS("encode");
 
-    LOGV("output data size = %d", outBuf.dataSize);
+    omx_verboseLog("output data size = %d", outBuf.dataSize);
     outfilledlen = outBuf.dataSize;
     outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
 
@@ -149,7 +145,7 @@ OMX_ERRORTYPE OMXVideoEncoderH263::ProcessorProcess(
 
 
     if(ret == ENCODE_SLICESIZE_OVERFLOW) {
-        LOGV("%s(), mix_video_encode returns MIX_RESULT_VIDEO_ENC_SLICESIZE_OVERFLOW"
+        omx_verboseLog("%s(), mix_video_encode returns MIX_RESULT_VIDEO_ENC_SLICESIZE_OVERFLOW"
              , __func__);
         oret = (OMX_ERRORTYPE)OMX_ErrorIntelExtSliceSizeOverflow;
     }
@@ -170,7 +166,7 @@ OMX_ERRORTYPE OMXVideoEncoderH263::ProcessorProcess(
         average_fps = (current_fps + lastFps) / 2;
         lastFps = current_fps;
 
-        LOGD("FPS = %2.1f\n", average_fps);
+        omx_debugLog("FPS = %2.1f\n", average_fps);
     }
 #endif
 
@@ -181,7 +177,7 @@ out:
         buffers[OUTPORT_INDEX]->nTimeStamp = outtimestamp;
         buffers[OUTPORT_INDEX]->nFlags = outflags;
 
-        LOGV("********** output buffer: len=%d, ts=%ld, flags=%x",
+        omx_verboseLog("********** output buffer: len=%d, ts=%ld, flags=%x",
              outfilledlen,
              outtimestamp,
              outflags);
@@ -195,7 +191,8 @@ out:
     if (retains[OUTPORT_INDEX] == BUFFER_RETAIN_NOT_RETAIN)
         outFrameCnt ++;
 
-    LOGV_IF(oret == OMX_ErrorNone, "%s(),%d: exit, encode is done\n", __func__, __LINE__);
+    if(oret == OMX_ErrorNone)
+        omx_verboseLog("%s(),%d: exit, encode is done\n", __func__, __LINE__);
 
     return oret;
 

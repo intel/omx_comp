@@ -14,23 +14,19 @@
 * limitations under the License.
 */
 
-
-#define LOG_NDEBUG 0
-#define LOG_TAG "OMXVideoEncoderMPEG4"
-#include <utils/Log.h>
 #include "OMXVideoEncoderMPEG4.h"
 
 static const char *MPEG4_MIME_TYPE = "video/mpeg4";
 
 OMXVideoEncoderMPEG4::OMXVideoEncoderMPEG4() {
-    LOGV("OMXVideoEncoderMPEG4 is constructed.");
+    omx_verboseLog("OMXVideoEncoderMPEG4 is constructed.");
     BuildHandlerList();
     mEncoderVideo =  createVideoEncoder(MPEG4_MIME_TYPE);
-    if (!mEncoderVideo) LOGE("OMX_ErrorInsufficientResources");
+    if (!mEncoderVideo) omx_errorLog("OMX_ErrorInsufficientResources");
 }
 
 OMXVideoEncoderMPEG4::~OMXVideoEncoderMPEG4() {
-    LOGV("OMXVideoEncoderMPEG4 is destructed.");
+    omx_verboseLog("OMXVideoEncoderMPEG4 is destructed.");
 }
 
 OMX_ERRORTYPE OMXVideoEncoderMPEG4::InitOutputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput) {
@@ -82,11 +78,11 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
     OMX_ERRORTYPE oret = OMX_ErrorNone;
 
 
-    LOGV_IF(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS,
-            "%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
+    if (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS)
+        omx_verboseLog("%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
 
     if (!buffers[INPORT_INDEX]->nFilledLen) {
-        LOGV("%s(),%d: input buffer's nFilledLen is zero\n",  __func__, __LINE__);
+        omx_verboseLog("%s(),%d: input buffer's nFilledLen is zero\n",  __func__, __LINE__);
         goto out;
     }
 
@@ -94,7 +90,7 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
         buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
     inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
 
-    LOGV("inBuf.data=%x, size=%d", (unsigned)inBuf.data, inBuf.size);
+    omx_verboseLog("inBuf.data=%x, size=%d", (unsigned)inBuf.data, inBuf.size);
 
     outBuf.data =
         buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
@@ -117,7 +113,7 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
     }
 
     if(mFirstFrame) {
-        LOGV("mFirstFrame\n");
+        omx_verboseLog("mFirstFrame\n");
         outBuf.format = OUTPUT_CODEC_DATA;
         ret = mEncoderVideo->getOutput(&outBuf);
         CHECK_ENCODE_STATUS("getOutput");
@@ -127,7 +123,7 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
             return OMX_ErrorUndefined;
         }
 
-        LOGV("output codec data size = %d", outBuf.dataSize);
+        omx_verboseLog("output codec data size = %d", outBuf.dataSize);
 
         outflags |= OMX_BUFFERFLAG_CODECCONFIG;
         outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
@@ -140,7 +136,7 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
         mEncoderVideo->getOutput(&outBuf);
         CHECK_ENCODE_STATUS("getOutput");
 
-        LOGV("output data size = %d", outBuf.dataSize);
+        omx_verboseLog("output data size = %d", outBuf.dataSize);
 
 
         outfilledlen = outBuf.dataSize;
@@ -150,7 +146,7 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
             outflags |= OMX_BUFFERFLAG_SYNCFRAME;
         }
         if(outBuf.flag & ENCODE_BUFFERFLAG_ENDOFFRAME) {
-            LOGV("Get buffer done\n");
+            omx_verboseLog("Get buffer done\n");
             outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
             mGetBufDone = OMX_TRUE;
             retains[INPORT_INDEX] = BUFFER_RETAIN_ACCUMULATE;
@@ -188,7 +184,7 @@ OMX_ERRORTYPE OMXVideoEncoderMPEG4::ProcessorProcess(
         average_fps = (current_fps + lastFps) / 2;
         lastFps = current_fps;
 
-        LOGV("FPS = %2.1f\n", average_fps);
+        omx_verboseLog("FPS = %2.1f\n", average_fps);
     }
 #endif
 
