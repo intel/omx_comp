@@ -16,8 +16,10 @@
 
 #include "OMXVideoDecoderBase.h"
 #include "vabuffer.h"
+#ifdef ANDROID
 #include <system/graphics.h>
 #include <hardware/gralloc.h>
+#endif
 
 static const char* VA_RAW_MIME_TYPE = "video/raw";
 static const uint32_t OMX_INTEL_COLOR_FormatYUV420SemiPlanar = OMX_COLOR_FormatVendorStartUnused + 0x200;
@@ -662,8 +664,10 @@ OMX_ERRORTYPE OMXVideoDecoderBase::GetParamVideoGoogleNativeBufferUsage(OMX_PTR 
     CHECK_TYPE_HEADER(p);
     CHECK_PORT_INDEX_RANGE(p);
 
+#ifdef ANDROID
     if (bNativeBufferEnable)
             p->nUsage = GRALLOC_USAGE_HW_RENDER;
+#endif
 
     return ret;
 }
