@@ -30,7 +30,9 @@ AC_SUBST(pkgconfigdir)
 PKG_CHECK_MODULES(OMXIL_UTILS, libomxil_utils)
 PKG_CHECK_MODULES(OMXIL_BASE, libomxil_base)
 PKG_CHECK_MODULES(MIXVBP, libmixvbp)
-PKG_CHECK_MODULES(MIXVBP_H264, libmixvbp_h264)
+PKG_CHECK_MODULES(MIXVBP_H264, libmixvbp-h264)
+PKG_CHECK_MODULES(VAVIDDEC_DEPS, libva_videodecoder)
+PKG_CHECK_MODULES(LIBVA_DEPS, libva)
 
 # Checks for library functions.
 AC_FUNC_MALLOC

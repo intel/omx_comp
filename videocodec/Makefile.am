@@ -17,6 +17,11 @@ libOMXVideoDecoderAVC_source_priv_h = \
 	
 libOMXVideoDecoderAVC_ldflags = \
 	-version-info 0:1:0 \
+	$(OMXIL_UTILS_LIBS) \
+	$(OMXIL_BASE_LIBS) \
+	$(VAVIDDEC_DEPS_LIBS) \
+	$(LIBVA_DEPS_LIBS) \
+	-ldl -lpthread \
 	$(NULL)
 
 lib_LTLIBRARIES				= libOMXVideoDecoderAVC.la
@@ -25,6 +30,7 @@ libOMXVideoDecoderAVCinclude_HEADERS	= $(libOMXVideoDecoderAVC_source_h)
 noinst_HEADERS				= $(libOMXVideoDecoderAVC_source_h_priv)
 libOMXVideoDecoderAVC_la_SOURCES	= $(libOMXVideoDecoderAVC_source_cpp)
 libOMXVideoDecoderAVC_la_LDFLAGS	= $(libOMXVideoDecoderAVC_ldflags)
-libOMXVideoDecoderAVC_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(MIXVBP_CFLAGS) $(MIXVBP_H264_CFLAGS) 
+libOMXVideoDecoderAVC_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(VAVIDDEC_DEPS_CFLAGS) \
+					  $(LIBVA_DEPS_CFLAGS) $(MIXVBP_CFLAGS) $(MIXVBP_H264_CFLAGS)
 
 DISTCLEANFILES = Makefile.in
