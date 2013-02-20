@@ -98,19 +98,14 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::PrepareConfigBuffer(VideoConfigBuffer *p) {
     ret = OMXVideoDecoderBase::PrepareConfigBuffer(p);
     CHECK_RETURN_VALUE("OMXVideoDecoderBase::PrepareConfigBuffer");
 
-    if (mDecodeSettings.nMaxWidth == 0 ||
-        mDecodeSettings.nMaxHeight == 0) {
-        return OMX_ErrorNone;
-    }
-
     omx_warnLog("AVC Video decoder used in Video Conferencing Mode.");
 
     // For video conferencing application
     p->width = mDecodeSettings.nMaxWidth;
     p->height = mDecodeSettings.nMaxHeight;
-    p->profile = VAProfileH264ConstrainedBaseline;
-    p->surfaceNumber = mDecodeSettings.nMaxNumberOfReferenceFrame + EXTRA_REFERENCE_FRAME;
-    p->flag = WANT_ERROR_CONCEALMENT | WANT_LOW_DELAY | HAS_SURFACE_NUMBER | HAS_VA_PROFILE;
+    p->profile = VAProfileH264High;
+    p->surfaceNumber =  0; //mDecodeSettings.nMaxNumberOfReferenceFrame + EXTRA_REFERENCE_FRAME;
+    p->flag = USE_NATIVE_GRAPHIC_BUFFER;
 
     return OMX_ErrorNone;
 }
@@ -196,6 +191,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::AccumulateBuffer(OMX_BUFFERHEADERTYPE *buffer)
     }
     if (buffer->nFilledLen != 0) {
         memcpy(mAccumulateBuffer + mFilledLen, buffer->pBuffer + buffer->nOffset, buffer->nFilledLen);
+	mBufferSize=0;
     }
     mFilledLen += buffer->nFilledLen;
     return OMX_ErrorNone;
