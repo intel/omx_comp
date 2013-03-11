@@ -166,9 +166,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::InitOutputPortFormatSpecific(OMX_PARAM_PORTDE
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorInit(void) {
+OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorInit(void * parser_handle) {
     OMX_ERRORTYPE ret;
-    ret = OMXComponentCodecBase::ProcessorInit();
+    ret = OMXComponentCodecBase::ProcessorInit(parser_handle);
     CHECK_RETURN_VALUE("OMXComponentCodecBase::ProcessorInit");
 
     if (mVideoDecoder == NULL) {
@@ -179,6 +179,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorInit(void) {
     VideoConfigBuffer configBuffer;
     ret = PrepareConfigBuffer(&mVideoConfigBuffer);
     CHECK_RETURN_VALUE("PrepareConfigBuffer");
+    mVideoConfigBuffer.parser_handle=parser_handle;
+
+    mVideoDecoder->setXDisplay((Display *)mDisplayXPtr);
 
     //pthread_mutex_lock(&mSerializationLock);
     Decode_Status status = mVideoDecoder->start(&mVideoConfigBuffer);
@@ -641,6 +644,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::BuildHandlerList(void) {
     //AddHandler(PV_OMX_COMPONENT_CAPABILITY_TYPE_INDEX, GetCapabilityFlags, SetCapabilityFlags);
     AddHandler((OMX_INDEXTYPE)OMX_IndexParamGoogleThumbNail,
                     NULL, SetConfigVideoThumbNail);
+    AddHandler((OMX_INDEXTYPE)OMX_IndexParamIntelXDisplay,
+                    NULL, SetConfigXDisplay);
     return OMX_ErrorNone;
 }
 
@@ -811,4 +816,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetConfigVideoThumbNail(OMX_PTR pStructure) {
    mIsThumbNail = true;
    omx_verboseLog("SetConfigVideoThumbNail() enabling mIsThumbNail to true.");
      return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoDecoderBase::SetConfigXDisplay(OMX_PTR pStructure) {
+    mDisplayXPtr = pStructure;
+    return OMX_ErrorNone;
 }

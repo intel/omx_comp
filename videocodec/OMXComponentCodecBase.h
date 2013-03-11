@@ -60,7 +60,7 @@ protected:
             OMX_INDEXTYPE nIndex,
             OMX_PTR pComponentConfigStructure);
 
-    virtual OMX_ERRORTYPE ProcessorInit(void);  /* Loaded to Idle */
+    virtual OMX_ERRORTYPE ProcessorInit(void *parser_handle);  /* Loaded to Idle */
     virtual OMX_ERRORTYPE ProcessorDeinit(void);/* Idle to Loaded */
     virtual OMX_ERRORTYPE ProcessorStart(void); /* Idle to Executing/Pause */
     virtual OMX_ERRORTYPE ProcessorStop(void);  /* Executing/Pause to Idle */

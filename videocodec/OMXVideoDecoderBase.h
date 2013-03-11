@@ -34,7 +34,7 @@ protected:
     virtual OMX_ERRORTYPE InitInputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *input) = 0;
     virtual OMX_ERRORTYPE InitOutputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *output);
 
-    virtual OMX_ERRORTYPE ProcessorInit(void);
+    virtual OMX_ERRORTYPE ProcessorInit(void * parser_handle);
     virtual OMX_ERRORTYPE ProcessorDeinit(void);
     //virtual OMX_ERRORTYPE ProcessorStart(void);
     virtual OMX_ERRORTYPE ProcessorStop(void);
@@ -64,7 +64,9 @@ protected:
     DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoGoogleNativeBufferUsage); // get the usage flags for this codec . These will be sent while allocating gralloc buffers.
     DECLARE_HANDLER(OMXVideoDecoderBase, CapabilityFlags);   //
     DECLARE_HANDLER(OMXVideoDecoderBase, ConfigVideoThumbNail);  // to generate thumbNails.
+    DECLARE_HANDLER(OMXVideoDecoderBase, ConfigXDisplay);  // to set X Display handle.
     bool mIsThumbNail;
+    OMX_PTR mDisplayXPtr;
 
 private:
     OMX_BUFFERHEADERTYPE* getDecodedBuffer( OMX_BUFFERHEADERTYPE *pBuffer, bool draining);

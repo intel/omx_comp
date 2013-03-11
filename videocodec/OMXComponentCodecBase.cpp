@@ -127,7 +127,7 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentSetConfig(
     return ret;
 }
 
-OMX_ERRORTYPE OMXComponentCodecBase::ProcessorInit(void) {
+OMX_ERRORTYPE OMXComponentCodecBase::ProcessorInit(void * parser_handle) {
     omx_verboseLog("OMXComponentCodecBase::ProcessorInit");
 
     return OMX_ErrorNone;

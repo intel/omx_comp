@@ -63,8 +63,8 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::InitInputPortFormatSpecific(OMX_PARAM_PORTDEFI
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoDecoderAVC::ProcessorInit(void) {
-    return OMXVideoDecoderBase::ProcessorInit();
+OMX_ERRORTYPE OMXVideoDecoderAVC::ProcessorInit(void *parser_handle) {
+    return OMXVideoDecoderBase::ProcessorInit(parser_handle);
 }
 
 OMX_ERRORTYPE OMXVideoDecoderAVC::ProcessorDeinit(void) {
