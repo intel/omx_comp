@@ -4,9 +4,6 @@ DISTCLEANFILES = \
 	configure config.h.in depcomp install-sh ltmain.sh     \
 	Makefile.in missing
 
-omx_components_sysconfdir= $(sysconfdir)
-omx_components_sysconf_DATA = wrs_omxil_components.list
-
 SUBDIRS = videocodec
 
 DIST_SUBDIRS = videocodec
