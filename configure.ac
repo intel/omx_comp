@@ -7,6 +7,15 @@ AC_CONFIG_SRCDIR([videocodec/OMXVideoEncoderH263.cpp])
 AM_INIT_AUTOMAKE([foreign])
 AM_CONFIG_HEADER([config.h])
 
+AC_ARG_ENABLE(omx_debug,
+    [AC_HELP_STRING([--enable-omx-debug],
+                    [build with extra debug symbols @<:@default=no@:>@])],
+    [], [enable_omx_debug="no"])
+
+if test "$enable_omx_debug" = "yes"; then
+AC_DEFINE([__ENABLE_DEBUG__], [1], [Defined to 1 if extra debug symbols are compiled])
+fi
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC
