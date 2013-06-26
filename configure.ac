@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.60])
-AC_INIT([omx-components], [0.3.0], [daniel.charles at intel.com])
+AC_INIT([omx-components], [0.4.0], [daniel.charles at intel.com])
 AC_CONFIG_SRCDIR([videocodec/OMXVideoEncoderH263.cpp])
 AM_INIT_AUTOMAKE([foreign])
 AM_CONFIG_HEADER([config.h])
