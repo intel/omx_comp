@@ -337,6 +337,13 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
 
 OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer) {
     OMX_ERRORTYPE ret= OMX_ErrorNone;
+    const VideoRenderBuffer *renderBuffer =
+        (VideoRenderBuffer *)pOriginalOutBuffer->pPlatformPrivate;
+    const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput =
+        this->ports[OUTPORT_INDEX]->GetPortDefinition();
+    const OMX_VIDEO_PORTDEFINITIONTYPE video_format=paramPortDefinitionOutput->format.video;
+    int *picture_id= (int *)pOriginalOutBuffer->pOutputPortPrivate;
+
     if ( pOriginalOutBuffer != pNewOutBuffer ) {
         // We are not returning the same buffer that we got. Remove this buffer from output port
         omx_verboseLog("%s:original=%p ret=%p", __FUNCTION__, pOriginalOutBuffer, pNewOutBuffer);
@@ -350,6 +357,17 @@ OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *p
         if ( OMX_ErrorNone != ret ) {
             omx_errorLog("failed in PushThisBuffer = %p", pOriginalOutBuffer);
             return ret;
+        }
+    }
+    else {
+        // Ready to sync and put surfaces if GlxPictures exist
+        if(mGlxPictures) {
+            vaSyncSurface(renderBuffer->display,renderBuffer->surface);
+            vaPutSurface(renderBuffer->display, renderBuffer->surface,
+                    mGlxPictures[*picture_id], 0,0,
+                    video_format.nFrameWidth,video_format.nFrameHeight,
+                    0,0,video_format.nFrameWidth,video_format.nFrameHeight,
+                    NULL,0,0);
         }
     }
     return ret;
@@ -646,6 +664,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::BuildHandlerList(void) {
                     NULL, SetConfigVideoThumbNail);
     AddHandler((OMX_INDEXTYPE)OMX_IndexParamIntelXDisplay,
                     NULL, SetConfigXDisplay);
+    AddHandler((OMX_INDEXTYPE)OMX_IndexParamIntelGlxPictures,
+                    NULL, SetConfigGlxPictures);
     return OMX_ErrorNone;
 }
 
@@ -820,5 +840,10 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetConfigVideoThumbNail(OMX_PTR pStructure) {
 
 OMX_ERRORTYPE OMXVideoDecoderBase::SetConfigXDisplay(OMX_PTR pStructure) {
     mDisplayXPtr = pStructure;
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoDecoderBase::SetConfigGlxPictures(OMX_PTR pStructure) {
+    mGlxPictures = (Pixmap *)pStructure;
     return OMX_ErrorNone;
 }

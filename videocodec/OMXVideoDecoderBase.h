@@ -22,6 +22,7 @@
 #include "OMXComponentCodecBase.h"
 #include "VideoDecoderInterface.h"
 #include "VideoDecoderHost.h"
+#include <va/va_x11.h>
 
 class OMXVideoDecoderBase : public OMXComponentCodecBase {
 public:
@@ -65,8 +66,10 @@ protected:
     DECLARE_HANDLER(OMXVideoDecoderBase, CapabilityFlags);   //
     DECLARE_HANDLER(OMXVideoDecoderBase, ConfigVideoThumbNail);  // to generate thumbNails.
     DECLARE_HANDLER(OMXVideoDecoderBase, ConfigXDisplay);  // to set X Display handle.
+    DECLARE_HANDLER(OMXVideoDecoderBase, ConfigGlxPictures);  // to set X Display handle.
     bool mIsThumbNail;
     OMX_PTR mDisplayXPtr;
+    Pixmap *mGlxPictures;
 
 private:
     OMX_BUFFERHEADERTYPE* getDecodedBuffer( OMX_BUFFERHEADERTYPE *pBuffer, bool draining);
