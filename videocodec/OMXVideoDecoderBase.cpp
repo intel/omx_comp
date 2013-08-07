@@ -525,7 +525,16 @@ OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuf
             omx_verboseLog("%s in EOS loop pBuffer=%p ppBuffer=%p pPendingBuffer=%p", __FUNCTION__, pBufReturn, *ppBuffer, pPendingBuffer);
             if ( NULL != pPendingBuffer ) {
                 // We have hit the EOS. Give pBuffer
-                this->ports[OUTPORT_INDEX]->ReturnThisBuffer(pBufReturn);
+		// ToDo: Fix the return of libva processed buffers. The
+		// renderBuffer keeps a reference of the used omx_buffer
+		// within its structure but this cannot be maintained when
+		// there is no 1:1 relation between omx_buffers and
+		// va_surfaces.  ProcessorProcess is the unique method that
+		// should return buffers and the buffer should be marked
+		// properly.  In this case, the va_surfaces draining should
+		// happen but only one omx buffer should be returned.
+
+                //this->ports[OUTPORT_INDEX]->ReturnThisBuffer(pBufReturn);
             } else {
                 // Return pBuffer it as part of ppBuffer
                 break;
