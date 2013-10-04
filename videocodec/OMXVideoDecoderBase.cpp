@@ -476,9 +476,7 @@ OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYP
 
     //pPlatformPrivate used inside ProcessorPreFillBuffer to signal reuse by decoder.
     pBuffer->pPlatformPrivate = (void *)renderBuffer;
-    if (!bNativeBufferEnable) {
         ProcessorPreFillBuffer(pBuffer);
-    }
     return pBuffer;
 }
 
