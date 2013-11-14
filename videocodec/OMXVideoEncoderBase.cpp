@@ -22,7 +22,9 @@
 #endif
 #include <IntelMetadataBuffer.h>
 #include "OMXVideoEncoderBase.h"
+#ifdef ANDROID
 using namespace android;
+#endif
 
 static const char *RAW_MIME_TYPE = "video/raw";
 
@@ -374,7 +376,9 @@ OMX_ERRORTYPE OMXVideoEncoderBase::BuildHandlerList(void) {
     AddHandler(OMX_IndexConfigVideoIntraVOPRefresh, GetConfigVideoIntraVOPRefresh, SetConfigVideoIntraVOPRefresh);
     //AddHandler(OMX_IndexParamIntelAdaptiveSliceControl, GetParamIntelAdaptiveSliceControl, SetParamIntelAdaptiveSliceControl);
     AddHandler(OMX_IndexParamVideoProfileLevelQuerySupported, GetParamVideoProfileLevelQuerySupported, SetParamVideoProfileLevelQuerySupported);
+#ifdef ANDROID
     AddHandler((OMX_INDEXTYPE)OMX_IndexParamGoogleMetaDataInBuffers, GetParamGoogleMetaDataInBuffers, SetParamGoogleMetaDataInBuffers);
+#endif
 
     return OMX_ErrorNone;
 }
@@ -764,6 +768,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamVideoProfileLevelQuerySupported(OMX_P
     return OMX_ErrorUnsupportedSetting;
 }
 
+#ifdef ANDROID
 OMX_ERRORTYPE OMXVideoEncoderBase::GetParamGoogleMetaDataInBuffers(OMX_PTR pStructure) {
     OMX_ERRORTYPE ret;
     StoreMetaDataInBuffersParams *p = (StoreMetaDataInBuffersParams *)pStructure;
@@ -804,4 +809,4 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamGoogleMetaDataInBuffers(OMX_PTR pStru
     }
     return OMX_ErrorNone;
 };
-
+#endif

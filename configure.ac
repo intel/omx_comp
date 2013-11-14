@@ -42,6 +42,7 @@ PKG_CHECK_MODULES(MIXVBP, libmixvbp)
 PKG_CHECK_MODULES(MIXVBP_H264, libmixvbp-h264)
 PKG_CHECK_MODULES(MIXVBP_VP8, libmixvbp-vp8)
 PKG_CHECK_MODULES(VAVIDDEC_DEPS, libva_videodecoder)
+PKG_CHECK_MODULES(VAVIDENC_DEPS, libva_videoencoder)
 PKG_CHECK_MODULES(LIBVA_DEPS, libva)
 
 # Checks for library functions.

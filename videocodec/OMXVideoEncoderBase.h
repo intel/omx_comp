@@ -21,10 +21,14 @@
 
 #include "OMXComponentCodecBase.h"
 #include <va/va_tpi.h>
+#ifdef ANDROID
 #include <va/va_android.h>
+#endif
 #include<VideoEncoderHost.h>
 
+#ifdef ANDROID
 using android::sp;
+#endif
 
 
 class OMXVideoEncoderBase : public OMXComponentCodecBase {
