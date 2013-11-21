@@ -278,18 +278,35 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
 
         if (status == DECODE_FORMAT_CHANGE) {
 
-            // Flush all the buffers from libmix
-            omx_errorLog("Get all the buffers from libmix");
-            ret = FillRenderBuffer(&buffers[OUTPORT_INDEX], OMX_BUFFERFLAG_EOS);
-            if (ret == OMX_ErrorNotReady) {
-                retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-                ret = OMX_ErrorNone;
-                omx_errorLog("FillRenderBuffer() not ready?");
+            const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput =
+                  this->ports[INPORT_INDEX]->GetPortDefinition();
+
+            if (paramPortDefinitionInput->format.video.eCompressionFormat != OMX_VIDEO_CodingVPX)
+            {
+                // in AVC case, flush all the buffers from libmix
+                omx_errorLog("Get all the buffers from libmix");
+                ret = FillRenderBuffer(&buffers[OUTPORT_INDEX], OMX_BUFFERFLAG_EOS);
+                if (ret == OMX_ErrorNotReady) {
+                    retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+                    omx_errorLog("FillRenderBuffer() not ready?");
+                }
             }
 
             // Modify the port settings and send notification
             ret = HandleFormatChange();
             CHECK_RETURN_VALUE("HandleFormatChange");
+
+            if (paramPortDefinitionInput->format.video.eCompressionFormat == OMX_VIDEO_CodingVPX)
+            {
+                // Dont use the output buffer if format is changed.
+                // This is temporary workaround for VP8 case. The flush above
+                // would have made us lose the key frame in VP8 case. Need to handle
+                // dynamic resolution change later
+                buffers[OUTPORT_INDEX]->nFilledLen = 0;
+                retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+                retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+            }
+
             return OMX_ErrorNone;
         } else if (status == DECODE_NO_CONFIG) {
             omx_warnLog("Decoder returns DECODE_NO_CONFIG.");
