@@ -61,6 +61,10 @@ OMX_ERRORTYPE OMXVideoDecoderVP8::ProcessorDeinit(void) {
     return OMXVideoDecoderBase::ProcessorDeinit();
 }
 
+OMX_ERRORTYPE OMXVideoDecoderVP8::ProcessorFlush(OMX_U32 portIndex) {
+    return OMXVideoDecoderBase::ProcessorFlush(portIndex);
+}
+
 OMX_ERRORTYPE OMXVideoDecoderVP8::ProcessorProcess(
         OMX_BUFFERHEADERTYPE **Buffers,
         buffer_retain_t *retains,
@@ -70,7 +74,15 @@ OMX_ERRORTYPE OMXVideoDecoderVP8::ProcessorProcess(
 }
 
 OMX_ERRORTYPE OMXVideoDecoderVP8::PrepareConfigBuffer(VideoConfigBuffer *p) {
-    return OMXVideoDecoderBase::PrepareConfigBuffer(p);
+    OMX_ERRORTYPE ret;
+    ret = OMXVideoDecoderBase::PrepareConfigBuffer(p);
+    CHECK_RETURN_VALUE("OMXVideoDecoderBase::PrepareConfigBuffer");
+
+    p->profile      = VAProfileVP8Version0_3;
+    p->flag         = USE_NATIVE_GRAPHIC_BUFFER;
+    p->surfaceNumber= 0;
+
+    return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoDecoderVP8::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buffer, buffer_retain_t *retain, VideoDecodeBuffer *p) {
@@ -106,6 +118,6 @@ OMX_ERRORTYPE OMXVideoDecoderVP8::SetParamVideoVp8(OMX_PTR pStructure) {
 }
 
 
-DECLARE_OMX_COMPONENT("OMX.Intel.VideoDecoder.VPX", "video_decoder.vpx", OMXVideoDecoderVP8);
+DECLARE_OMX_COMPONENT("OMX.Intel.VideoDecoder.VP8", "video_decoder.vpx", OMXVideoDecoderVP8);
 
 

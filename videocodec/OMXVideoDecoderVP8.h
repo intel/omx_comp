@@ -31,6 +31,7 @@ protected:
     virtual OMX_ERRORTYPE InitInputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput);
     virtual OMX_ERRORTYPE ProcessorInit(void *parser_handle);
     virtual OMX_ERRORTYPE ProcessorDeinit(void);
+    virtual OMX_ERRORTYPE ProcessorFlush(OMX_U32 portIndex);
     virtual OMX_ERRORTYPE ProcessorProcess(
             OMX_BUFFERHEADERTYPE **Buffers,
             buffer_retain_t *retains,
