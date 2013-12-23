@@ -281,7 +281,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput =
                   this->ports[INPORT_INDEX]->GetPortDefinition();
 
-            if (paramPortDefinitionInput->format.video.eCompressionFormat != OMX_VIDEO_CodingVPX)
+            if (paramPortDefinitionInput->format.video.eCompressionFormat != OMX_VIDEO_CodingVP8)
             {
                 // in AVC case, flush all the buffers from libmix
                 omx_errorLog("Get all the buffers from libmix");
@@ -296,7 +296,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             ret = HandleFormatChange();
             CHECK_RETURN_VALUE("HandleFormatChange");
 
-            if (paramPortDefinitionInput->format.video.eCompressionFormat == OMX_VIDEO_CodingVPX)
+            if (paramPortDefinitionInput->format.video.eCompressionFormat == OMX_VIDEO_CodingVP8)
             {
                 // Dont use the output buffer if format is changed.
                 // This is temporary workaround for VP8 case. The flush above
