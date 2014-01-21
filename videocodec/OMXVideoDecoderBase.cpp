@@ -27,6 +27,7 @@ static const uint32_t OMX_INTEL_COLOR_FormatYUV420SemiPlanar = OMX_COLOR_FormatV
 OMXVideoDecoderBase::OMXVideoDecoderBase()
     : mVideoDecoder(NULL),
       bNativeBufferEnable(false),
+      mGlxPictures(NULL),
       mIsThumbNail(false) {
 }
 
