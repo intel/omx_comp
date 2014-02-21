@@ -42,7 +42,7 @@ protected:
     virtual OMX_ERRORTYPE InitInputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput);
     virtual OMX_ERRORTYPE InitOutputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput) = 0;
 
-    virtual OMX_ERRORTYPE ProcessorInit(void);
+    virtual OMX_ERRORTYPE ProcessorInit(void *parser_handle);
     virtual OMX_ERRORTYPE ProcessorDeinit(void);
     //virtual OMX_ERRORTYPE ProcessorStart(void);
     virtual OMX_ERRORTYPE ProcessorStop(void);

@@ -91,9 +91,9 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::InitOutputPortFormatSpecific(OMX_PARAM_PORTDEF
 }
 
 
-OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorInit(void) {
+OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorInit(void * parser_handle) {
     mFirstFrame = OMX_TRUE;
-    return  OMXVideoEncoderBase::ProcessorInit();
+    return  OMXVideoEncoderBase::ProcessorInit(parser_handle);
 }
 
 OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorDeinit(void) {
@@ -127,7 +127,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
     inBuf.data = buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
     inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
 
-    omx_verboseLog("inBuf.data=%x, size=%d",(unsigned)inBuf.data, inBuf.size);
+    omx_verboseLog("inBuf.data=%p, size=%d",inBuf.data, inBuf.size);
 
     outBuf.data = buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
     outBuf.dataSize = 0;
@@ -483,6 +483,10 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::SetConfigVideoNalSize(OMX_PTR pStructure) {
     CHECK_SET_CONFIG_STATE();
 
     if (mParamIntelBitrate.eControlRate != OMX_Video_Intel_ControlRateVideoConferencingMode) {
+        omx_errorLog("SetConfigVideoNalSize failed. Feature is supported only in VCM.");
+        return OMX_ErrorUnsupportedSetting;
+    }
+    else {
         omx_errorLog("SetConfigVideoNalSize failed. Feature is supported only in VCM.");
         return OMX_ErrorUnsupportedSetting;
     }

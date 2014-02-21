@@ -317,7 +317,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetVideoEncoderParam(){
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorInit(void) {
+OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorInit(void* parser_handle) {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     ret = SetVideoEncoderParam();
     CHECK_STATUS("SetVideoEncoderParam");

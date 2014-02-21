@@ -27,7 +27,7 @@ public:
 
 protected:
     virtual OMX_ERRORTYPE InitOutputPortFormatSpecific(OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput);
-    virtual OMX_ERRORTYPE ProcessorInit(void);
+    virtual OMX_ERRORTYPE ProcessorInit(void * parser_handle);
     virtual OMX_ERRORTYPE ProcessorDeinit(void);
 
     virtual OMX_ERRORTYPE ProcessorProcess(
