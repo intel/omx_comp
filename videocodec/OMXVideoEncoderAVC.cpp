@@ -243,7 +243,6 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
 
                 outflags |= OMX_BUFFERFLAG_CODECCONFIG;
                 outflags |= OMX_BUFFERFLAG_ENDOFFRAME;
-                outflags |= OMX_BUFFERFLAG_SYNCFRAME;
 
                 outfilledlen = outBuf.dataSize;
                 mFirstFrame = OMX_FALSE;
