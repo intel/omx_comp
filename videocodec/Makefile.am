@@ -48,7 +48,7 @@ libOMXVideoDecoderAVC_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFL
 					  $(LIBVA_DEPS_CFLAGS) $(MIXVBP_CFLAGS) $(MIXVBP_H264_CFLAGS)
 
 libOMXVideoDecoderVP8includedir		= ${includedir}/omx
-libOMXVideoDecoderVP8include_HEADERS	= $(libOMXVideoDecoderVP8_source_h) $(libOMXVideoDecoder_source_h)
+libOMXVideoDecoderVP8include_HEADERS	= $(libOMXVideoDecoderVP8_source_h)
 libOMXVideoDecoderVP8_la_SOURCES	= $(libOMXVideoDecoderVP8_source_cpp) $(libOMXVideoDecoder_source_cpp)
 libOMXVideoDecoderVP8_la_LDFLAGS	= $(libOMXVideoDecoder_ldflags)
 libOMXVideoDecoderVP8_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(VAVIDDEC_DEPS_CFLAGS) \
