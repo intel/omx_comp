@@ -487,7 +487,7 @@ OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYP
         // memcpy to thumbNail Buffer.
         omx_verboseLog("%s, thumbNail Enabled , pBuffer = %p, pBuffer->pBuffer = %p, renderBuffer = %p",
              __FUNCTION__, pBuffer, pBuffer->pBuffer, renderBuffer);
-        MapRawNV12(renderBuffer, pBuffer->pBuffer + pBuffer->nOffset, pBuffer->nFilledLen);
+        MapRawNV12(renderBuffer, pBuffer->pBuffer + pBuffer->nOffset, pBuffer->nAllocLen - pBuffer->nOffset, pBuffer->nFilledLen);
     }
     pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
     pBuffer->nTimeStamp = renderBuffer->timeStamp;
@@ -774,13 +774,13 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetParamVideoPortFormat(OMX_PTR pStructure) {
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32& size) {
+OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32 allocSize, OMX_U32& filledSize) {
     VAStatus vaStatus;
     VAImage vaImage;
     int32_t width = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameWidth;
     int32_t height = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameHeight;
 
-    size = width * height * 3 / 2;
+    filledSize = 0;
 
     vaStatus = vaSyncSurface(renderBuffer->display, renderBuffer->surface);
     if (vaStatus != VA_STATUS_SUCCESS) {
@@ -801,7 +801,17 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
         vaDestroyImage(renderBuffer->display, vaImage.image_id);
         return OMX_ErrorUndefined;
     }
-    if (size == (int32_t)vaImage.data_size) {
+
+    int32_t size = width * height * 3 / 2;
+    if (width != vaImage.width || height != vaImage.height) {
+        omx_errorLog("seems to be up layer bug,  vaImage(%dx%d) resolution is not match to dest(%dx%d)",
+                     vaImage.width, vaImage.height, width, height);
+        size = 0;
+    }
+    else if (size > allocSize) {
+        omx_errorLog("seems to be up layer bug, no room for nv12 data copy, need %d, have %d", size, allocSize);
+        size = 0;
+    } else if (size == (int32_t)vaImage.data_size) {
         memcpy(rawData, pBuf, size);
     } else {
         // copy Y data
@@ -822,6 +832,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
         }
     }
 
+    filledSize = size;
     if (vaImage.buf != VA_INVALID_ID) {
         vaUnmapBuffer(renderBuffer->display, vaImage.buf);
     }
