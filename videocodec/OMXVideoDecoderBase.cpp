@@ -779,6 +779,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
     VAImage vaImage;
     int32_t width = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameWidth;
     int32_t height = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameHeight;
+    int32_t uv_width = (width+1)/2;
+    int32_t uv_height = (height+1)/2;
 
     filledSize = 0;
 
@@ -802,7 +804,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
         return OMX_ErrorUndefined;
     }
 
-    int32_t size = width * height * 3 / 2;
+    int32_t size = width * height + uv_width * uv_height * 2;
     if (width != vaImage.width || height != vaImage.height) {
         omx_errorLog("seems to be up layer bug,  vaImage(%dx%d) resolution is not match to dest(%dx%d)",
                      vaImage.width, vaImage.height, width, height);
@@ -825,9 +827,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
         }
         // copy interleaved V and  U data
         src = (uint8_t*)pBuf + vaImage.offsets[1];
-        for (row = 0; row < height/2; row++) {
-            memcpy(dst, src, width);
-            dst += width;
+        for (row = 0; row < uv_height; row++) {
+            memcpy(dst, src, uv_width*2);
+            dst += uv_width*2;
             src += vaImage.pitches[1];
         }
     }
