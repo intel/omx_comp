@@ -16,6 +16,11 @@ if test "$enable_omx_debug" = "yes"; then
 AC_DEFINE([__ENABLE_DEBUG__], [1], [Defined to 1 if extra debug symbols are compiled])
 fi
 
+AC_ARG_ENABLE(libyami,
+    AC_HELP_STRING([--enable-libyami],
+                   [use libyami @<:@default=no@:>@]),
+   [], [enable_libyami="no"])
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC
@@ -38,12 +43,17 @@ AC_SUBST(pkgconfigdir)
 
 PKG_CHECK_MODULES(OMXIL_UTILS, libomxil_utils)
 PKG_CHECK_MODULES(OMXIL_BASE, libomxil_base)
-PKG_CHECK_MODULES(MIXVBP, libmixvbp)
-PKG_CHECK_MODULES(MIXVBP_H264, libmixvbp-h264)
-PKG_CHECK_MODULES(MIXVBP_VP8, libmixvbp-vp8)
-PKG_CHECK_MODULES(VAVIDDEC_DEPS, libva_videodecoder)
-PKG_CHECK_MODULES(VAVIDENC_DEPS, libva_videoencoder)
 PKG_CHECK_MODULES(LIBVA_DEPS, libva)
+
+if test "$enable_libyami" = "no"; then
+    PKG_CHECK_MODULES(MIXVBP, libmixvbp)
+    PKG_CHECK_MODULES(MIXVBP_H264, libmixvbp-h264)
+    PKG_CHECK_MODULES(MIXVBP_VP8, libmixvbp-vp8)
+    PKG_CHECK_MODULES(VAVIDDEC_DEPS, libva_videodecoder)
+    PKG_CHECK_MODULES(VAVIDENC_DEPS, libva_videoencoder)
+else
+    PKG_CHECK_MODULES(VAVIDDEC_DEPS, libyami_decoder)
+fi
 
 # Checks for library functions.
 AC_FUNC_MALLOC
