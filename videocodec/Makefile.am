@@ -24,6 +24,8 @@ libOMXVideoDecoderAVC_source_priv_h = \
 	$(NULL)
 
 libOMXVideoDecoderVP8_source_cpp = \
+	$(libOMXComponentCodec_source_cpp) \
+	OMXVideoDecoderBase.cpp \
 	OMXVideoDecoderVP8.cpp \
 	$(NULL)
 
