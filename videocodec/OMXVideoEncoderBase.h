@@ -20,11 +20,15 @@
 #define OMX_VIDEO_ENCODER_BASE_H_
 
 #include "OMXComponentCodecBase.h"
+#ifdef ANDROID
 #include <va/va_tpi.h>
 #include <va/va_android.h>
+#endif
 #include<VideoEncoderHost.h>
 
+#ifdef ANDROID
 using android::sp;
+#endif
 
 
 class OMXVideoEncoderBase : public OMXComponentCodecBase {
@@ -63,7 +67,9 @@ protected:
     DECLARE_HANDLER(OMXVideoEncoderBase, ConfigVideoIntraVOPRefresh);
     DECLARE_HANDLER(OMXVideoEncoderBase, ParamIntelAdaptiveSliceControl);
     DECLARE_HANDLER(OMXVideoEncoderBase, ParamVideoProfileLevelQuerySupported);
+#ifdef ANDROID
     DECLARE_HANDLER(OMXVideoEncoderBase, ParamGoogleMetaDataInBuffers);
+#endif
 
 private:
     OMX_ERRORTYPE SetVideoEncoderParam();
