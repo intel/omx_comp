@@ -52,6 +52,7 @@ if test "$enable_libyami" = "no"; then
     PKG_CHECK_MODULES(VAVIDDEC_DEPS, libva_videodecoder)
 else
     PKG_CHECK_MODULES(VAVIDDEC_DEPS, libyami_decoder)
+    PKG_CHECK_MODULES(VAVIDENC_DEPS, libyami_encoder)
 fi
 
 # Checks for library functions.
