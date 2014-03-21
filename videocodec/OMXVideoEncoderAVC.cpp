@@ -127,7 +127,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
     inBuf.data = buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
     inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
 
-    omx_verboseLog("inBuf.data=%x, size=%d",(unsigned)inBuf.data, inBuf.size);
+    omx_verboseLog("inBuf.data=%p, size=%d",inBuf.data, inBuf.size);
 
     outBuf.data = buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
     outBuf.dataSize = 0;
