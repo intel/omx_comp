@@ -123,7 +123,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::InitOutputPort(void) {
     paramPortDefinitionOutput.eDir = OMX_DirOutput;
     paramPortDefinitionOutput.nBufferCountActual = OUTPORT_ACTUAL_BUFFER_COUNT;
     paramPortDefinitionOutput.nBufferCountMin = OUTPORT_MIN_BUFFER_COUNT;
-    paramPortDefinitionOutput.nBufferSize = sizeof(VideoRenderBuffer);
+    paramPortDefinitionOutput.nBufferSize = OUTPORT_BUFFER_SIZE; // bNativeBufferEnable is false by default
 
     paramPortDefinitionOutput.bEnabled = OMX_TRUE;
     paramPortDefinitionOutput.bPopulated = OMX_FALSE;
@@ -188,10 +188,12 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorInit(void * parser_handle) {
     Decode_Status status = mVideoDecoder->start(&mVideoConfigBuffer);
     //pthread_mutex_unlock(&mSerializationLock);
 
-    if (status != DECODE_SUCCESS) {
+    if (status == DECODE_FORMAT_CHANGE) {
+        HandleFormatChange();
+    }
+    else if (status != DECODE_SUCCESS) {
         return TranslateDecodeStatus(status);
     }
-
 
     return OMX_ErrorNone;
 }
@@ -621,8 +623,16 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     paramPortDefinitionOutput.format.video.nFrameHeight = heightCropped;
     paramPortDefinitionOutput.format.video.nStride = strideCropped;
     paramPortDefinitionOutput.format.video.nSliceHeight = sliceHeightCropped;
+    //XXX MapRawNV12 hasn't support crop yet, do not use crop size here
+    // nBufferSize is used by client to alloc output buffer (gst-omx for example)
+    // chromium doesn't care of it, getDecodedBuffer uses sizeof(VideoRenderBuffer) when bNativeBufferEnable is true
+    // even sizeof(VideoRenderBuffer) seems too big, since only one pointer is set to pBuffer->pPlatformPrivate
+    int uv_width = (width+1)/2;
+    int uv_height = (height+1)/2;
+    paramPortDefinitionOutput.nBufferSize = width * height + uv_width*uv_height*2;
 
 
+    omx_verboseLog("  %s, bNativeBufferEnable: %d, nBufferSize: %d", __FILE__, bNativeBufferEnable, paramPortDefinitionOutput.nBufferSize);
     this->ports[INPORT_INDEX]->SetPortDefinition(&paramPortDefinitionInput, true);
     this->ports[OUTPORT_INDEX]->SetPortDefinition(&paramPortDefinitionOutput, true);
 
