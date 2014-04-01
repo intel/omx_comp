@@ -20,6 +20,14 @@ AC_ARG_ENABLE(libyami,
     AC_HELP_STRING([--enable-libyami],
                    [use libyami @<:@default=no@:>@]),
    [], [enable_libyami="no"])
+AC_ARG_ENABLE(vp8_role_name,
+    [AC_HELP_STRING([--enable-vp8-role-name],
+                    [use "video_decoder.vp8" as role name for vp8 decoder, otherwise "video_decoder.vpx" is used instead @<:@default=no@:>@])],
+    [], [enable_vp8_role_name="no"])
+
+if test "$enable_vp8_role_name" = "yes"; then
+AC_DEFINE([__ENABLE_VP8_ROLE_NAME__], [1], [Defined to 1 if use "video_decoder.vp8" as role name for vp8 decoder])
+fi
 
 # Checks for programs.
 AC_PROG_CXX

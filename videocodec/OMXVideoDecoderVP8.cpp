@@ -117,7 +117,14 @@ OMX_ERRORTYPE OMXVideoDecoderVP8::SetParamVideoVp8(OMX_PTR pStructure) {
     return OMX_ErrorNone;
 }
 
+// though it is possible to define multiple roles,
+// the macro of DECLARE_OMX_COMPONENT and CModule support one component/role per lib
+#if __ENABLE_VP8_ROLE_NAME__
+    #define VP8_ROLE_NAME   "video_decoder.vp8" // it is used by gst
+#else
+    #define VP8_ROLE_NAME   "video_decoder.vpx" // it is used by chromium
+#endif
 
-DECLARE_OMX_COMPONENT("OMX.Intel.VideoDecoder.VP8", "video_decoder.vpx", OMXVideoDecoderVP8);
+DECLARE_OMX_COMPONENT("OMX.Intel.VideoDecoder.VP8", VP8_ROLE_NAME, OMXVideoDecoderVP8);
 
 
