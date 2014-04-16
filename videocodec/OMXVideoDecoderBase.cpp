@@ -357,7 +357,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
 
 OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer) {
     OMX_ERRORTYPE ret= OMX_ErrorNone;
-    const VideoRenderBuffer *renderBuffer =
+    VideoRenderBuffer *renderBuffer =
         (VideoRenderBuffer *)pOriginalOutBuffer->pPlatformPrivate;
     const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput =
         this->ports[OUTPORT_INDEX]->GetPortDefinition();
@@ -382,6 +382,10 @@ OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *p
     else {
         // Ready to sync and put surfaces if GlxPictures exist
         if(mGlxPictures) {
+            omx_verboseLog("va display: %p, va surface: 0x%x, pixmap id: 0x%x, src/dst rect %d x %d",
+            renderBuffer->display, renderBuffer->surface, mGlxPictures[*picture_id],
+            video_format.nFrameWidth,video_format.nFrameHeight);
+
             vaSyncSurface(renderBuffer->display,renderBuffer->surface);
             vaPutSurface(renderBuffer->display, renderBuffer->surface,
                     mGlxPictures[*picture_id], 0,0,
@@ -390,6 +394,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *p
                     NULL,0,0);
         }
     }
+    mVideoDecoder->renderDone(renderBuffer);
+    pOriginalOutBuffer->pPlatformPrivate = NULL; // surface has been returned back to codec
+
     return ret;
 }
 
@@ -408,16 +415,31 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorEnableNativeBuffers(void) {
 
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* pBuffer) {
     OMX_ERRORTYPE ret= OMX_ErrorNone;
+#if 0
     if (pBuffer->pPlatformPrivate) {
+        /* it is incorrect to call renderDone() in PreFillBuffer.
+            a) rendering hasn't been done yet
+            b) two threads may come here twice:
+                ComponentBase::Work->OMXVideoDecoderBase::getDecodedBuffer and ComponentBase::CBaseFillThisBuffer.
+                Calling renderDone() twice will confuse codec; since codec usually recycle surface buffer upon this call.
+         */
         omx_verboseLog("%s omxBufferHeader = %p, handle = %p, [%p]->renderDone=true;", __FUNCTION__, pBuffer, pBuffer->pBuffer, pBuffer->pPlatformPrivate);
         mVideoDecoder->renderDone((VideoRenderBuffer*)pBuffer->pPlatformPrivate);
        // pBuffer->pPlatformPrivate = NULL;
         ret = OMX_ErrorNone;
     } else if (bNativeBufferEnable == true) {
+        /* nothing is required on chromeos when bNativeBufferEnable is set.
+           1) I think bNativeBufferEnable is misused on chromeos. it is used to distinguish between
+            'proprietary communication(vaSurface)' and 'non-tunneled communication(MapRawNV12)'.
+            in either case, nothing is required on chromeos.
+           2) on Android, I guess bNativeBufferEnable means option between external/gralloc and
+            native/psb surface memory. so, flagNativeBuffer give driver an chance to make some preparation.
+        */
         omx_verboseLog("%s calling flagNativeBuffer()", __FUNCTION__);
         if ((mVideoDecoder->flagNativeBuffer((void *)pBuffer)) != DECODE_SUCCESS)
          ret = OMX_ErrorBadParameter;
     }
+#endif
     return ret;
 }
 
