@@ -43,10 +43,6 @@ protected:
    DECLARE_HANDLER(OMXVideoDecoderAVC, ParamIntelAVCDecodeSettings);
 
 private:
-    inline OMX_ERRORTYPE AccumulateBuffer(OMX_BUFFERHEADERTYPE *buffer);
-    inline OMX_ERRORTYPE FillDecodeBuffer(VideoDecodeBuffer *p);
-
-private:
     enum {
         // OMX_PARAM_PORTDEFINITIONTYPE
         INPORT_MIN_BUFFER_COUNT = 1,
@@ -71,11 +67,6 @@ private:
     // If actual video size is less than the maximum video size, frame cropping will be used in the encoder side.
     OMX_VIDEO_PARAM_INTEL_AVC_DECODE_SETTINGS mDecodeSettings;
 
-private:
-    OMX_U8 *mAccumulateBuffer;
-    OMX_U32 mBufferSize;
-    OMX_U32 mFilledLen;
-    OMX_TICKS mTimeStamp;
 };
 
 #endif /* OMX_VIDEO_DECODER_AVC_H_ */

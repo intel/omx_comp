@@ -299,16 +299,13 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             ret = HandleFormatChange();
             CHECK_RETURN_VALUE("HandleFormatChange");
 
-            if (paramPortDefinitionInput->format.video.eCompressionFormat == OMX_VIDEO_CodingVP8)
-            {
-                // Dont use the output buffer if format is changed.
-                // This is temporary workaround for VP8 case. The flush above
-                // would have made us lose the key frame in VP8 case. Need to handle
-                // dynamic resolution change later
-                buffers[OUTPORT_INDEX]->nFilledLen = 0;
-                retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-                retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-            }
+            // Dont use the output buffer if format is changed.
+            // This is temporary workaround for VP8 case. The flush above
+            // would have made us lose the key frame in VP8 case. Need to handle
+            // dynamic resolution change later
+            buffers[OUTPORT_INDEX]->nFilledLen = 0;
+            retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+            retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
 
             return OMX_ErrorNone;
         } else if (status == DECODE_NO_CONFIG) {
