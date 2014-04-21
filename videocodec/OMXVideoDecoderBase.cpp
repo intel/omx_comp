@@ -123,7 +123,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::InitOutputPort(void) {
     paramPortDefinitionOutput.eDir = OMX_DirOutput;
     paramPortDefinitionOutput.nBufferCountActual = OUTPORT_ACTUAL_BUFFER_COUNT;
     paramPortDefinitionOutput.nBufferCountMin = OUTPORT_MIN_BUFFER_COUNT;
-    paramPortDefinitionOutput.nBufferSize = sizeof(VideoRenderBuffer);
+    paramPortDefinitionOutput.nBufferSize = OUTPORT_BUFFER_SIZE; // bNativeBufferEnable is false by default
 
     paramPortDefinitionOutput.bEnabled = OMX_TRUE;
     paramPortDefinitionOutput.bPopulated = OMX_FALSE;
@@ -188,10 +188,12 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorInit(void * parser_handle) {
     Decode_Status status = mVideoDecoder->start(&mVideoConfigBuffer);
     //pthread_mutex_unlock(&mSerializationLock);
 
-    if (status != DECODE_SUCCESS) {
+    if (status == DECODE_FORMAT_CHANGE) {
+        HandleFormatChange();
+    }
+    else if (status != DECODE_SUCCESS) {
         return TranslateDecodeStatus(status);
     }
-
 
     return OMX_ErrorNone;
 }
@@ -297,16 +299,13 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             ret = HandleFormatChange();
             CHECK_RETURN_VALUE("HandleFormatChange");
 
-            if (paramPortDefinitionInput->format.video.eCompressionFormat == OMX_VIDEO_CodingVP8)
-            {
-                // Dont use the output buffer if format is changed.
-                // This is temporary workaround for VP8 case. The flush above
-                // would have made us lose the key frame in VP8 case. Need to handle
-                // dynamic resolution change later
-                buffers[OUTPORT_INDEX]->nFilledLen = 0;
-                retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-                retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-            }
+            // Dont use the output buffer if format is changed.
+            // This is temporary workaround for VP8 case. The flush above
+            // would have made us lose the key frame in VP8 case. Need to handle
+            // dynamic resolution change later
+            buffers[OUTPORT_INDEX]->nFilledLen = 0;
+            retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+            retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
 
             return OMX_ErrorNone;
         } else if (status == DECODE_NO_CONFIG) {
@@ -355,7 +354,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
 
 OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *pOriginalOutBuffer, OMX_BUFFERHEADERTYPE *pNewOutBuffer) {
     OMX_ERRORTYPE ret= OMX_ErrorNone;
-    const VideoRenderBuffer *renderBuffer =
+    VideoRenderBuffer *renderBuffer =
         (VideoRenderBuffer *)pOriginalOutBuffer->pPlatformPrivate;
     const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput =
         this->ports[OUTPORT_INDEX]->GetPortDefinition();
@@ -380,6 +379,10 @@ OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *p
     else {
         // Ready to sync and put surfaces if GlxPictures exist
         if(mGlxPictures) {
+            omx_verboseLog("va display: %p, va surface: 0x%x, pixmap id: 0x%x, src/dst rect %d x %d",
+            renderBuffer->display, renderBuffer->surface, mGlxPictures[*picture_id],
+            video_format.nFrameWidth,video_format.nFrameHeight);
+
             vaSyncSurface(renderBuffer->display,renderBuffer->surface);
             vaPutSurface(renderBuffer->display, renderBuffer->surface,
                     mGlxPictures[*picture_id], 0,0,
@@ -388,6 +391,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::processOutPortBuffers(OMX_BUFFERHEADERTYPE *p
                     NULL,0,0);
         }
     }
+    mVideoDecoder->renderDone(renderBuffer);
+    pOriginalOutBuffer->pPlatformPrivate = NULL; // surface has been returned back to codec
+
     return ret;
 }
 
@@ -406,16 +412,31 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorEnableNativeBuffers(void) {
 
 OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* pBuffer) {
     OMX_ERRORTYPE ret= OMX_ErrorNone;
+#if 0
     if (pBuffer->pPlatformPrivate) {
+        /* it is incorrect to call renderDone() in PreFillBuffer.
+            a) rendering hasn't been done yet
+            b) two threads may come here twice:
+                ComponentBase::Work->OMXVideoDecoderBase::getDecodedBuffer and ComponentBase::CBaseFillThisBuffer.
+                Calling renderDone() twice will confuse codec; since codec usually recycle surface buffer upon this call.
+         */
         omx_verboseLog("%s omxBufferHeader = %p, handle = %p, [%p]->renderDone=true;", __FUNCTION__, pBuffer, pBuffer->pBuffer, pBuffer->pPlatformPrivate);
         mVideoDecoder->renderDone((VideoRenderBuffer*)pBuffer->pPlatformPrivate);
        // pBuffer->pPlatformPrivate = NULL;
         ret = OMX_ErrorNone;
     } else if (bNativeBufferEnable == true) {
+        /* nothing is required on chromeos when bNativeBufferEnable is set.
+           1) I think bNativeBufferEnable is misused on chromeos. it is used to distinguish between
+            'proprietary communication(vaSurface)' and 'non-tunneled communication(MapRawNV12)'.
+            in either case, nothing is required on chromeos.
+           2) on Android, I guess bNativeBufferEnable means option between external/gralloc and
+            native/psb surface memory. so, flagNativeBuffer give driver an chance to make some preparation.
+        */
         omx_verboseLog("%s calling flagNativeBuffer()", __FUNCTION__);
         if ((mVideoDecoder->flagNativeBuffer((void *)pBuffer)) != DECODE_SUCCESS)
          ret = OMX_ErrorBadParameter;
     }
+#endif
     return ret;
 }
 
@@ -487,7 +508,7 @@ OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYP
         // memcpy to thumbNail Buffer.
         omx_verboseLog("%s, thumbNail Enabled , pBuffer = %p, pBuffer->pBuffer = %p, renderBuffer = %p",
              __FUNCTION__, pBuffer, pBuffer->pBuffer, renderBuffer);
-        MapRawNV12(renderBuffer, pBuffer->pBuffer + pBuffer->nOffset, pBuffer->nFilledLen);
+        MapRawNV12(renderBuffer, pBuffer->pBuffer + pBuffer->nOffset, pBuffer->nAllocLen - pBuffer->nOffset, pBuffer->nFilledLen);
     }
     pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
     pBuffer->nTimeStamp = renderBuffer->timeStamp;
@@ -621,8 +642,16 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     paramPortDefinitionOutput.format.video.nFrameHeight = heightCropped;
     paramPortDefinitionOutput.format.video.nStride = strideCropped;
     paramPortDefinitionOutput.format.video.nSliceHeight = sliceHeightCropped;
+    //XXX MapRawNV12 hasn't support crop yet, do not use crop size here
+    // nBufferSize is used by client to alloc output buffer (gst-omx for example)
+    // chromium doesn't care of it, getDecodedBuffer uses sizeof(VideoRenderBuffer) when bNativeBufferEnable is true
+    // even sizeof(VideoRenderBuffer) seems too big, since only one pointer is set to pBuffer->pPlatformPrivate
+    int uv_width = (width+1)/2;
+    int uv_height = (height+1)/2;
+    paramPortDefinitionOutput.nBufferSize = width * height + uv_width*uv_height*2;
 
 
+    omx_verboseLog("  %s, bNativeBufferEnable: %d, nBufferSize: %d", __FILE__, bNativeBufferEnable, paramPortDefinitionOutput.nBufferSize);
     this->ports[INPORT_INDEX]->SetPortDefinition(&paramPortDefinitionInput, true);
     this->ports[OUTPORT_INDEX]->SetPortDefinition(&paramPortDefinitionOutput, true);
 
@@ -774,13 +803,15 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetParamVideoPortFormat(OMX_PTR pStructure) {
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32& size) {
+OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32 allocSize, OMX_U32& filledSize) {
     VAStatus vaStatus;
     VAImage vaImage;
     int32_t width = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameWidth;
     int32_t height = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameHeight;
+    int32_t uv_width = (width+1)/2;
+    int32_t uv_height = (height+1)/2;
 
-    size = width * height * 3 / 2;
+    filledSize = 0;
 
     vaStatus = vaSyncSurface(renderBuffer->display, renderBuffer->surface);
     if (vaStatus != VA_STATUS_SUCCESS) {
@@ -801,7 +832,17 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
         vaDestroyImage(renderBuffer->display, vaImage.image_id);
         return OMX_ErrorUndefined;
     }
-    if (size == (int32_t)vaImage.data_size) {
+
+    int32_t size = width * height + uv_width * uv_height * 2;
+    if (width != vaImage.width || height != vaImage.height) {
+        omx_errorLog("seems to be up layer bug,  vaImage(%dx%d) resolution is not match to dest(%dx%d)",
+                     vaImage.width, vaImage.height, width, height);
+        size = 0;
+    }
+    else if (size > allocSize) {
+        omx_errorLog("seems to be up layer bug, no room for nv12 data copy, need %d, have %d", size, allocSize);
+        size = 0;
+    } else if (size == (int32_t)vaImage.data_size) {
         memcpy(rawData, pBuf, size);
     } else {
         // copy Y data
@@ -815,13 +856,14 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
         }
         // copy interleaved V and  U data
         src = (uint8_t*)pBuf + vaImage.offsets[1];
-        for (row = 0; row < height/2; row++) {
-            memcpy(dst, src, width);
-            dst += width;
+        for (row = 0; row < uv_height; row++) {
+            memcpy(dst, src, uv_width*2);
+            dst += uv_width*2;
             src += vaImage.pitches[1];
         }
     }
 
+    filledSize = size;
     if (vaImage.buf != VA_INVALID_ID) {
         vaUnmapBuffer(renderBuffer->display, vaImage.buf);
     }

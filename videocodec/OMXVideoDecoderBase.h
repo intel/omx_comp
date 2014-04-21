@@ -57,7 +57,7 @@ protected:
     virtual OMX_ERRORTYPE FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuffer, OMX_U32 inportBufferFlags);
     virtual OMX_ERRORTYPE HandleFormatChange(void);
     virtual OMX_ERRORTYPE TranslateDecodeStatus(Decode_Status status);
-    virtual OMX_ERRORTYPE MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32& size);
+    virtual OMX_ERRORTYPE MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32 allocSize, OMX_U32& filledSize);
 
     virtual OMX_ERRORTYPE BuildHandlerList(void);
     DECLARE_HANDLER(OMXVideoDecoderBase, ParamVideoPortFormat);   // get Param Video port format and setParam Video port format.

@@ -23,10 +23,7 @@ static const char* AVC_MIME_TYPE = "video/h264";
 
 
 OMXVideoDecoderAVC::OMXVideoDecoderAVC()
-    : mAccumulateBuffer(NULL),
-      mBufferSize(0),
-      mFilledLen(0),
-      mTimeStamp(INVALID_PTS) {
+{
     omx_verboseLog("OMXVideoDecoderAVC is constructed.");
     mVideoDecoder = createVideoDecoder(AVC_MIME_TYPE);
     if (!mVideoDecoder) {
@@ -68,20 +65,10 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::ProcessorInit(void *parser_handle) {
 }
 
 OMX_ERRORTYPE OMXVideoDecoderAVC::ProcessorDeinit(void) {
-    if (mAccumulateBuffer) {
-        delete mAccumulateBuffer;
-    }
-    mAccumulateBuffer = NULL;
-    mBufferSize = 0;
-    mFilledLen = 0;
-    mTimeStamp = INVALID_PTS;
-
     return OMXVideoDecoderBase::ProcessorDeinit();
 }
 
 OMX_ERRORTYPE OMXVideoDecoderAVC::ProcessorFlush(OMX_U32 portIndex) {
-    mFilledLen = 0;
-    mTimeStamp = INVALID_PTS;
     return OMXVideoDecoderBase::ProcessorFlush(portIndex);
 }
 
@@ -111,100 +98,16 @@ OMX_ERRORTYPE OMXVideoDecoderAVC::PrepareConfigBuffer(VideoConfigBuffer *p) {
 }
 
 OMX_ERRORTYPE OMXVideoDecoderAVC::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buffer, buffer_retain_t *retain, VideoDecodeBuffer *p) {
-    OMX_ERRORTYPE ret;
-    ret = OMXVideoDecoderBase::PrepareDecodeBuffer(buffer, retain, p);
-    CHECK_RETURN_VALUE("OMXVideoDecoderBase::PrepareDecodeBuffer");
-
-    // OMX_BUFFERFLAG_CODECCONFIG is an optional flag
-    // if flag is set, buffer will only contain codec data.
-    if (buffer->nFlags & OMX_BUFFERFLAG_CODECCONFIG) {
-        omx_verboseLog("Received AVC codec data.");
-        return ret;
-    }
-
-    // OMX_BUFFERFLAG_ENDOFFRAME is an optional flag
-    if (buffer->nFlags & OMX_BUFFERFLAG_ENDOFFRAME) {
-        // TODO: if OMX_BUFFERFLAG_ENDOFFRAME indicates end of a NAL unit and in OMXVideoDecodeBase
-        // we set buffer flag to HAS_COMPLETE_FRAME,  corruption will happen
-        mTimeStamp = buffer->nTimeStamp;
-        if (mFilledLen == 0) {
-            // buffer is not accumulated and it contains a complete frame
-            return ret;
-        }
-        // buffer contains  the last part of fragmented frame
-        ret = AccumulateBuffer(buffer);
-        CHECK_RETURN_VALUE("AccumulateBuffer");
-        ret = FillDecodeBuffer(p);
-        CHECK_RETURN_VALUE("FillDecodeBuffer");
-        return ret;
-    }
-
-    omx_warnLog("Received fragmented buffer.");
-    // use time stamp to determine frame boundary
-    if (mTimeStamp == INVALID_PTS) {
-        // first ever buffer
-        mTimeStamp = buffer->nTimeStamp;
-    }
-
-    if (mTimeStamp != buffer->nTimeStamp && mFilledLen != 0) {
-        // buffer accumulated contains a complete frame
-        ret = FillDecodeBuffer(p);
-        CHECK_RETURN_VALUE("FillDecodeBuffer");
-        // retain the current buffer
-        *retain = BUFFER_RETAIN_GETAGAIN;
-    } else {
-        // buffer accumulation for beginning of fragmented buffer (mFilledLen == 0) or
-        // middle/end of fragmented buffer (mFilledLen != 0)
-        ret = AccumulateBuffer(buffer);
-        CHECK_RETURN_VALUE("AccumulateBuffer");
-        ret = OMX_ErrorNotReady;
-    }
-
-    if (buffer->nFilledLen != 0) {
-        mTimeStamp = buffer->nTimeStamp;
-    }
-    return ret;
-}
-
-OMX_ERRORTYPE OMXVideoDecoderAVC::AccumulateBuffer(OMX_BUFFERHEADERTYPE *buffer) {
-    // check if allocated buffer is big enough
-    if (mFilledLen + buffer->nFilledLen > mBufferSize) {
-        mBufferSize = mFilledLen + buffer->nFilledLen;
-        if (mBufferSize < INPORT_BUFFER_SIZE) {
-            mBufferSize = INPORT_BUFFER_SIZE;
-        }
-        if (mBufferSize == 0) {
-            return OMX_ErrorBadParameter;
-        }
-        OMX_U8 *temp = new OMX_U8 [mBufferSize];
-        if (temp == NULL) {
-            mBufferSize = 0;
-            return OMX_ErrorInsufficientResources;
-        }
-        if (mFilledLen != 0) {
-            memcpy(temp, mAccumulateBuffer, mFilledLen);
-        }
-        if (mAccumulateBuffer) {
-            delete [] mAccumulateBuffer;
-        }
-        mAccumulateBuffer = temp;
-    }
-    if (buffer->nFilledLen != 0) {
-        memcpy(mAccumulateBuffer + mFilledLen, buffer->pBuffer + buffer->nOffset, buffer->nFilledLen);
-	mBufferSize=0;
-    }
-    mFilledLen += buffer->nFilledLen;
-    return OMX_ErrorNone;
-}
-
-OMX_ERRORTYPE OMXVideoDecoderAVC::FillDecodeBuffer(VideoDecodeBuffer *p) {
-    p->data = mAccumulateBuffer;
-    p->size = mFilledLen;
-    p->timeStamp = mTimeStamp;
-    p->flag = HAS_COMPLETE_FRAME;
-
-    mFilledLen = 0;
-    return OMX_ErrorNone;
+    return OMXVideoDecoderBase::PrepareDecodeBuffer(buffer, retain, p);
+    /*
+        it is problemtic and usually unnecessary to AccumulateBuffer data for a complete frame.
+        1. usually media frame work send complete frame here (either gst or chromeos).
+            even if it is not complete frame, we can depend on codec to connect/split buffers
+        2. it is problemtic if we simple accumalate buffer here: when buffer is required to
+            be retained by OMXVideoDecoderBase, it becomes inconsistent.
+        3. it is usually useless to accumulate buffer only, without split it o frame boundary.
+        4. it is not reliable to detect a new frame by time stamp difference
+    */
 }
 
 OMX_ERRORTYPE OMXVideoDecoderAVC::BuildHandlerList(void) {
