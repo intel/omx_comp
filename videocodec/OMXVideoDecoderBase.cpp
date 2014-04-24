@@ -22,7 +22,6 @@
 #endif
 
 static const char* VA_RAW_MIME_TYPE = "video/raw";
-static const uint32_t OMX_INTEL_COLOR_FormatYUV420SemiPlanar = OMX_COLOR_FormatVendorStartUnused + 0x200;
 
 OMXVideoDecoderBase::OMXVideoDecoderBase()
     : mVideoDecoder(NULL),
@@ -272,7 +271,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
         return ret;
     }
 
-    omx_verboseLog("PrepareDecodeBuffer() returns %p, decodeBuffer.size = %d", ret, decodeBuffer.size);
+    omx_verboseLog("PrepareDecodeBuffer() returns 0x%x, decodeBuffer.size = %d, .timestamp = %d",
+        ret, decodeBuffer.size, decodeBuffer.timeStamp);
 
     if (decodeBuffer.size != 0) {
         //pthread_mutex_lock(&mSerializationLock);
@@ -648,8 +648,12 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     // even sizeof(VideoRenderBuffer) seems too big, since only one pointer is set to pBuffer->pPlatformPrivate
     int uv_width = (width+1)/2;
     int uv_height = (height+1)/2;
+    if (!strcmp(formatInfo->mimeType, "image/jpeg")) {
+        // XXX hard code here, we need extend VideoFormatInfo to indicate decoded surface format
+        // few software supports 422H, convert it into I420 internally
+        paramPortDefinitionOutput.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_COLOR_FormatYUV420Planar;
+    }
     paramPortDefinitionOutput.nBufferSize = width * height + uv_width*uv_height*2;
-
 
     omx_verboseLog("  %s, bNativeBufferEnable: %d, nBufferSize: %d", __FILE__, bNativeBufferEnable, paramPortDefinitionOutput.nBufferSize);
     this->ports[INPORT_INDEX]->SetPortDefinition(&paramPortDefinitionInput, true);
@@ -808,6 +812,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
     VAImage vaImage;
     int32_t width = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameWidth;
     int32_t height = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameHeight;
+    int32_t format = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.eColorFormat;
     int32_t uv_width = (width+1)/2;
     int32_t uv_height = (height+1)/2;
 
@@ -833,6 +838,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
         return OMX_ErrorUndefined;
     }
 
+    omx_verboseLog("output port format: 0x%x, va surface format: 0x%x",
+        format, vaImage.format.fourcc);
+
     int32_t size = width * height + uv_width * uv_height * 2;
     if (width != vaImage.width || height != vaImage.height) {
         omx_errorLog("seems to be up layer bug,  vaImage(%dx%d) resolution is not match to dest(%dx%d)",
@@ -845,22 +853,48 @@ OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuf
     } else if (size == (int32_t)vaImage.data_size) {
         memcpy(rawData, pBuf, size);
     } else {
-        // copy Y data
         uint8_t *src = (uint8_t*)pBuf;
         uint8_t *dst = rawData;
         int32_t row = 0;
+        int32_t uvCopied = false;
+
+        // copy Y data
         for (row = 0; row < height; row++) {
             memcpy(dst, src, width);
             dst += width;
             src += vaImage.pitches[0];
         }
-        // copy interleaved V and  U data
-        src = (uint8_t*)pBuf + vaImage.offsets[1];
-        for (row = 0; row < uv_height; row++) {
-            memcpy(dst, src, uv_width*2);
-            dst += uv_width*2;
-            src += vaImage.pitches[1];
+
+        if (format == OMX_COLOR_FormatYUV420SemiPlanar) {
+            // copy interleaved V and  U data
+            if (vaImage.format.fourcc  == VA_FOURCC_NV12) {
+                src = (uint8_t*)pBuf + vaImage.offsets[1];
+                for (row = 0; row < uv_height; row++) {
+                    memcpy(dst, src, uv_width*2);
+                    dst += uv_width*2;
+                    src += vaImage.pitches[1];
+                }
+                uvCopied = true;
+            }
+        } else if (format == OMX_COLOR_FormatYUV420Planar) {
+            // copy U/V data
+            if (vaImage.format.fourcc == VA_FOURCC_422H) {
+                int32_t plane = 0;
+                for (plane = 1; plane < 3; plane++) {
+                    src = (uint8_t*)pBuf + vaImage.offsets[plane];
+                    for (row = 0; row < uv_height; row++) {
+                        memcpy(dst, src, uv_width);
+                        dst += uv_width;
+                        src += vaImage.pitches[plane]*2;
+                    }
+                }
+                uvCopied = true;
+            }
         }
+
+        if (!uvCopied)
+            omx_errorLog("programmer bug, uv data copy from 0x%x to 0x%x format hasn't supported yet",
+                vaImage.format.fourcc, format);
     }
 
     filledSize = size;
