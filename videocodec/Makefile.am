@@ -12,6 +12,10 @@ libOMXVideoDecoderAVC_source_cpp = \
 	OMXVideoDecoderAVC.cpp \
 	$(NULL)
 
+libOMXVideoDecoderMJPEG_source_cpp = \
+	OMXVideoDecoderMJPEG.cpp \
+	$(NULL)
+
 libOMXVideoDecoderAVC_source_h = \
 	vabuffer.h \
 	$(NULL)
@@ -45,6 +49,10 @@ libOMXVideoEncoderAVC_source_priv_h = \
 	OMXVideoEncoderBase.h  \
 	$(NULL)
 
+libOMXVideoDecoderMJPEG_source_priv_h = \
+	OMXVideoDecoderMJPEG.h \
+	$(NULL)
+
 libOMXVideoDecoder_ldflags = \
 	-version-info 0:7:0 \
 	$(OMXIL_UTILS_LIBS) \
@@ -63,11 +71,11 @@ libOMXVideoEncoderAVC_ldflags = \
 	-ldl -lpthread \
 	$(NULL)
 
-lib_LTLIBRARIES				= libOMXVideoDecoderAVC.la libOMXVideoEncoderAVC.la libOMXVideoDecoderVP8.la
+lib_LTLIBRARIES				= libOMXVideoDecoderAVC.la libOMXVideoDecoderVP8.la libOMXVideoDecoderMJPEG.la libOMXVideoEncoderAVC.la
 libOMXVideoDecoderAVCincludedir		= ${includedir}/omx
 libOMXVideoDecoderAVCinclude_HEADERS	= $(libOMXVideoDecoderAVC_source_h)
 noinst_HEADERS				= $(libOMXVideoDecoderAVC_source_priv_h) $(libOMXVideoDecoderVP8_source_priv_h) \
-					  $(libOMXVideoEncoderAVC_source_priv_h)
+					  $(libOMXVideoEncoderAVC_source_priv_h) $(libOMXVideoDecoderMJPEG_source_priv_h)
 libOMXVideoDecoderAVC_la_SOURCES	= $(libOMXVideoDecoderAVC_source_cpp)
 libOMXVideoDecoderAVC_la_LDFLAGS	= $(libOMXVideoDecoder_ldflags)
 libOMXVideoDecoderAVC_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(VAVIDDEC_DEPS_CFLAGS) \
@@ -86,4 +94,12 @@ libOMXVideoEncoderAVC_la_SOURCES	= $(libOMXVideoEncoderAVC_source_cpp)
 libOMXVideoEncoderAVC_la_LDFLAGS	= $(libOMXVideoEncoderAVC_ldflags)
 libOMXVideoEncoderAVC_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(VAVIDENC_DEPS_CFLAGS) \
 					  $(LIBVA_DEPS_CFLAGS)
+
+libOMXVideoDecoderMJPEGincludedir	= ${includedir}/omx
+libOMXVideoDecoderMJPEGinclude_HEADERS	= $(libOMXVideoDecoderMJPEG_source_h)
+libOMXVideoDecoderMJPEG_la_SOURCES	= $(libOMXVideoDecoderMJPEG_source_cpp) $(libOMXVideoDecoder_source_cpp)
+libOMXVideoDecoderMJPEG_la_LDFLAGS	= $(libOMXVideoDecoder_ldflags)
+libOMXVideoDecoderMJPEG_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(VAVIDDEC_DEPS_CFLAGS) \
+					  $(LIBVA_DEPS_CFLAGS) $(MIXVBP_CFLAGS) $(MIXVBP_MJPEG_CFLAGS)
+
 DISTCLEANFILES = Makefile.in
