@@ -11,6 +11,10 @@ libOMXVideoDecoderVP8_source_cpp = \
 	OMXVideoDecoderVP8.cpp \
 	$(NULL)
 
+libOMXVideoDecoderMJPEG_source_cpp = \
+	OMXVideoDecoderMJPEG.cpp \
+	$(NULL)
+
 libOMXVideoDecoder_source_h = \
 	vabuffer.h \
 	$(NULL)
@@ -29,6 +33,10 @@ libOMXVideoDecoderVP8_source_priv_h = \
 	OMXVideoDecoderVP8.h \
 	$(NULL)
 
+libOMXVideoDecoderMJPEG_source_priv_h = \
+	OMXVideoDecoderMJPEG.h \
+	$(NULL)
+
 libOMXVideoDecoder_ldflags = \
 	-version-info 0:6:0 \
 	$(OMXIL_UTILS_LIBS) \
@@ -38,7 +46,7 @@ libOMXVideoDecoder_ldflags = \
 	-ldl -lpthread \
 	$(NULL)
 
-lib_LTLIBRARIES				= libOMXVideoDecoderAVC.la libOMXVideoDecoderVP8.la
+lib_LTLIBRARIES				= libOMXVideoDecoderAVC.la libOMXVideoDecoderVP8.la libOMXVideoDecoderMJPEG.la
 libOMXVideoDecoderAVCincludedir		= ${includedir}/omx
 libOMXVideoDecoderAVCinclude_HEADERS	= $(libOMXVideoDecoderAVC_source_h) $(libOMXVideoDecoder_source_h)
 noinst_HEADERS				= $(libOMXVideoDecoderAVC_source_h_priv) $(libOMXVideoDecoderVP8_source_h_priv) $(libOMXVideoDecoder_source_h_priv) 
@@ -53,5 +61,12 @@ libOMXVideoDecoderVP8_la_SOURCES	= $(libOMXVideoDecoderVP8_source_cpp) $(libOMXV
 libOMXVideoDecoderVP8_la_LDFLAGS	= $(libOMXVideoDecoder_ldflags)
 libOMXVideoDecoderVP8_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(VAVIDDEC_DEPS_CFLAGS) \
 					  $(LIBVA_DEPS_CFLAGS) $(MIXVBP_CFLAGS) $(MIXVBP_VP8_CFLAGS)
+
+libOMXVideoDecoderMJPEGincludedir		= ${includedir}/omx
+libOMXVideoDecoderMJPEGinclude_HEADERS	= $(libOMXVideoDecoderMJPEG_source_h)
+libOMXVideoDecoderMJPEG_la_SOURCES	= $(libOMXVideoDecoderMJPEG_source_cpp) $(libOMXVideoDecoder_source_cpp)
+libOMXVideoDecoderMJPEG_la_LDFLAGS	= $(libOMXVideoDecoder_ldflags)
+libOMXVideoDecoderMJPEG_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(VAVIDDEC_DEPS_CFLAGS) \
+					  $(LIBVA_DEPS_CFLAGS) $(MIXVBP_CFLAGS) $(MIXVBP_MJPEG_CFLAGS)
 
 DISTCLEANFILES = Makefile.in
