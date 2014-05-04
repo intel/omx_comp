@@ -27,7 +27,8 @@ OMXVideoDecoderBase::OMXVideoDecoderBase()
     : mVideoDecoder(NULL),
       bNativeBufferEnable(false),
       mGlxPictures(NULL),
-      mIsThumbNail(false) {
+      mIsThumbNail(false),
+      mDisplayXPtr(NULL){
 }
 
 OMXVideoDecoderBase::~OMXVideoDecoderBase() {
