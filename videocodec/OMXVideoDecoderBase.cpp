@@ -427,7 +427,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* 
     } else if (bNativeBufferEnable == true) {
         /* nothing is required on chromeos when bNativeBufferEnable is set.
            1) I think bNativeBufferEnable is misused on chromeos. it is used to distinguish between
-            'proprietary communication(vaSurface)' and 'non-tunneled communication(MapRawNV12)'.
+            'proprietary communication(vaSurface)' and 'non-tunneled communication(CopyRawFrameData)'.
             in either case, nothing is required on chromeos.
            2) on Android, I guess bNativeBufferEnable means option between external/gralloc and
             native/psb surface memory. so, flagNativeBuffer give driver an chance to make some preparation.
@@ -508,7 +508,7 @@ OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYP
         // memcpy to thumbNail Buffer.
         omx_verboseLog("%s, thumbNail Enabled , pBuffer = %p, pBuffer->pBuffer = %p, renderBuffer = %p",
              __FUNCTION__, pBuffer, pBuffer->pBuffer, renderBuffer);
-        MapRawNV12(renderBuffer, pBuffer->pBuffer + pBuffer->nOffset, pBuffer->nAllocLen - pBuffer->nOffset, pBuffer->nFilledLen);
+        CopyRawFrameData(renderBuffer, pBuffer->pBuffer + pBuffer->nOffset, pBuffer->nAllocLen - pBuffer->nOffset, pBuffer->nFilledLen);
     }
     pBuffer->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
     pBuffer->nTimeStamp = renderBuffer->timeStamp;
@@ -642,7 +642,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     paramPortDefinitionOutput.format.video.nFrameHeight = heightCropped;
     paramPortDefinitionOutput.format.video.nStride = strideCropped;
     paramPortDefinitionOutput.format.video.nSliceHeight = sliceHeightCropped;
-    //XXX MapRawNV12 hasn't support crop yet, do not use crop size here
+    //XXX CopyRawFrameData hasn't support crop yet, do not use crop size here
     // nBufferSize is used by client to alloc output buffer (gst-omx for example)
     // chromium doesn't care of it, getDecodedBuffer uses sizeof(VideoRenderBuffer) when bNativeBufferEnable is true
     // even sizeof(VideoRenderBuffer) seems too big, since only one pointer is set to pBuffer->pPlatformPrivate
@@ -807,7 +807,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetParamVideoPortFormat(OMX_PTR pStructure) {
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoDecoderBase::MapRawNV12(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32 allocSize, OMX_U32& filledSize) {
+OMX_ERRORTYPE OMXVideoDecoderBase::CopyRawFrameData(const VideoRenderBuffer* renderBuffer, OMX_U8 *rawData, OMX_U32 allocSize, OMX_U32& filledSize) {
     VAStatus vaStatus;
     VAImage vaImage;
     int32_t width = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameWidth;
