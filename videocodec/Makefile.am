@@ -46,7 +46,7 @@ libOMXVideoEncoderAVC_source_priv_h = \
 	$(NULL)
 
 libOMXVideoDecoder_ldflags = \
-	-version-info 0:6:0 \
+	-version-info 0:7:0 \
 	$(OMXIL_UTILS_LIBS) \
 	$(OMXIL_BASE_LIBS) \
 	$(VAVIDDEC_DEPS_LIBS) \
@@ -55,7 +55,7 @@ libOMXVideoDecoder_ldflags = \
 	$(NULL)
 
 libOMXVideoEncoderAVC_ldflags = \
-	-version-info 0:6:0 \
+	-version-info 0:7:0 \
 	$(OMXIL_UTILS_LIBS) \
 	$(OMXIL_BASE_LIBS) \
 	$(VAVIDENC_DEPS_LIBS) \
