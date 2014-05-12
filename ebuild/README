@@ -1,0 +1,7 @@
+The current folder contains ebuild file to use on building systems that
+support them, i.e. chrommium OS and gentoo
+
+The ebuild name matches the last tagged release on master or staging branches.
+It is expected that user of this library on the mentioned systems copy the
+file to control on the proper building system.  Once it is copied it can be
+renamed or dynamically linked to be a live ebuild.
