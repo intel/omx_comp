@@ -649,7 +649,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     // even sizeof(VideoRenderBuffer) seems too big, since only one pointer is set to pBuffer->pPlatformPrivate
     int uv_width = (width+1)/2;
     int uv_height = (height+1)/2;
-    if (!strcmp(formatInfo->mimeType, "image/jpeg")) {
+    if (paramPortDefinitionInput.format.video.eCompressionFormat == OMX_VIDEO_CodingMJPEG) {
         // XXX hard code here, we need extend VideoFormatInfo to indicate decoded surface format
         // few software supports 422H, convert it into I420 internally
         paramPortDefinitionOutput.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_COLOR_FormatYUV420Planar;
