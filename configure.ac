@@ -18,8 +18,8 @@ fi
 
 AC_ARG_ENABLE(libyami,
     AC_HELP_STRING([--enable-libyami],
-                   [use libyami @<:@default=no@:>@]),
-   [], [enable_libyami="no"])
+                   [use libyami @<:@default=yes@:>@]),
+   [], [enable_libyami="yes"])
 
 # Checks for programs.
 AC_PROG_CXX
