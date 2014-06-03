@@ -20,8 +20,10 @@
 #elif ANDROID_PRE_JB
 #include <media/stagefright/HardwareAPI.h>
 #endif
-#include <IntelMetadataBuffer.h>
 #include "OMXVideoEncoderBase.h"
+#ifndef __USE_LIBYAMI__
+#include <IntelMetadataBuffer.h>
+#endif
 #ifdef ANDROID
 using namespace android;
 #endif

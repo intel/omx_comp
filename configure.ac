@@ -21,6 +21,12 @@ AC_ARG_ENABLE(libyami,
                    [use libyami @<:@default=yes@:>@]),
    [], [enable_libyami="yes"])
 
+if test "$enable_libyami" = "yes"; then
+    AC_DEFINE([__USE_LIBYAMI__], [1], [use libyami])
+else
+    AC_DEFINE([__USE_LIBYAMI__], [0], [do not use libyami])
+fi
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC
@@ -53,6 +59,7 @@ if test "$enable_libyami" = "no"; then
     PKG_CHECK_MODULES(VAVIDENC_DEPS, libva_videoencoder)
 else
     PKG_CHECK_MODULES(VAVIDDEC_DEPS, libyami_decoder)
+    PKG_CHECK_MODULES(VAVIDENC_DEPS, libyami_encoder)
 fi
 
 # Checks for library functions.
