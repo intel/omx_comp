@@ -15,6 +15,10 @@
 */
 
 //for structs of Google extensions, e.g., StoreMetaDataInBuffersParams
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifdef ANDROID_JB
 #include <media/hardware/HardwareAPI.h>
 #elif ANDROID_PRE_JB

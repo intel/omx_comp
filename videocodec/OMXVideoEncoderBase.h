@@ -18,9 +18,6 @@
 
 #ifndef OMX_VIDEO_ENCODER_BASE_H_
 #define OMX_VIDEO_ENCODER_BASE_H_
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 #include "OMXComponentCodecBase.h"
 #include <va/va_tpi.h>
 #ifdef ANDROID
