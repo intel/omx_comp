@@ -13,6 +13,8 @@ libOMXVideoDecoderAVC_source_cpp = \
 	$(NULL)
 
 libOMXVideoDecoderMJPEG_source_cpp = \
+	$(libOMXComponentCodec_source_cpp) \
+	OMXVideoDecoderBase.cpp \
 	OMXVideoDecoderMJPEG.cpp \
 	$(NULL)
 
@@ -97,7 +99,7 @@ libOMXVideoEncoderAVC_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFL
 
 libOMXVideoDecoderMJPEGincludedir	= ${includedir}/omx
 libOMXVideoDecoderMJPEGinclude_HEADERS	= $(libOMXVideoDecoderMJPEG_source_h)
-libOMXVideoDecoderMJPEG_la_SOURCES	= $(libOMXVideoDecoderMJPEG_source_cpp) $(libOMXVideoDecoder_source_cpp)
+libOMXVideoDecoderMJPEG_la_SOURCES	= $(libOMXVideoDecoderMJPEG_source_cpp)
 libOMXVideoDecoderMJPEG_la_LDFLAGS	= $(libOMXVideoDecoder_ldflags)
 libOMXVideoDecoderMJPEG_la_CPPFLAGS       = $(OMXIL_UTILS_CFLAGS) $(OMXIL_BASE_CFLAGS) $(VAVIDDEC_DEPS_CFLAGS) \
 					  $(LIBVA_DEPS_CFLAGS) $(MIXVBP_CFLAGS) $(MIXVBP_MJPEG_CFLAGS)
