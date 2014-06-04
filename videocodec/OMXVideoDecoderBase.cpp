@@ -334,22 +334,18 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
             }
         }
     }
-    // drain the decoder output queue when in EOS state and fill the render buffer
+
     ret = FillRenderBuffer(&buffers[OUTPORT_INDEX], buffers[INPORT_INDEX]->nFlags);
-    if (ret == OMX_ErrorNotReady) {
-        if (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS) {
-            buffers[OUTPORT_INDEX]->nFlags = OMX_BUFFERFLAG_EOS;
-            return OMX_ErrorNone;
-        }
+    // ComponentBase::FilterPostProcessBuffers automatically propagate EOS from input buffer to output buffer if input buffer is not retained.
+    if ((buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS) && (ret != OMX_ErrorNotReady))
+        retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+    if (!(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS) && (ret == OMX_ErrorNotReady))
         retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+    if (ret == OMX_ErrorNotReady)
         ret = OMX_ErrorNone;
-    } else {
-       omx_verboseLog("FillRenderBuffer() 2nd time got=%p", buffers[OUTPORT_INDEX]);
-        if (buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS) {
-            buffers[OUTPORT_INDEX]->nFlags = OMX_BUFFERFLAG_EOS;
-            return OMX_ErrorNone;
-        }
-    }
+    else
+        omx_verboseLog("FillRenderBuffer() 2nd time got=%p", buffers[OUTPORT_INDEX]);
+
     return ret;
 }
 
@@ -491,7 +487,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buf
 }
 
 OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYPE *pBuffer, bool draining) {
-    omx_verboseLog("%s entered", __FUNCTION__);
+    omx_verboseLog("%s entered, draining: %d", __FUNCTION__, draining);
     const VideoRenderBuffer *renderBuffer = mVideoDecoder->getOutput(draining);
     if (renderBuffer == NULL) {
         return NULL;
@@ -528,65 +524,16 @@ OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **ppBuf
     omx_verboseLog("%s entered ppBuffer=%p", __FUNCTION__, *ppBuffer);
     pBufReceived = *ppBuffer;
 
-    if ( false == draining) {
-        // This is the normal operation
-        pBufReturn = getDecodedBuffer(pBufReceived, draining);
-        if ( NULL == pBufReturn ) {
-            omx_verboseLog("Decoder not ready to return any Buffers");
-            return OMX_ErrorNotReady;
-        }
-         ret = processOutPortBuffers(pBufReceived, pBufReturn);
-    } else {
-       // EOS. return all the output buffers we have with us
-       omx_verboseLog("%s EOS received on buffer[OUTPORT]->nFlags ppBuffer=%p", __FUNCTION__, *ppBuffer);
-        bool retainReceivedBuffer = true;
-        pBufReceived->nFilledLen = 0;
-        pBufReturn = getDecodedBuffer(pBufReceived, draining);
-        if ( NULL == pBufReturn ) {
-            omx_verboseLog("no Output Buffers to be removed/returned, EOS received.");
-            // Special return value to support normal EOS and DynRes extra flush
-            return OMX_ErrorNotReady;
-        }
-        while (pBufReturn != NULL) {
-            OMX_BUFFERHEADERTYPE *pPendingBuffer;
-            if(pBufReceived != pBufReturn) {
-                omx_verboseLog("removing buffer %p ", pBufReturn);
-            ret = this->ports[OUTPORT_INDEX]->RemoveThisBuffer(pBufReturn);
-            if ( OMX_ErrorNone != ret ) {
-            omx_errorLog("%s: removing buffer %p failed with error %p", __FUNCTION__, pBufReturn, ret);
-                return ret;
-            }
-            } else {
-               retainReceivedBuffer = false;
-            }
-            pPendingBuffer = getDecodedBuffer(pBufReceived, draining);
-            omx_verboseLog("%s in EOS loop pBuffer=%p ppBuffer=%p pPendingBuffer=%p", __FUNCTION__, pBufReturn, *ppBuffer, pPendingBuffer);
-            if ( NULL != pPendingBuffer ) {
-                // We have hit the EOS. Give pBuffer
-		// ToDo: Fix the return of libva processed buffers. The
-		// renderBuffer keeps a reference of the used omx_buffer
-		// within its structure but this cannot be maintained when
-		// there is no 1:1 relation between omx_buffers and
-		// va_surfaces.  ProcessorProcess is the unique method that
-		// should return buffers and the buffer should be marked
-		// properly.  In this case, the va_surfaces draining should
-		// happen but only one omx buffer should be returned.
-
-                //this->ports[OUTPORT_INDEX]->ReturnThisBuffer(pBufReturn);
-            } else {
-                // Return pBuffer it as part of ppBuffer
-                break;
-            }
-            pBufReturn = pPendingBuffer;
-        }
-        if(retainReceivedBuffer) {
-            ret = this->ports[OUTPORT_INDEX]->RetainThisBuffer(pBufReceived, true);
-          if ( OMX_ErrorNone != ret ) {
-        omx_errorLog("failed in RetainThisBuffer = %p", pBufReceived);
-        return ret;
-        }
-        }
+    // nothing special is required to handle EOS in omx
+    // it's up to the omxil client (gst-omx for example) to repeately/actively retrieve all the decoded buffer after EOS reach input port
+    // it's up to the codec lib (libyami for example) to set all the cached frame to be outputable
+    pBufReturn = getDecodedBuffer(pBufReceived, draining);
+    if ( NULL == pBufReturn ) {
+        omx_verboseLog("Decoder not ready to return any Buffers");
+        return OMX_ErrorNotReady;
     }
+    ret = processOutPortBuffers(pBufReceived, pBufReturn);
+
     *ppBuffer = pBufReturn;
     omx_verboseLog("%s returning %p", __FUNCTION__, *ppBuffer);
     return ret;
