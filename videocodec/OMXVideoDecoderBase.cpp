@@ -594,14 +594,14 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     // nBufferSize is used by client to alloc output buffer (gst-omx for example)
     // chromium doesn't care of it, getDecodedBuffer uses sizeof(VideoRenderBuffer) when bNativeBufferEnable is true
     // even sizeof(VideoRenderBuffer) seems too big, since only one pointer is set to pBuffer->pPlatformPrivate
-    int uv_width = (width+1)/2;
-    int uv_height = (height+1)/2;
+    int uvWidth = (width+1)/2;
+    int uvHeight = (height+1)/2;
     if (paramPortDefinitionInput.format.video.eCompressionFormat == OMX_VIDEO_CodingMJPEG) {
         // XXX hard code here, we need extend VideoFormatInfo to indicate decoded surface format
         // few software supports 422H, convert it into I420 internally
         paramPortDefinitionOutput.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_COLOR_FormatYUV420Planar;
     }
-    paramPortDefinitionOutput.nBufferSize = width * height + uv_width*uv_height*2;
+    paramPortDefinitionOutput.nBufferSize = width * height + uvWidth*uvHeight*2;
 
     omx_verboseLog("  %s, bNativeBufferEnable: %d, nBufferSize: %d", __FILE__, bNativeBufferEnable, paramPortDefinitionOutput.nBufferSize);
     this->ports[INPORT_INDEX]->SetPortDefinition(&paramPortDefinitionInput, true);
@@ -761,8 +761,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::CopyRawFrameData(const VideoRenderBuffer* ren
     int32_t width = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameWidth;
     int32_t height = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.nFrameHeight;
     int32_t format = this->ports[OUTPORT_INDEX]->GetPortDefinition()->format.video.eColorFormat;
-    int32_t uv_width = (width+1)/2;
-    int32_t uv_height = (height+1)/2;
+    int32_t uvWidth = (width+1)/2;
+    int32_t uvHeight = (height+1)/2;
 
     filledSize = 0;
 
@@ -789,7 +789,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::CopyRawFrameData(const VideoRenderBuffer* ren
     omx_verboseLog("output port format: 0x%x, va surface format: 0x%x",
         format, vaImage.format.fourcc);
 
-    int32_t size = width * height + uv_width * uv_height * 2;
+    int32_t size = width * height + uvWidth * uvHeight * 2;
     if (width != vaImage.width || height != vaImage.height) {
         omx_errorLog("seems to be up layer bug,  vaImage(%dx%d) resolution is not match to dest(%dx%d)",
                      vaImage.width, vaImage.height, width, height);
@@ -817,31 +817,46 @@ OMX_ERRORTYPE OMXVideoDecoderBase::CopyRawFrameData(const VideoRenderBuffer* ren
             // copy interleaved V and  U data
             if (vaImage.format.fourcc  == VA_FOURCC_NV12) {
                 src = (uint8_t*)pBuf + vaImage.offsets[1];
-                for (row = 0; row < uv_height; row++) {
-                    memcpy(dst, src, uv_width*2);
-                    dst += uv_width*2;
+                for (row = 0; row < uvHeight; row++) {
+                    memcpy(dst, src, uvWidth*2);
+                    dst += uvWidth*2;
                     src += vaImage.pitches[1];
                 }
                 uvCopied = true;
             }
         } else if (format == OMX_COLOR_FormatYUV420Planar) {
             // copy U/V data
-            if (vaImage.format.fourcc == VA_FOURCC_422H) {
+            uint32_t srcUVPitches[2];
+            uvCopied = true;
+            switch (vaImage.format.fourcc ) {
+                case VA_FOURCC_IMC3:
+                    srcUVPitches[0] = vaImage.pitches[1];
+                    srcUVPitches[1] = vaImage.pitches[2];
+                    break;
+                case VA_FOURCC_422H:
+                    srcUVPitches[0] = vaImage.pitches[1] * 2;
+                    srcUVPitches[1] = vaImage.pitches[2] * 2;
+                    break;
+                default:
+                    uvCopied = false;
+                    break;
+            }
+
+            if (uvCopied) {
                 int32_t plane = 0;
                 for (plane = 1; plane < 3; plane++) {
                     src = (uint8_t*)pBuf + vaImage.offsets[plane];
-                    for (row = 0; row < uv_height; row++) {
-                        memcpy(dst, src, uv_width);
-                        dst += uv_width;
-                        src += vaImage.pitches[plane]*2;
+                    for (row = 0; row < uvHeight; row++) {
+                        memcpy(dst, src, uvWidth);
+                        dst += uvWidth;
+                        src += srcUVPitches[plane-1];
                     }
                 }
-                uvCopied = true;
             }
         }
 
         if (!uvCopied)
-            omx_errorLog("programmer bug, uv data copy from 0x%x to 0x%x format hasn't supported yet",
+            omx_errorLog("programmer bug, uv data copy from fourcc 0x%x to omx format %d hasn't supported yet",
                 vaImage.format.fourcc, format);
     }
 
