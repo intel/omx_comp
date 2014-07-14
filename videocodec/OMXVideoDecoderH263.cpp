@@ -19,6 +19,7 @@
 #define LOG_TAG "OMXVideoDecoderH263"
 #include <utils/Log.h>
 #include "OMXVideoDecoderH263.h"
+using namespace YamiMediaCodec;
 
 // Be sure to have an equal string in VideoDecoderHost.cpp (libmix)
 static const char* H263_MIME_TYPE = "video/h263";

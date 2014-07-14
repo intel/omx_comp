@@ -19,6 +19,7 @@
 #define LOG_TAG "OMXVideoDecoderMPEG4"
 #include <utils/Log.h>
 #include "OMXVideoDecoderMPEG4.h"
+using namespace YamiMediaCodec;
 
 // Be sure to have an equal string in VideoDecoderHost.cpp (libmix)
 static const char* MPEG4_MIME_TYPE = "video/mpeg4";

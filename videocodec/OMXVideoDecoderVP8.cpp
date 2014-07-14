@@ -18,6 +18,7 @@
 // #define LOG_NDEBUG 0
 #define LOG_TAG "OMXVideoDecoder"
 #include "OMXVideoDecoderVP8.h"
+using namespace YamiMediaCodec;
 
 // Be sure to have an equal string in VideoDecoderHost.cpp (libmix)
 static const char* VP8_MIME_TYPE = "video/x-vnd.on2.vp8";

@@ -16,6 +16,7 @@
 
 
 #include "OMXVideoDecoderAVC.h"
+using namespace YamiMediaCodec;
 
 // Be sure to have an equal string in VideoDecoderHost.cpp (libmix)
 static const char* AVC_MIME_TYPE = "video/h264";

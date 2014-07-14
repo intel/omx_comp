@@ -20,6 +20,7 @@
 
 
 #include "OMXVideoDecoderBase.h"
+using namespace YamiMediaCodec;
 
 class OMXVideoDecoderH263 : public OMXVideoDecoderBase {
 public:

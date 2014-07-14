@@ -16,6 +16,7 @@
 
 
 #include "OMXVideoEncoderAVC.h"
+using namespace YamiMediaCodec;
 
 static const char *AVC_MIME_TYPE = "video/h264";
 

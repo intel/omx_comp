@@ -23,6 +23,7 @@
 #include "VideoDecoderInterface.h"
 #include "VideoDecoderHost.h"
 #include <va/va_x11.h>
+using namespace YamiMediaCodec;
 
 class OMXVideoDecoderBase : public OMXComponentCodecBase {
 public:

@@ -20,6 +20,7 @@
 #include <system/graphics.h>
 #include <hardware/gralloc.h>
 #endif
+using namespace YamiMediaCodec;
 
 static const char* VA_RAW_MIME_TYPE = "video/raw";
 

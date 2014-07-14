@@ -21,7 +21,7 @@
 
 
 #include "OMXVideoDecoderBase.h"
-
+using namespace YamiMediaCodec;
 class OMXVideoDecoderWMV : public OMXVideoDecoderBase {
 public:
     OMXVideoDecoderWMV();

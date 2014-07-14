@@ -31,6 +31,7 @@
 #ifdef ANDROID
 using namespace android;
 #endif
+using namespace YamiMediaCodec;
 
 static const char *RAW_MIME_TYPE = "video/raw";
 

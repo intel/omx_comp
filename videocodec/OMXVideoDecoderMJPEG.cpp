@@ -21,6 +21,7 @@
 
 #define LOG_TAG "OMXVideoDecoderMJPEG"
 #include "OMXVideoDecoderMJPEG.h"
+using namespace YamiMediaCodec;
 
 // Be sure to have an equal string in VideoDecoderHost.cpp
 // OMX defines OMX_IMAGE_CodingJPEG in OMX_Image.h and OMX_VIDEO_CodingMJPEG in OMX_Video.h,

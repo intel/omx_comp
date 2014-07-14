@@ -15,6 +15,7 @@
 */
 
 #include "OMXVideoEncoderH263.h"
+using namespace YamiMediaCodec;
 
 static const char *H263_MIME_TYPE = "video/h263";
 

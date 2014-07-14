@@ -15,6 +15,7 @@
 */
 
 #include "OMXVideoDecoderWMV.h"
+using namespace YamiMediaCodec;
 
 // Be sure to have an equal string in VideoDecoderHost.cpp (libmix)
 static const char* WMV_MIME_TYPE = "video/wmv";

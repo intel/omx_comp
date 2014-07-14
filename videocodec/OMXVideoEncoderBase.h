@@ -28,7 +28,7 @@
 #ifdef ANDROID
 using android::sp;
 #endif
-
+using namespace YamiMediaCodec;
 
 class OMXVideoEncoderBase : public OMXComponentCodecBase {
 public:

@@ -15,6 +15,7 @@
 */
 
 #include "OMXVideoEncoderMPEG4.h"
+using namespace YamiMediaCodec;
 
 static const char *MPEG4_MIME_TYPE = "video/mpeg4";
 

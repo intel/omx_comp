@@ -21,6 +21,7 @@
 
 
 #include "OMXVideoDecoderBase.h"
+using namespace YamiMediaCodec;
 
 class OMXVideoDecoderMPEG4 : public OMXVideoDecoderBase {
 public:
