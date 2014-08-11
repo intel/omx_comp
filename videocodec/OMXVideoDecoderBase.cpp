@@ -791,7 +791,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::CopyRawFrameData(const VideoRenderBuffer* ren
         format, vaImage.format.fourcc);
 
     int32_t size = width * height + uvWidth * uvHeight * 2;
-    if (width != vaImage.width || height != vaImage.height) {
+    if (width > vaImage.width || height > vaImage.height) {
         omx_errorLog("seems to be up layer bug,  vaImage(%dx%d) resolution is not match to dest(%dx%d)",
                      vaImage.width, vaImage.height, width, height);
         size = 0;
