@@ -183,7 +183,12 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorInit(void * parser_handle) {
     CHECK_RETURN_VALUE("PrepareConfigBuffer");
     mVideoConfigBuffer.parser_handle=parser_handle;
 
-    mVideoDecoder->setXDisplay((Display *)mDisplayXPtr);
+    if (mDisplayXPtr) {
+        NativeDisplay display;
+        display.type = NATIVE_DISPLAY_X11;
+        display.handle = (intptr_t)mDisplayXPtr;
+        mVideoDecoder->setNativeDisplay(&display);
+    }
 
     //pthread_mutex_lock(&mSerializationLock);
     Decode_Status status = mVideoDecoder->start(&mVideoConfigBuffer);
@@ -496,11 +501,13 @@ OMX_BUFFERHEADERTYPE* OMXVideoDecoderBase::getDecodedBuffer( OMX_BUFFERHEADERTYP
 
     omx_verboseLog("getOutput returned %p",renderBuffer->surface);
     if(bNativeBufferEnable == true) {
+        /*
        // decode to Graphic Buffers
         omx_verboseLog("%s, buffer->pPlatformPrivate = %p pBuff=%p omxbuf=%p %s",
               __FUNCTION__, renderBuffer, pBuffer, renderBuffer->nwOMXBufHeader,
               pBuffer==renderBuffer->nwOMXBufHeader?"Same": "Differ");
         //pBuffer = (OMX_BUFFERHEADERTYPE*) renderBuffer->nwOMXBufHeader;
+        */
         pBuffer->nFilledLen = sizeof(VideoRenderBuffer);
     } else {
         // memcpy to thumbNail Buffer.
