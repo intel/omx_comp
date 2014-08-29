@@ -269,12 +269,13 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetVideoEncoderParam(){
     Encode_Status ret = ENCODE_SUCCESS;
     PortVideo *port_in = NULL;
     const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput = NULL;
+    VideoParamConfigType videoParamType;
     port_in  =  static_cast<PortVideo *>(ports[INPORT_INDEX]);
     paramPortDefinitionInput = port_in->GetPortDefinition();
 
-    mEncoderParams->type = VideoParamsTypeCommon;
+    videoParamType = VideoParamsTypeCommon;
     mEncoderParams->size = sizeof(VideoParamsCommon);
-    mEncoderVideo->getParameters(mEncoderParams);
+    mEncoderVideo->getParameters(videoParamType, mEncoderParams);
     mEncoderParams->resolution.height = paramPortDefinitionInput->format.video.nFrameHeight;
     mEncoderParams->resolution.width = paramPortDefinitionInput->format.video.nFrameWidth;
 
@@ -293,7 +294,6 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetVideoEncoderParam(){
 
     //mEncoderParams->profile = (VAProfile)mParamProfileLevel.eProfile;
     //mEncoderParams->level = mParamProfileLevel.eLevel;
-    mEncoderParams->type = VideoParamsTypeCommon;
     mEncoderParams->size = sizeof(VideoParamsCommon);
 
     // bit rate parameters
@@ -318,7 +318,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetVideoEncoderParam(){
             break;
     }
 
-    ret = mEncoderVideo ->setParameters(mEncoderParams);
+    ret = mEncoderVideo ->setParameters(VideoParamsTypeCommon, mEncoderParams);
     CHECK_ENCODE_STATUS("setParameters");
 
     return OMX_ErrorNone;
@@ -543,17 +543,15 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelBitrate(OMX_PTR pStructure) {
         return OMX_ErrorUnsupportedSetting;
     }
     VideoConfigBitRate configBitRate;
-    configBitRate.type = VideoConfigTypeBitRate;
     configBitRate.size = sizeof(VideoConfigBitRate);
-    mEncoderVideo->getConfig(&configBitRate);
-    configBitRate.type = VideoConfigTypeBitRate;
+    mEncoderVideo->getConfig(VideoConfigTypeBitRate, &configBitRate);
     configBitRate.size = sizeof(VideoConfigBitRate);
     configBitRate.rcParams.bitRate = mConfigIntelBitrate.nMaxEncodeBitrate;
     configBitRate.rcParams.initQP = mConfigIntelBitrate.nInitialQP;
     configBitRate.rcParams.minQP = mConfigIntelBitrate.nMinQP;
     configBitRate.rcParams.windowSize = mConfigIntelBitrate.nWindowSize;
     configBitRate.rcParams.targetPercentage = mConfigIntelBitrate.nTargetPercentage;
-    retStatus = mEncoderVideo->setConfig(&configBitRate);
+    retStatus = mEncoderVideo->setConfig(VideoConfigTypeBitRate, &configBitRate);
     if(retStatus!=ENCODE_SUCCESS){
 	omx_warnLog("failed to set IntelBitrate !\n");
     }
@@ -631,15 +629,13 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigIntelAIR(OMX_PTR pStructure) {
     }
 
     VideoConfigAIR configAIR;
-    configAIR.type = VideoConfigTypeAIR;
-    configAIR.size = sizeof(VideoParamsCommon);
-    mEncoderVideo->getConfig(&configAIR);
-    configAIR.type = VideoConfigTypeAIR;
-    configAIR.size = sizeof(VideoParamsCommon);
+    configAIR.size = sizeof(VideoConfigAIR);
+    mEncoderVideo->getConfig(VideoConfigTypeAIR, &configAIR);
+    configAIR.size = sizeof(VideoConfigAIR);
     configAIR.airParams.airAuto = mConfigIntelAir.bAirAuto;
     configAIR.airParams.airMBs = mConfigIntelAir.nAirMBs;
     configAIR.airParams.airThreshold = mConfigIntelAir.nAirThreshold;
-    retStatus = mEncoderVideo->setConfig(&configAIR);
+    retStatus = mEncoderVideo->setConfig(VideoConfigTypeAIR, &configAIR);
     if(retStatus != ENCODE_SUCCESS){
 	omx_warnLog("Failed to set AIR config\n");
     }
@@ -679,14 +675,12 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoFramerate(OMX_PTR pStructure) {
         return OMX_ErrorUnsupportedSetting;
     }
     VideoConfigFrameRate framerate;
-    framerate.type = VideoConfigTypeFrameRate;
     framerate.size = sizeof(VideoConfigFrameRate);
-    mEncoderVideo->getConfig(&framerate);
-    framerate.type = VideoConfigTypeFrameRate;
+    mEncoderVideo->getConfig(VideoConfigTypeFrameRate, &framerate);
     framerate.size = sizeof(VideoConfigFrameRate);
     framerate.frameRate.frameRateDenom = 1;
     framerate.frameRate.frameRateNum = mConfigFramerate.xEncodeFramerate>>16;
-    retStatus = mEncoderVideo->setConfig(&framerate);
+    retStatus = mEncoderVideo->setConfig(VideoConfigTypeFrameRate, &framerate);
     if(retStatus != ENCODE_SUCCESS){
 	omx_warnLog("Failed to set frame rate config! \n");
     }
@@ -711,14 +705,13 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoIntraVOPRefresh(OMX_PTR pStruct
 
     // TODO: apply VOP refresh configuration in Executing state
     VideoConfigIntraRefreshType configIntraRefreshType;
-    configIntraRefreshType.type = VideoConfigTypeIntraRefreshType;
     configIntraRefreshType.size = sizeof(VideoConfigIntraRefreshType);
     if(mConfigIntelAir.bAirEnable){
 	configIntraRefreshType.refreshType = VIDEO_ENC_AIR;
     }else{
 	configIntraRefreshType.refreshType = VIDEO_ENC_NONIR;
     }
-    retStatus = mEncoderVideo->setConfig(&configIntraRefreshType);
+    retStatus = mEncoderVideo->setConfig(VideoConfigTypeIntraRefreshType, &configIntraRefreshType);
     if(retStatus != ENCODE_SUCCESS){
 	omx_warnLog("Failed to set refresh config!\n");
    }
@@ -809,8 +802,9 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetParamGoogleMetaDataInBuffers(OMX_PTR pStru
 
     VideoParamsStoreMetaDataInBuffers storeMetaDataInBuffers;
     storeMetaDataInBuffers.isEnabled = mMetaDataBufferSharing == OMX_TRUE;
+    storeMetaDataInBuffers.size = sizeof(VideoParamsStoreMetaDataInBuffers);
     omx_verboseLog("setting store metadata to hw encoder: %d", storeMetaDataInBuffers.isEnabled);
-    if(mEncoderVideo->setParameters(&storeMetaDataInBuffers) != ENCODE_SUCCESS){
+    if(mEncoderVideo->setParameters(VideoParamsStoreMetaDataInBuffers, &storeMetaDataInBuffers) != ENCODE_SUCCESS){
         omx_errorLog("setParameters StoreMetaDataInBuffers failed");
         return OMX_ErrorUndefined;
     }
