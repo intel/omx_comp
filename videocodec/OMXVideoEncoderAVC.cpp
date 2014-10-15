@@ -20,6 +20,9 @@ using namespace YamiMediaCodec;
 
 static const char *AVC_MIME_TYPE = "video/h264";
 
+#define FOURCC(a, b, c, d) ((d << 24) | (c << 16) | (b << 8) | a)
+#define FOURCC_NV12 FOURCC('N', 'V', '1', '2')
+
 OMXVideoEncoderAVC::OMXVideoEncoderAVC() {
     BuildHandlerList();
     mEncoderVideo =  createVideoEncoder(AVC_MIME_TYPE);
@@ -127,6 +130,7 @@ OMX_ERRORTYPE OMXVideoEncoderAVC::ProcessorProcess(
 
     inBuf.data = buffers[INPORT_INDEX]->pBuffer + buffers[INPORT_INDEX]->nOffset;
     inBuf.size = buffers[INPORT_INDEX]->nFilledLen;
+    inBuf.fourcc = FOURCC_NV12;
 
     omx_verboseLog("inBuf.data=%p, size=%d",inBuf.data, inBuf.size);
 
